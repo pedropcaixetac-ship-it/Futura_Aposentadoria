@@ -22,8 +22,9 @@ type CouncilUser = { councilType: string | null; councilNumber: string | null; c
 
 const noLeadingZeros = (s: string) => s.replace(/^0+/, "");
 
-export function matchesCouncil(user: CouncilUser, id: { number: string; letters: string[] }) {
-  if (!user.councilNumber) return false;
+// Cada estado tem a própria numeração (o 38526 de GO não é o 38526 do DF), por isso a UF é obrigatória.
+export function matchesCouncil(user: CouncilUser, id: { number: string; letters: string[] }, uf: string) {
+  if (!user.councilNumber || !uf || user.councilUf?.toUpperCase() !== uf.toUpperCase()) return false;
   // Aceita o número inteiro ("06/98765") ou só a parte depois da barra ("98765"), com ou sem zeros à esquerda.
   const whole = onlyDigits(user.councilNumber);
   const afterSlash = onlyDigits(user.councilNumber.split("/").pop());
