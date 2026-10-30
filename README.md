@@ -28,6 +28,16 @@ Este é o primeiro módulo: **Prontuário**.
 - WhatsApp (primeira etapa): botão "Enviar no WhatsApp" na ficha do paciente, que abre o WhatsApp da recepção com o
   texto pronto (contato ou aviso de retorno). Só aparece se o paciente autorizou no cadastro (LGPD), e cada envio fica na auditoria
 
+### Financeiro
+
+- Resumo do mês: quanto entrou, quanto saiu, saldo, quanto falta receber e pagamentos atrasados
+- Receitas: cobrança de cada atendimento finalizado (ou avulsa), com forma de pagamento e situação
+- Despesas da clínica, com vencimento e aviso de atraso
+- Tabela de preços, que preenche o valor da cobrança
+- Repasse por profissional (porcentagem do valor recebido), que pode ser lançado como despesa
+- Recibo numerado, com valor por extenso, para imprimir ou salvar em PDF
+- O administrador vê tudo; a recepção lança cobranças e recebe pagamentos; cada profissional vê só o próprio repasse
+
 ## Usuários de demonstração
 
 Código da clínica: `demo`. Senha de todos: `senha123`.
