@@ -59,3 +59,25 @@ test("documento emitido (receita, atestado) não pode ser alterado nem excluído
   await assert.rejects(prisma.clinicalDocument.update({ where: { id: doc.id }, data: { body: "mudado" } }), /não podem ser alterados/);
   await assert.rejects(prisma.clinicalDocument.delete({ where: { id: doc.id } }), /não podem ser alterados/);
 });
+
+test("PDF assinado não pode ser alterado nem excluído", async () => {
+  const clinic = await testClinic();
+  const professional = await prisma.user.create({
+    data: { clinicId: clinic.id, name: "Teste", email: "t@t.com", passwordHash: "-", role: "PROFISSIONAL" },
+  });
+  const patient = await prisma.patient.create({ data: { clinicId: clinic.id, name: "Paciente Teste" } });
+  const signed = await prisma.signedPdf.create({
+    data: {
+      clinicId: clinic.id,
+      patientId: patient.id,
+      signerId: professional.id,
+      provider: "TESTE",
+      signerName: "Teste",
+      certificateSerial: "01",
+      pdf: new Uint8Array([1, 2, 3]),
+      sha256: "-",
+    },
+  });
+  await assert.rejects(prisma.signedPdf.update({ where: { id: signed.id }, data: { signerName: "Outro" } }), /não podem ser alterados/);
+  await assert.rejects(prisma.signedPdf.delete({ where: { id: signed.id } }), /não podem ser alterados/);
+});

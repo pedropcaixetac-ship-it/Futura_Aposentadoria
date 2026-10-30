@@ -8,7 +8,7 @@ const cinza = rgb(0.4, 0.45, 0.5);
 const A4 = { width: 595.28, height: 841.89 };
 const margin = 50;
 const contentWidth = A4.width - margin * 2;
-const footerTop = 110;
+const footerTop = 125;
 
 export type PdfSection = { title?: string; text: string };
 
@@ -22,6 +22,8 @@ export type PdfInput = {
   professional: { name: string; council?: string | null; specialty?: string | null };
   place: string;
   integrityCode?: string | null;
+  // Selo de assinatura digital, no pé da última página.
+  signatureStamp?: string[];
 };
 
 // As fontes padrão do PDF só conhecem letras latinas. Qualquer símbolo fora
@@ -124,6 +126,23 @@ export async function buildPdf(input: PdfInput) {
     const font = line === input.professional.name ? bold : regular;
     page!.drawText(text, { x: A4.width / 2 - font.widthOfTextAtSize(text, 10) / 2, y, size: 10, font, color: marinho });
     y -= 13;
+  }
+
+  if (input.signatureStamp?.length) {
+    const height = 14 + input.signatureStamp.length * 11;
+    page!.drawRectangle({
+      x: margin,
+      y: 58,
+      width: contentWidth,
+      height,
+      borderColor: dourado,
+      borderWidth: 0.8,
+      color: rgb(1, 0.99, 0.95),
+    });
+    input.signatureStamp.forEach((line, i) => {
+      const font = i === 0 ? bold : regular;
+      page!.drawText(t(line, font), { x: margin + 8, y: 58 + height - 15 - i * 11, size: 8, font, color: marinho });
+    });
   }
 
   // Rodapé de todas as páginas: código de integridade e numeração.

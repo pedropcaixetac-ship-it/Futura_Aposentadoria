@@ -34,4 +34,6 @@ export const auditActionLabel: Record<string, string> = {
   DOCUMENTO_EMITIDO: "Emitiu receita/atestado/pedido",
   PDF_ATENDIMENTO_GERADO: "Gerou PDF do atendimento",
   PDF_DOCUMENTO_GERADO: "Gerou PDF de documento",
+  DOCUMENTO_ASSINADO: "Assinou digitalmente (ICP-Brasil)",
+  PDF_ASSINADO_BAIXADO: "Baixou PDF assinado",
 };
