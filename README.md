@@ -74,6 +74,8 @@ Este é o primeiro módulo: **Prontuário**.
 - Guia SP/SADT (exames e procedimentos): vários itens da tabela do convênio com quantidade, data e senha da autorização,
   indicação clínica e caráter (eletivo ou urgência). Um atendimento pode ter guia de consulta e guia SP/SADT. Cada lote
   leva um só tipo de guia, e o XML da SP/SADT também é validado contra os schemas da ANS
+- Recurso de glosa: o Faturamento lista as glosas ainda sem recurso. Na guia, anota-se a justificativa, a data e o protocolo
+  do recurso enviado no portal e, depois, a resposta do convênio. O valor recuperado entra nas Receitas como pagamento por convênio
 - Repasse por profissional (porcentagem do valor recebido), que pode ser lançado como despesa
 - Recibo numerado, com valor por extenso, para imprimir ou salvar em PDF
 - O administrador vê tudo; a recepção lança cobranças e recebe pagamentos; cada profissional vê só o próprio repasse

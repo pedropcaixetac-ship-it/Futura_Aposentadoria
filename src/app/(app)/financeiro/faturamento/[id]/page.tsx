@@ -5,11 +5,13 @@ import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { canManageFinance } from "@/lib/permissions";
 import { formatDate } from "@/lib/format";
-import { moneyInput } from "@/lib/money";
+import { formatMoney, moneyInput } from "@/lib/money";
+import { dateInput, today } from "@/lib/finance";
 import { formatTussCode } from "@/lib/convenios";
-import { accidentIndications, claimNumberLabel, consultationTypes, councilCode, serviceTypes, TUSS_TABLE, ufCode } from "@/lib/tiss";
+import { accidentIndications, claimNumberLabel, consultationTypes, councilCode, glossCents, serviceTypes, TUSS_TABLE, ufCode } from "@/lib/tiss";
+import { ActionForm } from "../../action-form";
 import { PrintButton } from "@/app/(app)/pacientes/[id]/atendimentos/[encounterId]/print-button";
-import { cancelClaim } from "../actions";
+import { cancelClaim, createAppeal, resolveAppeal } from "../actions";
 
 function Box({ label, value, className = "" }: { label: string; value: React.ReactNode; className?: string }) {
   return (
@@ -30,7 +32,7 @@ export default async function ClaimPage({ params }: { params: Promise<{ id: stri
   const { id } = await params;
   const claim = await prisma.insuranceClaim.findFirst({
     where: { id, clinicId: user.clinicId },
-    include: { patient: true, professional: true, healthPlan: true, clinic: true, items: { orderBy: { sequence: "asc" } } },
+    include: { patient: true, professional: true, healthPlan: true, clinic: true, items: { orderBy: { sequence: "asc" } }, appeal: true },
   });
   if (!claim) notFound();
   await audit({ clinicId: user.clinicId, userId: user.id, action: "GUIA_IMPRESSA", entity: "InsuranceClaim", entityId: claim.id, patientId: claim.patientId });
@@ -38,6 +40,8 @@ export default async function ClaimPage({ params }: { params: Promise<{ id: stri
   const { patient, professional, healthPlan: plan, clinic } = claim;
   const canceled = claim.status === "CANCELADA";
   const sadt = claim.kind === "SPSADT";
+  const gloss = glossCents(claim);
+  const { appeal } = claim;
   const label = <T extends number | string>(list: readonly { value: T; label: string }[], value: T | null) =>
     value === null ? "" : `${value} - ${list.find((i) => i.value === value)?.label ?? ""}`;
   const professionalBoxes = (
@@ -180,6 +184,69 @@ export default async function ClaimPage({ params }: { params: Promise<{ id: stri
           <Box label="Assinatura do beneficiário ou responsável" value={<span className="block h-10" />} />
         </div>
       </div>
+      {gloss > 0 && (
+        <div className="no-print card space-y-3">
+          <div>
+            <h3 className="font-semibold">Recurso de glosa</h3>
+            <p className="text-sm text-slate-600">
+              O convênio pagou {formatMoney(claim.paidCents ?? 0)} de {formatMoney(claim.amountCents)}.{" "}
+              <span className="text-red-700">Glosado: {formatMoney(gloss)} · {claim.glossReason}</span>
+            </p>
+          </div>
+          {!appeal ? (
+            <ActionForm action={createAppeal.bind(null, claim.id)} submitLabel="Registrar recurso" resetOnSuccess={false}>
+              <p className="text-sm text-slate-600">
+                Envie o recurso pelo portal do {plan.name} e anote aqui o que foi enviado, para acompanhar a resposta.
+              </p>
+              <div>
+                <label className="label" htmlFor="reason">Justificativa do recurso *</label>
+                <textarea className="input min-h-24" id="reason" name="reason" maxLength={2000} required placeholder="Por que o valor deve ser pago (ex.: retorno fora do prazo de 30 dias, com nova queixa)" />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="label" htmlFor="sentAt">Enviado em *</label>
+                  <input className="input" id="sentAt" name="sentAt" type="date" defaultValue={dateInput(today())} required />
+                </div>
+                <div>
+                  <label className="label" htmlFor="protocol">Protocolo do recurso</label>
+                  <input className="input" id="protocol" name="protocol" maxLength={40} />
+                </div>
+              </div>
+            </ActionForm>
+          ) : (
+            <div className="space-y-3 text-sm">
+              <div className="rounded-md bg-slate-50 p-3">
+                <p className="font-medium text-marinho-800">
+                  Recurso enviado em {formatDate(appeal.sentAt)}{appeal.protocol && ` · protocolo ${appeal.protocol}`}
+                </p>
+                <p className="whitespace-pre-line text-slate-700">{appeal.reason}</p>
+              </div>
+              {appeal.resolvedAt ? (
+                <p className={appeal.recoveredCents ? "text-emerald-700" : "text-red-700"}>
+                  Resposta em {formatDate(appeal.resolvedAt)}:{" "}
+                  {appeal.recoveredCents
+                    ? `o convênio pagou mais ${formatMoney(appeal.recoveredCents)}, que entrou nas Receitas.`
+                    : "recurso negado."}
+                </p>
+              ) : (
+                <ActionForm action={resolveAppeal.bind(null, appeal.id)} submitLabel="Registrar resposta" resetOnSuccess={false}>
+                  <p className="text-slate-600">Quando o convênio responder, anote quanto pagou a mais. Deixe vazio se negou.</p>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="label" htmlFor="resolvedAt">Data da resposta *</label>
+                      <input className="input" id="resolvedAt" name="resolvedAt" type="date" defaultValue={dateInput(today())} required />
+                    </div>
+                    <div>
+                      <label className="label" htmlFor="recovered">Valor recuperado (R$)</label>
+                      <input className="input" id="recovered" name="recovered" defaultValue={moneyInput(gloss)} inputMode="decimal" />
+                    </div>
+                  </div>
+                </ActionForm>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

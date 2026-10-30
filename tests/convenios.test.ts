@@ -115,3 +115,14 @@ test("itens da guia SP/SADT: pula linha vazia, confere a tabela e multiplica pel
   assert.match((parseClaimItems(form({ item_tuss_0: "10101012", item_valor_0: "10" }), prices, parseMoney, normalizeTussCode) as { error: string }).error, /fora da tabela/);
   assert.match((parseClaimItems(form({ item_tuss_0: "40101010", item_qtd_0: "0", item_valor_0: "10" }), prices, parseMoney, normalizeTussCode) as { error: string }).error, /quantidade/);
 });
+
+test("recurso de glosa: valor glosado e valor recuperado", async () => {
+  const { parseMoney } = await import("../src/lib/money");
+  const { glossCents, parseRecovered } = await import("../src/lib/tiss");
+  assert.equal(glossCents({ amountCents: 15000, paidCents: 12000 }), 3000);
+  assert.equal(glossCents({ amountCents: 15000, paidCents: null }), 0);
+  assert.deepEqual(parseRecovered("30,00", 3000, parseMoney), { cents: 3000 });
+  assert.deepEqual(parseRecovered("", 3000, parseMoney), { cents: 0 });
+  assert.match((parseRecovered("31", 3000, parseMoney) as { error: string }).error, /maior que o valor glosado/);
+  assert.match((parseRecovered("abc", 3000, parseMoney) as { error: string }).error, /inválido/);
+});

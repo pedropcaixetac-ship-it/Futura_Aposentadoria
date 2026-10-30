@@ -10,7 +10,8 @@ import { parseMoney } from "@/lib/money";
 import { parseDateInput } from "@/lib/finance";
 import { normalizeTussCode } from "@/lib/convenios";
 import {
-  accidentIndications, careRegime, claimNumberLabel, consultationTypes, missingForClaim, normalizeCbo, parseClaimItems, parseClaimPayments, serviceTypes,
+  accidentIndications, careRegime, claimNumberLabel, consultationTypes, glossCents, missingForClaim, normalizeCbo, parseClaimItems, parseClaimPayments,
+  parseRecovered, serviceTypes,
   type ClaimItemInput,
 } from "@/lib/tiss";
 import { MAX_CLAIMS_PER_BATCH, TISS_VERSION } from "@/lib/tiss-xml";
@@ -297,4 +298,82 @@ export async function registerBatchPayment(batchId: string, _: FormState, formDa
   });
   revalidatePath("/financeiro", "layout");
   return { error: "", ok: "Pagamento registrado. O valor recebido já aparece nas Receitas." };
+}
+
+// Recurso de glosa: registra a contestação enviada ao convênio (motivo, data e protocolo).
+export async function createAppeal(claimId: string, _: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireAdmin();
+  const claim = await prisma.insuranceClaim.findFirst({ where: { id: claimId, clinicId: user.clinicId }, include: { appeal: true } });
+  if (!claim || glossCents(claim) === 0) return { error: "Esta guia não tem glosa para recorrer." };
+  if (claim.appeal) return { error: "Esta guia já tem recurso registrado." };
+  const reason = text(formData, "reason")?.slice(0, 2000);
+  if (!reason) return { error: "Escreva a justificativa do recurso." };
+  const sentAt = parseDateInput(text(formData, "sentAt") ?? "");
+  if (!sentAt) return { error: "Informe a data de envio do recurso." };
+  const appeal = await prisma.claimAppeal.create({
+    data: { clinicId: user.clinicId, claimId, reason, sentAt, protocol: text(formData, "protocol")?.slice(0, 40) ?? null },
+  });
+  await audit({
+    clinicId: user.clinicId,
+    userId: user.id,
+    action: "RECURSO_ENVIADO",
+    entity: "ClaimAppeal",
+    entityId: appeal.id,
+    patientId: claim.patientId,
+    details: { guia: claim.number, glossCents: glossCents(claim) },
+  });
+  revalidatePath("/financeiro", "layout");
+  return { error: "", ok: "Recurso registrado." };
+}
+
+// Resposta do convênio ao recurso: o valor recuperado vira receita paga no Financeiro (forma Convênio).
+export async function resolveAppeal(appealId: string, _: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireAdmin();
+  const appeal = await prisma.claimAppeal.findFirst({
+    where: { id: appealId, clinicId: user.clinicId },
+    include: { claim: { include: { healthPlan: true } } },
+  });
+  if (!appeal) return { error: "Recurso não encontrado." };
+  if (appeal.resolvedAt) return { error: "A resposta deste recurso já foi registrada." };
+  const resolvedAt = parseDateInput(text(formData, "resolvedAt") ?? "");
+  if (!resolvedAt) return { error: "Informe a data da resposta do convênio." };
+  const { claim } = appeal;
+  const recovered = parseRecovered(text(formData, "recovered") ?? "", glossCents(claim), parseMoney);
+  if ("error" in recovered) return recovered;
+
+  await prisma.$transaction(async (tx) => {
+    const charge = recovered.cents > 0
+      ? await tx.charge.create({
+          data: {
+            clinicId: user.clinicId,
+            patientId: claim.patientId,
+            professionalId: claim.professionalId,
+            encounterId: claim.encounterId,
+            description: `${claim.healthPlan.name} · recurso da guia ${claimNumberLabel(claim.number)}`,
+            amountCents: recovered.cents,
+            dueDate: resolvedAt,
+            status: "PAGO",
+            paymentMethod: "CONVENIO",
+            paidAt: resolvedAt,
+          },
+        })
+      : null;
+    const { count } = await tx.claimAppeal.updateMany({
+      where: { id: appeal.id, clinicId: user.clinicId, resolvedAt: null },
+      data: { resolvedAt, recoveredCents: recovered.cents, chargeId: charge?.id ?? null },
+    });
+    if (count === 0) throw new Error("A resposta deste recurso já foi registrada.");
+  });
+
+  await audit({
+    clinicId: user.clinicId,
+    userId: user.id,
+    action: "RECURSO_RESPONDIDO",
+    entity: "ClaimAppeal",
+    entityId: appeal.id,
+    patientId: claim.patientId,
+    details: { guia: claim.number, recoveredCents: recovered.cents },
+  });
+  revalidatePath("/financeiro", "layout");
+  return { error: "", ok: recovered.cents > 0 ? "Resposta registrada. O valor recuperado já aparece nas Receitas." : "Resposta registrada: recurso negado." };
 }
