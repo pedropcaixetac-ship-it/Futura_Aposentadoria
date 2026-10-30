@@ -72,6 +72,7 @@ export default async function PatientRecordPage({ params }: { params: Promise<{ 
           {canManageCharges(user) && (
             <Link href={`/financeiro/receitas/nova?paciente=${id}`} className="btn-secondary">Nova cobrança</Link>
           )}
+          <Link href={`/agenda/novo?paciente=${id}`} className="btn-secondary">Agendar consulta</Link>
           <Link href={`/pacientes/${id}/editar`} className="btn-secondary">Editar cadastro</Link>
         </div>
         {!patient.whatsappOptIn && (

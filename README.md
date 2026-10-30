@@ -26,6 +26,12 @@ Este é o primeiro módulo: **Prontuário**.
   Depois de emitidos não podem ser alterados nem apagados. É sobre esses PDFs que entrará a assinatura digital ICP-Brasil
 - Barra lateral com a clínica, o usuário, o setor e o menu de cada perfil
 - "Usar modelo" ao lado de cada campo do atendimento, com os textos prontos de cada profissional
+- Agenda por dia (uma coluna por profissional) e por semana, com horários de atendimento, bloqueios
+  (almoço, férias), cadastro rápido de paciente, aviso de horário ocupado com opção de encaixe,
+  situação da consulta em cores e sala de espera. O profissional inicia o atendimento direto da agenda,
+  e a consulta vira "Atendido" quando o atendimento é finalizado
+- Recepção: lista das consultas do dia, onde a recepcionista marca quem confirmou, chegou ou faltou,
+  e a sala de espera com o tempo de espera de cada paciente
 - WhatsApp (primeira etapa): botão "Enviar no WhatsApp" na ficha do paciente, que abre o WhatsApp da recepção com o
   texto pronto (contato ou aviso de retorno). Só aparece se o paciente autorizou no cadastro (LGPD), e cada envio fica na auditoria
 

@@ -11,6 +11,22 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum AppointmentType {
+  CONSULTA
+  RETORNO
+  PROCEDIMENTO
+}
+
+enum AppointmentStatus {
+  AGENDADO
+  CONFIRMADO
+  CHEGOU
+  EM_ATENDIMENTO
+  ATENDIDO
+  FALTOU
+  DESMARCADO
+}
+
 enum Role {
   ADMIN
   PROFISSIONAL
@@ -58,15 +74,18 @@ model Clinic {
   // Último número de recibo emitido (os recibos seguem uma sequência por clínica).
   lastReceiptNumber Int      @default(0)
 
-  users      User[]
-  patients   Patient[]
-  templates  RecordTemplate[]
-  encounters Encounter[]
-  auditLogs  AuditLog[]
-  priceItems PriceItem[]
-  charges    Charge[]
-  expenses   Expense[]
-  documents  ClinicalDocument[]
+  users          User[]
+  patients       Patient[]
+  templates      RecordTemplate[]
+  encounters     Encounter[]
+  auditLogs      AuditLog[]
+  priceItems     PriceItem[]
+  charges        Charge[]
+  expenses       Expense[]
+  documents      ClinicalDocument[]
+  workHours      WorkHours[]
+  scheduleBlocks ScheduleBlock[]
+  appointments   Appointment[]
 }
 
 model User {
@@ -91,14 +110,18 @@ model User {
   active            Boolean  @default(true)
   createdAt         DateTime @default(now())
 
-  sessions   Session[]
-  encounters Encounter[]
-  addenda    Addendum[]
-  auditLogs  AuditLog[]
-  snippets   TextSnippet[]
-  templates  RecordTemplate[]
-  charges    Charge[]
-  documents  ClinicalDocument[]
+  sessions            Session[]
+  encounters          Encounter[]
+  addenda             Addendum[]
+  auditLogs           AuditLog[]
+  snippets            TextSnippet[]
+  templates           RecordTemplate[]
+  charges             Charge[]
+  documents           ClinicalDocument[]
+  workHours           WorkHours[]
+  scheduleBlocks      ScheduleBlock[]
+  appointments        Appointment[]      @relation("AppointmentProfessional")
+  appointmentsCreated Appointment[]      @relation("AppointmentCreator")
 
   @@unique([clinicId, email])
   @@unique([clinicId, cpf])
@@ -134,7 +157,7 @@ model Patient {
 
   // Contato (telefones guardados só com os números)
   phone                 String?
-  phoneWhatsapp         Boolean @default(true)
+  phoneWhatsapp         Boolean   @default(true)
   landline              String?
   email                 String?
   emergencyContactName  String?
@@ -177,9 +200,10 @@ model Patient {
   personalHistory    String?
   familyHistory      String?
 
-  encounters Encounter[]
-  charges    Charge[]
-  documents  ClinicalDocument[]
+  encounters   Encounter[]
+  charges      Charge[]
+  documents    ClinicalDocument[]
+  appointments Appointment[]
 
   @@unique([clinicId, cpf])
   @@unique([clinicId, cns])
@@ -234,9 +258,10 @@ model Encounter {
   // Impressão digital (SHA-256) do conteúdo finalizado, para detectar adulteração.
   contentHash    String?
 
-  addenda   Addendum[]
-  documents ClinicalDocument[]
-  charges   Charge[]
+  addenda     Addendum[]
+  documents   ClinicalDocument[]
+  charges     Charge[]
+  appointment Appointment?
 
   @@index([clinicId, patientId, startedAt])
 }
@@ -369,6 +394,69 @@ model Expense {
 
   @@index([clinicId, dueDate])
   @@index([clinicId, paidAt])
+}
+
+// Horário de atendimento de um profissional num dia da semana (0 = domingo).
+// Um profissional pode ter mais de um período no mesmo dia (manhã e tarde).
+// Horários em minutos desde a meia-noite, no horário de Brasília.
+model WorkHours {
+  id             String @id @default(cuid())
+  clinicId       String
+  clinic         Clinic @relation(fields: [clinicId], references: [id])
+  professionalId String
+  professional   User   @relation(fields: [professionalId], references: [id])
+  weekday        Int
+  startMinute    Int
+  endMinute      Int
+  // Duração padrão de cada consulta neste período.
+  slotMinutes    Int
+
+  @@index([clinicId, professionalId])
+}
+
+// Período em que o profissional não atende (almoço, férias, congresso...).
+model ScheduleBlock {
+  id             String   @id @default(cuid())
+  clinicId       String
+  clinic         Clinic   @relation(fields: [clinicId], references: [id])
+  professionalId String
+  professional   User     @relation(fields: [professionalId], references: [id])
+  startsAt       DateTime
+  endsAt         DateTime
+  reason         String?
+  createdAt      DateTime @default(now())
+
+  @@index([clinicId, professionalId, startsAt])
+}
+
+model Appointment {
+  id             String            @id @default(cuid())
+  clinicId       String
+  clinic         Clinic            @relation(fields: [clinicId], references: [id])
+  professionalId String
+  professional   User              @relation("AppointmentProfessional", fields: [professionalId], references: [id])
+  patientId      String
+  patient        Patient           @relation(fields: [patientId], references: [id])
+  startsAt       DateTime
+  endsAt         DateTime
+  type           AppointmentType   @default(CONSULTA)
+  // Vazio = particular; preenchido = nome do convênio.
+  insurance      String?
+  notes          String?
+  status         AppointmentStatus @default(AGENDADO)
+  arrivedAt      DateTime?
+  cancelReason   String?
+  // Atendimento do prontuário aberto a partir deste agendamento.
+  encounterId    String?           @unique
+  encounter      Encounter?        @relation(fields: [encounterId], references: [id])
+  createdById    String
+  createdBy      User              @relation("AppointmentCreator", fields: [createdById], references: [id])
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([clinicId, startsAt])
+  @@index([clinicId, professionalId, startsAt])
+  @@index([clinicId, patientId])
 }
 
 model Cid10 {
