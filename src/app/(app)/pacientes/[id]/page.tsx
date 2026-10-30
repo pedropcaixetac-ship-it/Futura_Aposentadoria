@@ -7,7 +7,7 @@ import { canViewClinical } from "@/lib/permissions";
 import { age, formatCpf, formatDate, formatDateTime } from "@/lib/format";
 import type { Diagnosis, TemplateField } from "@/lib/record";
 import { updateClinicalSummary } from "../actions";
-import { startEncounter } from "./actions";
+import { startEncounter, startTeleconsultation } from "./actions";
 import { ClinicalSummary } from "./clinical-summary";
 
 export default async function PatientRecordPage({ params }: { params: Promise<{ id: string }> }) {
@@ -21,7 +21,7 @@ export default async function PatientRecordPage({ params }: { params: Promise<{ 
     ? await Promise.all([
         prisma.encounter.findMany({
           where: { patientId: id, clinicId: user.clinicId },
-          include: { professional: true, template: true, _count: { select: { addenda: true } } },
+          include: { professional: true, template: true, teleconsultation: { select: { id: true } }, _count: { select: { addenda: true } } },
           orderBy: { startedAt: "desc" },
         }),
         prisma.recordTemplate.findMany({ where: { clinicId: user.clinicId, active: true }, orderBy: { name: "asc" } }),
@@ -80,6 +80,7 @@ export default async function PatientRecordPage({ params }: { params: Promise<{ 
                   ))}
                 </select>
                 <button className="btn-primary">+ Novo atendimento</button>
+                <button formAction={startTeleconsultation.bind(null, id)} className="btn-secondary">+ Teleconsulta</button>
               </form>
             </div>
 
@@ -104,6 +105,9 @@ export default async function PatientRecordPage({ params }: { params: Promise<{ 
                           <span className="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800">Rascunho</span>
                         ) : (
                           <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">Finalizado</span>
+                        )}
+                        {e.teleconsultation && (
+                          <span className="rounded bg-marinho-50 px-2 py-0.5 text-xs text-marinho-700">Teleconsulta</span>
                         )}
                         {e._count.addenda > 0 && (
                           <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">

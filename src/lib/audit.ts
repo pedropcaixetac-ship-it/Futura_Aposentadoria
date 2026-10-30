@@ -31,4 +31,9 @@ export const auditActionLabel: Record<string, string> = {
   ADENDO_CRIADO: "Adicionou adendo",
   MODELO_CRIADO: "Criou modelo de atendimento",
   MODELO_ALTERADO: "Alterou modelo de atendimento",
+  TELECONSULTA_CRIADA: "Criou teleconsulta",
+  TELECONSULTA_TERMO_ACEITO: "Paciente aceitou o termo da teleconsulta",
+  TELECONSULTA_PROFISSIONAL_ENTROU: "Entrou na chamada da teleconsulta",
+  TELECONSULTA_PACIENTE_ENTROU: "Paciente entrou na chamada",
+  TELECONSULTA_ENCERRADA: "Encerrou teleconsulta",
 };

@@ -9,6 +9,11 @@ import { encounterHash, type Diagnosis, type TemplateField } from "@/lib/record"
 import { addAddendum, finalizeEncounter, saveEncounter } from "../../actions";
 import { EncounterEditor } from "./encounter-editor";
 import { PrintButton } from "./print-button";
+import { TeleconsultaPanel } from "./teleconsulta-panel";
+import { endTeleconsultation, joinTeleconsultation, teleconsultationStatus } from "./teleconsulta-actions";
+import { teleconsultationPath, teleconsultationState } from "@/lib/teleconsulta";
+import { siteOrigin } from "@/lib/teleconsulta-sala";
+import { videoConfigured } from "@/lib/video";
 
 export default async function EncounterPage({ params }: { params: Promise<{ id: string; encounterId: string }> }) {
   const user = await requireUser();
@@ -21,6 +26,7 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
       patient: true,
       professional: true,
       template: true,
+      teleconsultation: true,
       addenda: { include: { author: true }, orderBy: { createdAt: "asc" } },
     },
   });
@@ -52,8 +58,13 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
     encounter.status !== "FINALIZADO" ||
     (encounter.finalizedAt && encounter.contentHash === encounterHash({ ...encounter, finalizedAt: encounter.finalizedAt }));
 
-  return (
-    <div className="mx-auto max-w-3xl space-y-4">
+  const tele = encounter.teleconsultation;
+  const teleState = tele && teleconsultationState(tele);
+  // O painel do vídeo aparece só para o profissional responsável, enquanto o link vale.
+  const showPanel = !!tele && tele.professionalId === user.id && (teleState === "AGUARDANDO_TERMO" || teleState === "LIBERADA");
+
+  const main = (
+    <div className="space-y-4">
       <div className="no-print flex items-center justify-between">
         <Link href={`/pacientes/${id}`} className="text-sm text-marinho-700 hover:underline">← Voltar ao prontuário</Link>
         {encounter.status === "FINALIZADO" && <PrintButton />}
@@ -71,6 +82,35 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
         </p>
         {patient.allergies && <p className="text-sm font-semibold text-red-700">Alergias: {patient.allergies}</p>}
       </div>
+
+      {tele && (
+        <div className="card space-y-1 text-sm">
+          <h2 className="font-semibold">Atendimento por teleconsulta</h2>
+          <p className="text-slate-600">Realizado a distância, por vídeo, conforme a Resolução CFM nº 2.314/2022. A chamada não foi gravada.</p>
+          <p className="text-slate-600">
+            {tele.consentAt
+              ? `Termo de consentimento aceito pelo paciente em ${formatDateTime(tele.consentAt)}${tele.consentIp ? ` (IP ${tele.consentIp})` : ""}.`
+              : "O paciente ainda não aceitou o termo de consentimento."}
+          </p>
+          {(tele.professionalJoinedAt || tele.patientJoinedAt || tele.endedAt) && (
+            <p className="text-slate-600">
+              {[
+                tele.professionalJoinedAt && `Profissional entrou: ${formatDateTime(tele.professionalJoinedAt)}`,
+                tele.patientJoinedAt && `Paciente entrou: ${formatDateTime(tele.patientJoinedAt)}`,
+                tele.endedAt && `Encerrada: ${formatDateTime(tele.endedAt)}`,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          )}
+          {tele.consentText && (
+            <details className="no-print">
+              <summary className="cursor-pointer text-marinho-700">Ver o termo aceito</summary>
+              <p className="mt-2 whitespace-pre-wrap rounded bg-slate-50 p-3 text-xs text-slate-600">{tele.consentText}</p>
+            </details>
+          )}
+        </div>
+      )}
 
       {!intact && (
         <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800">
@@ -145,6 +185,25 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
           <button className="btn-secondary">Adicionar adendo</button>
         </form>
       )}
+    </div>
+  );
+
+  if (!showPanel) return <div className="mx-auto max-w-3xl">{main}</div>;
+
+  return (
+    <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      {main}
+      <TeleconsultaPanel
+        link={`${await siteOrigin()}${teleconsultationPath(tele.token)}`}
+        patientName={patient.socialName || patient.name}
+        phone={patient.phone}
+        initialConsentAt={tele.consentAt?.toISOString() ?? null}
+        initialPatientJoinedAt={tele.patientJoinedAt?.toISOString() ?? null}
+        configured={videoConfigured()}
+        status={teleconsultationStatus.bind(null, tele.id)}
+        join={joinTeleconsultation.bind(null, tele.id)}
+        end={endTeleconsultation.bind(null, tele.id)}
+      />
     </div>
   );
 }

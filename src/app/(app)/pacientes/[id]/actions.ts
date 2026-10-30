@@ -6,11 +6,12 @@ import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { canAddAddendum, canEditEncounter, canViewClinical } from "@/lib/permissions";
+import { LINK_HOURS, newTeleconsultationToken } from "@/lib/teleconsulta";
 import { encounterHash, parseDiagnoses, sanitizeContent, type TemplateField } from "@/lib/record";
 
 const freeTextFields: TemplateField[] = [{ key: "evolucao", label: "Evolução", type: "textarea" }];
 
-export async function startEncounter(patientId: string, formData: FormData) {
+async function createEncounter(patientId: string, formData: FormData) {
   const user = await requireUser();
   if (!canViewClinical(user)) throw new Error("Sem permissão");
 
@@ -37,6 +38,35 @@ export async function startEncounter(patientId: string, formData: FormData) {
     action: "ATENDIMENTO_INICIADO",
     entity: "Encounter",
     entityId: encounter.id,
+    patientId,
+  });
+  return { user, encounter };
+}
+
+export async function startEncounter(patientId: string, formData: FormData) {
+  const { encounter } = await createEncounter(patientId, formData);
+  redirect(`/pacientes/${patientId}/atendimentos/${encounter.id}`);
+}
+
+// Teleconsulta: um atendimento normal do prontuário com um link de vídeo para o paciente.
+export async function startTeleconsultation(patientId: string, formData: FormData) {
+  const { user, encounter } = await createEncounter(patientId, formData);
+  const teleconsultation = await prisma.teleconsultation.create({
+    data: {
+      clinicId: user.clinicId,
+      patientId,
+      professionalId: user.id,
+      encounterId: encounter.id,
+      token: newTeleconsultationToken(),
+      expiresAt: new Date(Date.now() + LINK_HOURS * 3600 * 1000),
+    },
+  });
+  await audit({
+    clinicId: user.clinicId,
+    userId: user.id,
+    action: "TELECONSULTA_CRIADA",
+    entity: "Teleconsultation",
+    entityId: teleconsultation.id,
     patientId,
   });
   redirect(`/pacientes/${patientId}/atendimentos/${encounter.id}`);
