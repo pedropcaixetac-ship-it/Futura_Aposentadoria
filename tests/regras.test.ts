@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { canAddAddendum, canEditEncounter, canViewClinical } from "../src/lib/permissions";
+import { canAddAddendum, canEditEncounter, canEditTemplate, canUseTemplate, canViewClinical } from "../src/lib/permissions";
 import { encounterHash, parseDiagnoses, sanitizeContent } from "../src/lib/record";
 import { isValidCns, isValidCpf } from "../src/lib/format";
 import { parsePatient, sameNameKey, validatePatient } from "../src/lib/patient";
@@ -103,4 +103,17 @@ test("ficha completa: particular limpa os dados do convênio; convênio exige o 
 
 test("mesmo nome com acento ou espaço diferente conta como possível duplicado", () => {
   assert.equal(sameNameKey("José  da Silva"), sameNameKey("jose da silva"));
+});
+
+test("modelo de atendimento: cada profissional usa os seus e os da clínica", () => {
+  const daClinica = { ownerId: null };
+  const daMedica = { ownerId: "m1" };
+  assert.equal(canUseTemplate(medica, daMedica), true);
+  assert.equal(canUseTemplate(outraMedica, daMedica), false);
+  assert.equal(canUseTemplate(outraMedica, daClinica), true);
+  assert.equal(canEditTemplate(medica, daMedica), true);
+  assert.equal(canEditTemplate(outraMedica, daMedica), false);
+  assert.equal(canEditTemplate(medica, daClinica), false);
+  assert.equal(canEditTemplate(admin, daMedica), true);
+  assert.equal(canEditTemplate(admin, daClinica), true);
 });

@@ -69,3 +69,13 @@ export function canCancelCharge(user: PermissionUser, charge: { status: "PENDENT
 export function canViewCommission(user: PermissionUser, professionalId: string) {
   return canManageFinance(user) || user.id === professionalId;
 }
+
+// Modelos de atendimento: cada profissional cuida dos seus; o administrador cuida de todos,
+// inclusive dos modelos da clínica (sem dono), que qualquer profissional pode usar.
+export function canEditTemplate(user: PermissionUser, template: { ownerId: string | null }) {
+  return user.role === "ADMIN" || (canViewClinical(user) && template.ownerId === user.id);
+}
+
+export function canUseTemplate(user: PermissionUser, template: { ownerId: string | null }) {
+  return template.ownerId === null || template.ownerId === user.id;
+}

@@ -15,6 +15,7 @@ import {
   statusStyle,
 } from "@/lib/agenda";
 import { listProfessionals } from "@/lib/agenda-data";
+import { listUsableTemplates } from "@/lib/templates";
 import { formatDateTime, formatPhone } from "@/lib/format";
 import { cancelAppointment, saveAppointment, startFromAppointment } from "../actions";
 import { AppointmentForm } from "../appointment-form";
@@ -36,8 +37,8 @@ export default async function AppointmentPage({ params, searchParams }: { params
   const editable = canCancel(appointment.status);
   const [templates, professionals] = await Promise.all([
     canStart && !appointment.encounterId
-      ? prisma.recordTemplate.findMany({ where: { clinicId: user.clinicId, active: true }, orderBy: { name: "asc" } })
-      : [],
+      ? listUsableTemplates(user)
+      : { mine: [], clinic: [] },
     remarcar && editable ? listProfessionals(user.clinicId) : [],
   ]);
 
@@ -110,11 +111,27 @@ export default async function AppointmentPage({ params, searchParams }: { params
             <Link href={`/pacientes/${patient.id}/atendimentos/${appointment.encounterId}`} className="btn-primary">Abrir atendimento</Link>
           ) : (
             <form action={startFromAppointment.bind(null, id)} className="flex flex-wrap items-center gap-2">
-              <select name="templateId" aria-label="Modelo de atendimento" className="input w-auto!" defaultValue={appointment.type === "RETORNO" ? templates.find((t) => t.name === "Retorno")?.id : ""}>
+              {/* Retorno já vem com o modelo "Retorno"; senão, o único modelo do profissional, se houver só um. */}
+              <select
+                name="templateId"
+                aria-label="Modelo de atendimento"
+                className="input w-auto!"
+                defaultValue={
+                  (appointment.type === "RETORNO" && [...templates.mine, ...templates.clinic].find((t) => t.name === "Retorno")?.id) ||
+                  (templates.mine.length === 1 ? templates.mine[0].id : "")
+                }
+              >
                 <option value="">Evolução livre</option>
-                {templates.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
+                {templates.mine.length > 0 && (
+                  <optgroup label="Meus modelos">
+                    {templates.mine.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </optgroup>
+                )}
+                {templates.clinic.length > 0 && (
+                  <optgroup label="Modelos da clínica">
+                    {templates.clinic.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </optgroup>
+                )}
               </select>
               <button className="btn-primary">Iniciar atendimento</button>
             </form>

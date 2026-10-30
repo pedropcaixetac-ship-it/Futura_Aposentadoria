@@ -37,6 +37,13 @@ const retorno = [
   { key: "conduta", label: "Conduta", type: "textarea" },
 ];
 
+// Exemplo de modelo próprio: a Dra. Ana prefere um formulário mais enxuto.
+const consultaAna = [
+  { key: "queixa", label: "Queixa principal", type: "text" },
+  { key: "hda", label: "História e exame", type: "textarea" },
+  { key: "conduta", label: "Conduta e orientações", type: "textarea" },
+];
+
 const psicologia = [
   { key: "demanda", label: "Demanda", type: "textarea" },
   { key: "registro", label: "Registro da sessão", type: "textarea" },
@@ -81,15 +88,19 @@ async function seedDemo() {
     ],
   });
 
+  const ana = await prisma.user.findFirstOrThrow({ where: { clinicId: clinic.id, email: "ana@demo.com" } });
+  const carlos = await prisma.user.findFirstOrThrow({ where: { clinicId: clinic.id, email: "carlos@demo.com" } });
+
+  // Modelos da clínica (sem dono) e modelos próprios de cada profissional.
   await prisma.recordTemplate.createMany({
     data: [
       { clinicId: clinic.id, name: "Consulta (primeira vez)", fields: consultaGeral },
       { clinicId: clinic.id, name: "Retorno", fields: retorno },
-      { clinicId: clinic.id, name: "Sessão de psicologia", specialty: "Psicologia", fields: psicologia },
+      { clinicId: clinic.id, ownerId: ana.id, name: "Minha consulta", fields: consultaAna },
+      { clinicId: clinic.id, ownerId: carlos.id, name: "Sessão de psicologia", fields: psicologia },
     ],
   });
 
-  const ana = await prisma.user.findFirstOrThrow({ where: { clinicId: clinic.id, email: "ana@demo.com" } });
   await prisma.textSnippet.createMany({
     data: [
       {
@@ -282,11 +293,27 @@ async function seedFinanceDemo() {
   console.log("Exemplos do financeiro criados");
 }
 
+// CPFs de exemplo (válidos, mas fictícios) para testar o login por CPF. Também preenche bancos já criados.
+async function seedLoginDemo() {
+  const clinic = await prisma.clinic.findUnique({ where: { slug: "demo" } });
+  if (!clinic) return;
+  const cpfs: Record<string, string> = {
+    "admin@demo.com": "12345678909",
+    "ana@demo.com": "52998224725",
+    "carlos@demo.com": "39053344705",
+    "recepcao@demo.com": "11144477735",
+  };
+  for (const [email, cpf] of Object.entries(cpfs)) {
+    await prisma.user.updateMany({ where: { clinicId: clinic.id, email, cpf: null }, data: { cpf } });
+  }
+}
+
 async function main() {
   await seedCid10();
   await seedDemo();
   await seedAgenda();
   await seedFinanceDemo();
+  await seedLoginDemo();
 }
 
 main().finally(() => prisma.$disconnect());

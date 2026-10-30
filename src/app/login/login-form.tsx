@@ -12,8 +12,9 @@ export function LoginForm() {
         <input className="input" id="clinic" name="clinic" defaultValue="demo" required />
       </div>
       <div>
-        <label className="label" htmlFor="email">E-mail</label>
-        <input className="input" id="email" name="email" type="email" required autoComplete="username" />
+        <label className="label" htmlFor="login">E-mail, CPF ou CRM</label>
+        <input className="input" id="login" name="login" required autoComplete="username" autoCapitalize="none" spellCheck={false} />
+        <p className="mt-1 text-xs text-slate-500">Profissionais podem usar o número do conselho (CRM, CRP...).</p>
       </div>
       <div>
         <label className="label" htmlFor="password">Senha</label>
