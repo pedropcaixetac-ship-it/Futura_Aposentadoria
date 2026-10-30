@@ -42,7 +42,16 @@ function position(date: string, startsAt: Date, endsAt: Date, range: { start: nu
   return { top: (from - range.start) * PX, height: Math.max(0, to - from) * PX };
 }
 
-export function AgendaGrid({ columns, canCreate }: { columns: GridColumn[]; canCreate: (professionalId: string) => boolean }) {
+export function AgendaGrid({
+  columns,
+  canCreate,
+  appointmentHref = (id) => `/agenda/${id}`,
+}: {
+  columns: GridColumn[];
+  canCreate: (professionalId: string) => boolean;
+  // Para onde leva o clique numa consulta (a aba Atender usa a própria tela).
+  appointmentHref?: (id: string) => string;
+}) {
   const range = visibleRange(columns);
   const hours: number[] = [];
   for (let m = range.start; m < range.end; m += 60) hours.push(m);
@@ -116,7 +125,7 @@ export function AgendaGrid({ columns, canCreate }: { columns: GridColumn[]; canC
                   return (
                     <Link
                       key={a.id}
-                      href={`/agenda/${a.id}`}
+                      href={appointmentHref(a.id)}
                       className={`absolute z-10 overflow-hidden rounded border-l-4 px-2 text-xs shadow-sm hover:z-20 hover:shadow-md ${compact ? "py-0.5" : "py-1"} ${statusStyle[a.status]}`}
                       style={{ ...pos, left: `calc(${(lane / lanes) * 100}% + 4px)`, width: `calc(${100 / lanes}% - 8px)` }}
                       title={`${formatTime(a.startsAt)} ${a.patient.socialName || a.patient.name} · ${statusLabel[a.status]}`}

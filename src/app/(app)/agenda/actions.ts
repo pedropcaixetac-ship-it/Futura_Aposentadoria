@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import type { AppointmentStatus, AppointmentType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { hasTab } from "@/lib/tabs";
 import { audit } from "@/lib/audit";
 import { createEncounter } from "@/lib/encounter";
 import { canManageAgendaOf, canStartFromAppointment, canUseReception } from "@/lib/permissions";
@@ -186,6 +187,7 @@ export async function setAppointmentStatus(id: string, status: AppointmentStatus
     details: { antes: appointment.status, depois: status },
   });
   revalidatePath("/recepcao");
+  revalidatePath("/atender");
   revalidatePath("/agenda", "layout");
 }
 
@@ -206,8 +208,10 @@ export async function cancelAppointment(id: string, formData: FormData) {
   redirect(`/agenda?data=${clinicParts(appointment.startsAt).date}`);
 }
 
+// Pode ser chamado pela Agenda ou pela aba Atender.
 export async function startFromAppointment(id: string, formData: FormData) {
-  const user = await requireUser("agenda");
+  const user = await requireUser();
+  if (!hasTab(user, "agenda") && !hasTab(user, "atender")) throw new Error("Sem permissão");
   const appointment = await prisma.appointment.findFirst({ where: { id, clinicId: user.clinicId } });
   if (!appointment || !canStartFromAppointment(user, appointment)) throw new Error("Sem permissão");
   if (appointment.encounterId) redirect(`/pacientes/${appointment.patientId}/atendimentos/${appointment.encounterId}`);
