@@ -150,9 +150,18 @@ export const statusLabel: Record<AppointmentStatus, string> = {
   DESMARCADO: "Desmarcado",
 };
 
-// Situação com "pelo app" quando foi o próprio paciente que confirmou ou desmarcou no aplicativo.
-export function statusText(a: { status: AppointmentStatus; confirmedInAppAt?: Date | null; cancelledInAppAt?: Date | null }) {
-  const byApp = (a.status === "CONFIRMADO" && a.confirmedInAppAt) || (a.status === "DESMARCADO" && a.cancelledInAppAt);
+// Situação com "pelo app" quando foi o próprio paciente que marcou, remarcou, confirmou ou desmarcou no aplicativo.
+export function statusText(a: {
+  status: AppointmentStatus;
+  confirmedInAppAt?: Date | null;
+  cancelledInAppAt?: Date | null;
+  createdInAppAt?: Date | null;
+  rescheduledInAppAt?: Date | null;
+}) {
+  const byApp =
+    (a.status === "CONFIRMADO" && a.confirmedInAppAt) ||
+    (a.status === "DESMARCADO" && a.cancelledInAppAt) ||
+    (a.status === "AGENDADO" && (a.createdInAppAt || a.rescheduledInAppAt));
   return byApp ? `${statusLabel[a.status]} pelo app` : statusLabel[a.status];
 }
 

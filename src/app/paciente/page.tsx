@@ -4,17 +4,20 @@ import { appointmentTypeLabel, statusLabel } from "@/lib/agenda";
 import { displayName } from "@/lib/staff";
 import { teleconsultationState } from "@/lib/teleconsulta";
 import { patientCanCancel, patientCanConfirm } from "@/lib/patient-app";
-import { patientLogout } from "./actions";
+import Link from "next/link";
 import { AppointmentActions } from "./appointment-actions";
+import { PatientHeader } from "./header";
+import { longWhen as when } from "./slot-picker";
 
-const when = (d: Date) => {
-  const text = d.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", weekday: "long", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
-  return text[0].toUpperCase() + text.slice(1);
+const notices: Record<string, string> = {
+  marcada: "Consulta marcada! A recepção já vê na agenda.",
+  remarcada: "Consulta remarcada! A recepção já vê o novo horário.",
 };
 
 // Tela inicial do aplicativo do paciente: só consultas, nada do prontuário.
-export default async function PatientHomePage() {
+export default async function PatientHomePage({ searchParams }: { searchParams: Promise<{ ok?: string }> }) {
   const patient = await requirePatient();
+  const { ok } = await searchParams;
   const now = new Date();
   const select = {
     id: true,
@@ -41,19 +44,16 @@ export default async function PatientHomePage() {
 
   return (
     <>
-      <header className="flex items-center justify-between px-4 py-3 text-white">
-        <span className="truncate font-semibold text-dourado-300">{patient.clinic.name}</span>
-        <form action={patientLogout}>
-          <button className="rounded-md px-2 py-1 text-sm text-marinho-100 hover:text-dourado-300">Sair</button>
-        </form>
-      </header>
+      <PatientHeader clinicName={patient.clinic.name} />
       <div className="flex-1 space-y-4 bg-slate-50 px-4 py-5">
         <h1 className="text-xl font-semibold text-marinho-800">Olá, {firstName}!</h1>
+        {ok && notices[ok] && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">{notices[ok]}</p>}
+        <Link href="/paciente/marcar" className="btn-primary w-full py-3 text-base">+ Marcar consulta</Link>
 
         <section className="space-y-3">
           <h2 className="font-semibold text-marinho-800">Próximas consultas</h2>
-          {upcoming.length === 0 && <p className="card text-sm text-slate-500">Nenhuma consulta marcada. Para marcar, fale com a recepção.</p>}
-          {upcoming.length > 0 && <p className="text-xs text-marinho-700">Confirme sua presença ou desmarque com antecedência: a recepção vê na hora.</p>}
+          {upcoming.length === 0 && <p className="card text-sm text-slate-500">Nenhuma consulta marcada.</p>}
+          {upcoming.length > 0 && <p className="text-xs text-marinho-700">Confirme, remarque ou desmarque com antecedência: a recepção vê na hora.</p>}
           {upcoming.map((a) => {
             const tele = a.teleconsultation && teleconsultationState(a.teleconsultation, now);
             return (

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { afterFailure, isLocked, LOCK_MINUTES, MAX_FAILURES, parseBirthDate, patientCancelReason, patientCanCancel, patientCanConfirm, sameDay } from "../src/lib/patient-app";
+import { bookable, lastAppAction, MIN_NOTICE_MINUTES, afterFailure, isLocked, LOCK_MINUTES, MAX_FAILURES, parseBirthDate, patientCancelReason, patientCanCancel, patientCanConfirm, sameDay } from "../src/lib/patient-app";
 import { statusText } from "../src/lib/agenda";
 
 test("data de nascimento: aceita o campo do celular e dd/mm/aaaa", () => {
@@ -52,4 +52,27 @@ test("situação mostra \"pelo app\" quando foi o paciente", () => {
   assert.equal(statusText({ status: "CONFIRMADO", confirmedInAppAt: null }), "Confirmado");
   assert.equal(statusText({ status: "DESMARCADO", cancelledInAppAt: at }), "Desmarcado pelo app");
   assert.equal(statusText({ status: "CHEGOU", confirmedInAppAt: at }), "Chegou");
+});
+
+test("marcação pelo app respeita a antecedência mínima", () => {
+  const now = new Date("2026-10-30T12:00:00Z");
+  const at = (min: number) => ({ start: new Date(now.getTime() + min * 60_000) });
+  assert.deepEqual(bookable([at(10), at(MIN_NOTICE_MINUTES), at(120)], now), [at(MIN_NOTICE_MINUTES), at(120)]);
+});
+
+test("quadro da recepção mostra a última ação do paciente no app", () => {
+  const d = (h: number) => new Date(Date.UTC(2026, 9, 30, h));
+  const base = { createdInAppAt: null, rescheduledInAppAt: null, cancelledInAppAt: null };
+  assert.equal(lastAppAction({ ...base, status: "AGENDADO" }), null);
+  assert.equal(lastAppAction({ ...base, status: "AGENDADO", createdInAppAt: d(1) })?.label, "Marcou");
+  assert.equal(lastAppAction({ ...base, status: "AGENDADO", createdInAppAt: d(1), rescheduledInAppAt: d(2) })?.label, "Remarcou");
+  assert.equal(lastAppAction({ ...base, status: "AGENDADO", rescheduledInAppAt: d(2) })?.label, "Remarcou");
+  assert.equal(lastAppAction({ ...base, status: "DESMARCADO", createdInAppAt: d(1), cancelledInAppAt: d(3) })?.label, "Desmarcou");
+  assert.equal(lastAppAction({ ...base, status: "DESMARCADO", createdInAppAt: d(1) }), null);
+});
+
+test("situação \"Agendado pelo app\" quando o paciente marcou ou remarcou", () => {
+  assert.equal(statusText({ status: "AGENDADO", createdInAppAt: new Date() }), "Agendado pelo app");
+  assert.equal(statusText({ status: "AGENDADO", rescheduledInAppAt: new Date() }), "Agendado pelo app");
+  assert.equal(statusText({ status: "AGENDADO" }), "Agendado");
 });

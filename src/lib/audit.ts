@@ -107,4 +107,6 @@ export const auditActionLabel: Record<string, string> = {
   PACIENTE_APP_SAIU: "Paciente saiu do aplicativo",
   PACIENTE_APP_CONFIRMOU: "Paciente confirmou a consulta pelo aplicativo",
   PACIENTE_APP_DESMARCOU: "Paciente desmarcou a consulta pelo aplicativo",
+  PACIENTE_APP_MARCOU: "Paciente marcou consulta pelo aplicativo",
+  PACIENTE_APP_REMARCOU: "Paciente remarcou a consulta pelo aplicativo",
 };

@@ -15,7 +15,10 @@ import {
   patientCanCancel,
   patientCanConfirm,
   sameDay,
+  MAX_APP_BOOKINGS,
 } from "@/lib/patient-app";
+import { bookableProfessionals, findFreeSlot } from "@/lib/patient-booking";
+import { clinicParts } from "@/lib/agenda";
 import { syncAppointmentTeleconsultation } from "@/lib/teleconsulta-agenda";
 import { createPatientSession, destroyPatientSession, getCurrentPatient } from "@/lib/patient-auth";
 
@@ -104,4 +107,78 @@ function refreshAgenda() {
   revalidatePath("/recepcao");
   revalidatePath("/atender");
   revalidatePath("/agenda", "layout");
+}
+
+// Marca uma consulta num horário livre da agenda. Se alguém pegou o horário antes, volta para escolher outro.
+export async function patientBook(professionalId: string, startIso: string) {
+  const patient = await getCurrentPatient();
+  if (!patient) redirect("/paciente/entrar");
+  const back = `/paciente/marcar?profissional=${encodeURIComponent(professionalId)}`;
+  const now = new Date();
+
+  const pending = await prisma.appointment.count({
+    where: { clinicId: patient.clinicId, patientId: patient.id, createdInAppAt: { not: null }, startsAt: { gt: now }, status: { not: "DESMARCADO" } },
+  });
+  if (pending >= MAX_APP_BOOKINGS) redirect(`${back}&erro=limite`);
+  const professional = (await bookableProfessionals(patient.clinicId)).find((p) => p.id === professionalId);
+  if (!professional) redirect("/paciente/marcar");
+  const slot = await findFreeSlot(patient.clinicId, professionalId, new Date(startIso), now);
+  if (!slot) redirect(`${back}&erro=ocupado`);
+
+  const { insurance } = await prisma.patient.findFirstOrThrow({ where: { id: patient.id, clinicId: patient.clinicId }, select: { insurance: true } });
+  const created = await prisma.appointment.create({
+    data: {
+      clinicId: patient.clinicId,
+      patientId: patient.id,
+      professionalId,
+      startsAt: slot.start,
+      endsAt: slot.end,
+      type: "CONSULTA",
+      // Mesmo jeito da agenda: vazio é particular.
+      insurance: insurance && insurance !== "Particular" ? insurance : null,
+      createdInAppAt: now,
+    },
+  });
+  await audit({
+    clinicId: patient.clinicId,
+    action: "PACIENTE_APP_MARCOU",
+    entity: "Appointment",
+    entityId: created.id,
+    patientId: patient.id,
+    details: { professionalId, startsAt: slot.start.toISOString() },
+  });
+  refreshAgenda();
+  redirect("/paciente?ok=marcada");
+}
+
+// Troca o horário de uma consulta marcada, com o mesmo profissional.
+export async function patientReschedule(id: string, startIso: string) {
+  const { patient, appointment } = await ownAppointment(id);
+  if (!patientCanCancel(appointment)) redirect("/paciente");
+  const slot = await findFreeSlot(patient.clinicId, appointment.professionalId, new Date(startIso));
+  if (!slot) redirect(`/paciente/remarcar/${id}?erro=ocupado`);
+
+  await prisma.appointment.update({
+    where: { id },
+    data: {
+      startsAt: slot.start,
+      endsAt: slot.end,
+      // Horário novo: a confirmação anterior não vale mais.
+      status: "AGENDADO",
+      confirmedInAppAt: null,
+      confirmationSentAt: null,
+      rescheduledInAppAt: new Date(),
+    },
+  });
+  await audit({
+    clinicId: patient.clinicId,
+    action: "PACIENTE_APP_REMARCOU",
+    entity: "Appointment",
+    entityId: id,
+    patientId: patient.id,
+    details: { antes: appointment.startsAt.toISOString(), depois: slot.start.toISOString(), dia: clinicParts(slot.start).date },
+  });
+  await syncAppointmentTeleconsultation(id, null);
+  refreshAgenda();
+  redirect("/paciente?ok=remarcada");
 }

@@ -48,3 +48,27 @@ export function patientCanCancel(a: PatientAppointment, now = new Date()) {
 export function patientCancelReason(reason: string) {
   return reason.trim().slice(0, 300) || null;
 }
+
+// Marcação pelo aplicativo: o paciente escolhe um horário livre da agenda do profissional.
+export const BOOKING_DAYS = 30;
+// Antecedência mínima, para a recepção não ser pega de surpresa.
+export const MIN_NOTICE_MINUTES = 60;
+// Limite de consultas futuras marcadas pelo próprio paciente, para ninguém lotar a agenda.
+export const MAX_APP_BOOKINGS = 3;
+
+export function bookable<T extends { start: Date }>(slots: T[], now = new Date()) {
+  const limit = now.getTime() + MIN_NOTICE_MINUTES * 60 * 1000;
+  return slots.filter((s) => s.start.getTime() >= limit);
+}
+
+// O que o paciente fez por último pelo aplicativo nesta consulta (para o quadro da Recepção).
+export function lastAppAction(a: {
+  status: string;
+  createdInAppAt: Date | null;
+  rescheduledInAppAt: Date | null;
+  cancelledInAppAt: Date | null;
+}) {
+  if (a.status === "DESMARCADO") return a.cancelledInAppAt ? { label: "Desmarcou", at: a.cancelledInAppAt } : null;
+  if (a.rescheduledInAppAt && (!a.createdInAppAt || a.rescheduledInAppAt > a.createdInAppAt)) return { label: "Remarcou", at: a.rescheduledInAppAt };
+  return a.createdInAppAt ? { label: "Marcou", at: a.createdInAppAt } : null;
+}

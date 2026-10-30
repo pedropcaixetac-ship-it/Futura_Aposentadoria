@@ -134,11 +134,15 @@ Este é o primeiro módulo: **Prontuário**.
 - Endereço `/paciente` (também há um link na tela de entrada da equipe). Pode ser instalado no celular com nome e ícone próprios
 - O paciente entra com o código da clínica, o CPF e a data de nascimento do cadastro (quem não tem CPF no cadastro não consegue entrar)
 - Mostra só as consultas: próximas (com o botão "Entrar na teleconsulta" quando for o caso) e as 10 últimas. Nada do prontuário
+- "Marcar consulta": o paciente escolhe o profissional, o dia e um horário livre da agenda (mesma conta da agenda:
+  horários de atendimento, bloqueios e consultas já marcadas). Mostra os próximos 30 dias, com pelo menos 1 hora de antecedência.
+  Cada paciente pode ter até 3 consultas futuras marcadas pelo app; acima disso, pela recepção
+- "Remarcar": troca o horário da consulta, com o mesmo profissional (a confirmação anterior deixa de valer)
 - Em cada próxima consulta: "Confirmar presença" e "Desmarcar" (pede confirmação e um motivo opcional).
   Vale para consultas que ainda não começaram e em que a recepção não marcou chegada
-- Ligado à Agenda e à Recepção na hora: a situação aparece como "Confirmado pelo app" ou "Desmarcado pelo app",
-  o horário desmarcado fica livre na agenda e a Recepção mostra um quadro "Desmarcadas pelo paciente no aplicativo"
-  (consultas futuras desmarcadas na última semana) para remarcar ou encaixar outra pessoa.
+- Ligado à Agenda e à Recepção na hora: a situação aparece como "Agendado pelo app", "Confirmado pelo app" ou "Desmarcado pelo app",
+  o horário desmarcado fica livre na agenda e a Recepção mostra o quadro "Feito pelos pacientes no aplicativo"
+  (consultas futuras marcadas, remarcadas ou desmarcadas na última semana).
   Se for teleconsulta, o link de vídeo é encerrado
 - Depois de 5 tentativas erradas seguidas, a entrada daquele paciente fica travada por 15 minutos
 - Entradas, saídas, erros e travas ficam na auditoria

@@ -108,7 +108,8 @@ export default async function AppointmentPage({ params, searchParams }: { params
             <div><dt className="text-slate-500">Motivo da desmarcação</dt><dd>{appointment.cancelReason}</dd></div>
           )}
         </dl>
-        <p className="text-xs text-slate-400">Marcado por {displayName(appointment.createdBy)} em {formatDateTime(appointment.createdAt)}</p>
+        <p className="text-xs text-slate-400">Marcado {appointment.createdBy ? `por ${displayName(appointment.createdBy)}` : "pelo paciente no aplicativo"} em {formatDateTime(appointment.createdAt)}
+          {appointment.rescheduledInAppAt && ` · remarcado pelo paciente em ${formatDateTime(appointment.rescheduledInAppAt)}`}</p>
       </div>
 
       {canStart && (
