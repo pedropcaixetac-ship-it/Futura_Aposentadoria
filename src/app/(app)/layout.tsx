@@ -5,6 +5,7 @@ import { roleLabel } from "@/lib/format";
 import { logout } from "../login/actions";
 import { SidebarNav, type NavItem } from "./sidebar-nav";
 import { SidebarShell } from "./sidebar-shell";
+import { ReportLink } from "./report-link";
 import { displayName } from "@/lib/staff";
 import { billingStatus } from "@/lib/plans";
 import { formatDate } from "@/lib/format";
@@ -60,6 +61,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <SidebarNav items={items} />
         </div>
 
+        <ReportLink />
         <form action={logout}>
           <button className="w-full rounded-md px-3 py-2 text-left text-sm text-marinho-100 hover:bg-marinho-800/60 hover:text-dourado-300">
             Sair

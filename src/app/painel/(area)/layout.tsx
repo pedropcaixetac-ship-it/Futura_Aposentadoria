@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { prisma } from "@/lib/db";
 import { requirePlatformUser } from "@/lib/painel-auth";
 import { platformLogout } from "../login/actions";
 
 export default async function PlatformLayout({ children }: { children: React.ReactNode }) {
   const user = await requirePlatformUser();
+  const openProblems = await prisma.problemReport.count({ where: { resolvedAt: null } });
   return (
     <div className="min-h-screen">
       <header className="bg-marinho-950 text-white">
@@ -12,6 +14,10 @@ export default async function PlatformLayout({ children }: { children: React.Rea
           <nav className="flex gap-4 text-sm text-marinho-100">
             <Link href="/painel" className="hover:text-dourado-300">Clínicas</Link>
             <Link href="/painel/planos" className="hover:text-dourado-300">Planos</Link>
+            <Link href="/painel/problemas" className="hover:text-dourado-300">
+              Problemas
+              {openProblems > 0 && <span className="ml-1 rounded-full bg-red-600 px-1.5 py-0.5 text-xs font-medium text-white">{openProblems}</span>}
+            </Link>
             <Link href="/painel/registro" className="hover:text-dourado-300">Registro de ações</Link>
           </nav>
           <div className="ml-auto flex items-center gap-3 text-sm">
