@@ -87,6 +87,7 @@ model Clinic {
   workHours      WorkHours[]
   scheduleBlocks ScheduleBlock[]
   appointments   Appointment[]
+  signedPdfs     SignedPdf[]
 }
 
 model User {
@@ -123,6 +124,8 @@ model User {
   scheduleBlocks      ScheduleBlock[]
   appointments        Appointment[]      @relation("AppointmentProfessional")
   appointmentsCreated Appointment[]      @relation("AppointmentCreator")
+  signatureSessions   SignatureSession[]
+  signedPdfs          SignedPdf[]
 
   @@unique([clinicId, email])
   @@unique([clinicId, cpf])
@@ -205,6 +208,7 @@ model Patient {
   charges      Charge[]
   documents    ClinicalDocument[]
   appointments Appointment[]
+  signedPdfs   SignedPdf[]
 
   @@unique([clinicId, cpf])
   @@unique([clinicId, cns])
@@ -263,6 +267,7 @@ model Encounter {
   documents   ClinicalDocument[]
   charges     Charge[]
   appointment Appointment?
+  signedPdf   SignedPdf?
 
   @@index([clinicId, patientId, startedAt])
 }
@@ -286,7 +291,49 @@ model ClinicalDocument {
   // Impressão digital (SHA-256) do texto emitido, como nos atendimentos.
   contentHash String
 
+  signedPdf SignedPdf?
+
   @@index([encounterId])
+}
+
+// Autorização que o profissional deu no app do certificado (BirdID, VIDaaS)
+// para o sistema assinar por algumas horas sem pedir confirmação a cada documento.
+model SignatureSession {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider         String
+  // Guardado cifrado: quem ler o banco não consegue assinar.
+  accessToken      String
+  certificateAlias String
+  // Certificado do profissional e cadeia, em base64, separados por vírgula.
+  certificateChain String
+  expiresAt        DateTime
+  createdAt        DateTime @default(now())
+
+  @@unique([userId, provider])
+}
+
+// PDF assinado com certificado ICP-Brasil. Não pode ser alterado nem apagado.
+model SignedPdf {
+  id                String            @id @default(cuid())
+  clinicId          String
+  clinic            Clinic            @relation(fields: [clinicId], references: [id])
+  patientId         String
+  patient           Patient           @relation(fields: [patientId], references: [id])
+  encounterId       String?           @unique
+  encounter         Encounter?        @relation(fields: [encounterId], references: [id])
+  documentId        String?           @unique
+  document          ClinicalDocument? @relation(fields: [documentId], references: [id])
+  signerId          String
+  signer            User              @relation(fields: [signerId], references: [id])
+  provider          String
+  signerName        String
+  signerCpf         String?
+  certificateSerial String
+  pdf               Bytes
+  sha256            String
+  signedAt          DateTime          @default(now())
 }
 
 model Addendum {

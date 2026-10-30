@@ -57,4 +57,6 @@ export const auditActionLabel: Record<string, string> = {
   WHATSAPP_AUTORIZADO: "Registrou autorização do paciente para WhatsApp",
   WHATSAPP_REVOGADO: "Registrou que o paciente retirou a autorização para WhatsApp",
   WHATSAPP_ABERTO: "Abriu conversa no WhatsApp com o paciente",
+  DOCUMENTO_ASSINADO: "Assinou digitalmente (ICP-Brasil)",
+  PDF_ASSINADO_BAIXADO: "Baixou PDF assinado",
 };
