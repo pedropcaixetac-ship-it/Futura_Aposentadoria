@@ -37,6 +37,17 @@ function duplicateMessage(error: unknown) {
   return null;
 }
 
+// Limite de pessoas com acesso ao sistema do plano da clínica (Painel do dono).
+async function userLimitError(clinicId: string) {
+  const clinic = await prisma.clinic.findUniqueOrThrow({ where: { id: clinicId }, include: { plan: true } });
+  const max = clinic.plan?.maxUsers;
+  if (!max) return null;
+  const count = await prisma.user.count({ where: { clinicId, active: true, systemAccess: true } });
+  return count >= max
+    ? `O plano ${clinic.plan!.name} permite até ${max} pessoas com acesso ao sistema. Tire o acesso de alguém ou fale com o suporte para mudar de plano.`
+    : null;
+}
+
 export async function saveStaff(id: string | null, _: FormState, formData: FormData): Promise<FormState> {
   const admin = await requireUser("servidores");
   const input = parseStaff(formData);
@@ -48,6 +59,11 @@ export async function saveStaff(id: string | null, _: FormState, formData: FormD
   if (error) return { error };
   if (current?.id === admin.id && (input.role !== "ADMIN" || !input.systemAccess)) {
     return { error: "Você não pode tirar o seu próprio perfil de gerente do sistema." };
+  }
+  // Quem passa a entrar no sistema conta no limite do plano.
+  if (input.systemAccess && !(current?.systemAccess && current.active)) {
+    const limit = await userLimitError(admin.clinicId);
+    if (limit) return { error: limit };
   }
 
   const { password, ...data } = input;
@@ -142,7 +158,11 @@ export async function terminateStaff(id: string, _: FormState, formData: FormDat
 
 export async function reactivateStaff(id: string) {
   const admin = await requireUser("servidores");
-  await findEditableStaff(admin, id);
+  const staff = await findEditableStaff(admin, id);
+  if (staff.systemAccess) {
+    const limit = await userLimitError(admin.clinicId);
+    if (limit) throw new Error(limit);
+  }
   await prisma.user.update({ where: { id }, data: { active: true, terminatedAt: null, terminationReason: null } });
   await audit({ clinicId: admin.clinicId, userId: admin.id, action: "SERVIDOR_REATIVADO", entity: "User", entityId: id });
   revalidatePath("/servidores");

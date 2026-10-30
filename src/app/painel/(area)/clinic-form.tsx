@@ -19,6 +19,8 @@ type Clinic = {
 type Props = {
   action: (state: FormState, formData: FormData) => Promise<FormState>;
   clinic?: Clinic;
+  // Planos oferecidos, para escolher no cadastro de uma clínica nova.
+  plans?: { id: string; name: string; price: string }[];
 };
 
 function Field({ label, name, hint, ...props }: { label: string; name: string; hint?: string } & React.InputHTMLAttributes<HTMLInputElement>) {
@@ -32,7 +34,7 @@ function Field({ label, name, hint, ...props }: { label: string; name: string; h
 }
 
 // Sem "clinic", cadastra uma clínica nova junto com o primeiro gerente do sistema.
-export function ClinicForm({ action, clinic }: Props) {
+export function ClinicForm({ action, clinic, plans }: Props) {
   const [name, setName] = useState(clinic?.name ?? "");
   const [slug, setSlug] = useState(clinic?.slug ?? "");
   const [slugTouched, setSlugTouched] = useState(!!clinic);
@@ -59,6 +61,15 @@ export function ClinicForm({ action, clinic }: Props) {
           <div className="sm:col-span-2">
             <Field label="Endereço" name="address" defaultValue={clinic?.address ?? ""} />
           </div>
+          {!clinic && plans && (
+            <div>
+              <label className="label" htmlFor="planId">Plano</label>
+              <select className="input" id="planId" name="planId" defaultValue={plans[0]?.id ?? ""}>
+                <option value="">Sem plano (tudo liberado)</option>
+                {plans.map((p) => <option key={p.id} value={p.id}>{p.name} · {p.price}</option>)}
+              </select>
+            </div>
+          )}
         </div>
       </section>
 

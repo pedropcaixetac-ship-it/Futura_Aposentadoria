@@ -8,6 +8,7 @@ import { createSession, destroySession, getCurrentUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { matchesCouncil, parseLoginId } from "@/lib/login";
 import { UFS } from "@/lib/patient";
+import { clinicBlocked } from "@/lib/plans";
 import { open, seal } from "@/lib/signature/secret-box";
 import { hashRecoveryCode, verifyTotp } from "@/lib/totp";
 
@@ -85,9 +86,14 @@ export async function login(_: LoginState, formData: FormData): Promise<LoginSta
     return { error: "Clínica, login ou senha incorretos." };
   }
 
-  if (!clinic.active) {
-    await audit({ clinicId: clinic.id, userId: user.id, action: "LOGIN_FALHOU", entity: "User", details: { login: loginId, motivo: "clínica suspensa" } });
-    return { error: "O acesso desta clínica está suspenso. Fale com o suporte do sistema." };
+  const blocked = clinicBlocked(clinic);
+  if (blocked) {
+    await audit({ clinicId: clinic.id, userId: user.id, action: "LOGIN_FALHOU", entity: "User", details: { login: loginId, motivo: `clínica ${blocked}` } });
+    return {
+      error: blocked === "atrasada"
+        ? "O acesso desta clínica foi suspenso por mensalidade em atraso. Fale com o suporte do sistema."
+        : "O acesso desta clínica está suspenso. Fale com o suporte do sistema.",
+    };
   }
 
   // Com verificação em duas etapas, a senha certa só leva ao pedido do código do celular.
@@ -120,7 +126,7 @@ export async function loginCode(_: LoginState, formData: FormData): Promise<Logi
   if (!pending || pending.expires < Date.now()) return expired;
 
   const user = await prisma.user.findUnique({ where: { id: pending.userId }, omit: withSecrets, include: { clinic: true } });
-  if (!user?.active || !user.systemAccess || !user.clinic.active || !user.totpSecret || !user.totpEnabledAt) return expired;
+  if (!user?.active || !user.systemAccess || clinicBlocked(user.clinic) || !user.totpSecret || !user.totpEnabledAt) return expired;
   if (await isLocked(user.clinicId, user.id)) {
     jar.delete({ name: TWO_FACTOR_COOKIE, path: "/login" });
     return { error: lockedMessage };

@@ -11,6 +11,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
           <Link href="/painel" className="font-semibold text-dourado-300">Painel do dono do sistema</Link>
           <nav className="flex gap-4 text-sm text-marinho-100">
             <Link href="/painel" className="hover:text-dourado-300">Clínicas</Link>
+            <Link href="/painel/planos" className="hover:text-dourado-300">Planos</Link>
             <Link href="/painel/registro" className="hover:text-dourado-300">Registro de ações</Link>
           </nav>
           <div className="ml-auto flex items-center gap-3 text-sm">

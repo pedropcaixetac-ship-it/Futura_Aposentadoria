@@ -6,6 +6,8 @@ import { logout } from "../login/actions";
 import { SidebarNav, type NavItem } from "./sidebar-nav";
 import { SidebarShell } from "./sidebar-shell";
 import { displayName } from "@/lib/staff";
+import { billingStatus } from "@/lib/plans";
+import { formatDate } from "@/lib/format";
 
 function initials(name: string) {
   return name
@@ -18,6 +20,14 @@ function initials(name: string) {
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
+  // Aviso da mensalidade do sistema, só para o gerente do sistema da clínica.
+  const billing = user.role === "ADMIN" ? billingStatus(user.clinic.paidUntil) : null;
+  const billingNotice =
+    billing?.kind === "vence-logo"
+      ? `A mensalidade do sistema vence ${billing.daysLeft === 0 ? "hoje" : `em ${formatDate(user.clinic.paidUntil)}`}. Fale com o suporte se precisar do boleto ou do Pix.`
+      : billing?.kind === "atrasada"
+        ? `A mensalidade do sistema está atrasada há ${billing.daysLate} dia(s). O acesso da clínica será suspenso em ${billing.daysToBlock} dia(s) se o pagamento não for registrado.`
+        : null;
 
   // Abas liberadas para a pessoa: padrão do perfil ou o que o administrador escolheu em "Editar permissões".
   // "Meu cadastro" aparece para todos, sem depender de permissão.
@@ -57,7 +67,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </form>
       </SidebarShell>
       <main className="min-w-0 flex-1 px-4 py-6 md:px-8">
-        <div className="mx-auto max-w-6xl">{children}</div>
+        <div className="mx-auto max-w-6xl">
+          {billingNotice && (
+            <p className={`no-print mb-4 rounded-md px-3 py-2 text-sm ${billing?.kind === "atrasada" ? "bg-red-50 text-red-700" : "bg-dourado-100 text-dourado-700"}`}>
+              {billingNotice}
+            </p>
+          )}
+          {children}
+        </div>
       </main>
     </div>
   );

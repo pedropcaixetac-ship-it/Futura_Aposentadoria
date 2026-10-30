@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "./db";
 import { hasTab, type TabKey } from "./tabs";
+import { clinicBlocked } from "./plans";
 
 const COOKIE = "sessao";
 const SESSION_HOURS = 12;
@@ -47,11 +48,11 @@ export async function getCurrentUser() {
   if (!token) return null;
   const session = await prisma.session.findUnique({
     where: { id: hashToken(token) },
-    include: { user: { include: { clinic: true }, omit: { photo: true, passwordHash: true, totpSecret: true, totpRecoveryCodes: true } } },
+    include: { user: { include: { clinic: { include: { plan: true } } }, omit: { photo: true, passwordHash: true, totpSecret: true, totpRecoveryCodes: true } } },
   });
   if (!session || session.expiresAt < new Date() || !session.user.active || !session.user.systemAccess) return null;
-  // Clínica suspensa no Painel do dono: ninguém dela continua conectado.
-  if (!session.user.clinic.active) return null;
+  // Clínica suspensa no Painel do dono (ou com a mensalidade muito atrasada): ninguém dela continua conectado.
+  if (clinicBlocked(session.user.clinic)) return null;
   const now = Date.now();
   if (now - session.lastSeenAt.getTime() > IDLE_MINUTES * 60_000) {
     await prisma.session.deleteMany({ where: { id: session.id } });
@@ -61,7 +62,8 @@ export async function getCurrentUser() {
   if (now - session.lastSeenAt.getTime() > 60_000) {
     await prisma.session.update({ where: { id: session.id }, data: { lastSeenAt: new Date(now) } });
   }
-  return session.user;
+  // Módulos do plano da clínica; sem plano, tudo liberado (ver src/lib/plans.ts).
+  return { ...session.user, modules: session.user.clinic.plan?.modules ?? null };
 }
 
 export type CurrentUser = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
