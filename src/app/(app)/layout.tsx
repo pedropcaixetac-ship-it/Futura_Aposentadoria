@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/auth";
-import { canManageTemplates, canViewAudit, canViewClinical } from "@/lib/permissions";
+import { canAccessAccounting, canManageTemplates, canViewAudit, canViewClinical } from "@/lib/permissions";
 import { roleLabel } from "@/lib/format";
 import { logout } from "../login/actions";
 import { SidebarNav, type NavItem } from "./sidebar-nav";
@@ -25,6 +25,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     ...(canManageTemplates(user) ? [{ href: "/modelos", label: "Modelos de atendimento" }] : []),
     ...(clinical ? [{ href: "/textos-prontos", label: "Meus textos prontos" }] : []),
     { href: "/financeiro", label: "Financeiro" },
+    ...(canAccessAccounting(user) ? [{ href: "/contabilidade", label: "Contabilidade e trabalhista" }] : []),
     ...(canViewAudit(user) ? [{ href: "/auditoria", label: "Auditoria" }] : []),
   ];
 

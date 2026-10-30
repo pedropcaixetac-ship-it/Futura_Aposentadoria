@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export function FinanceTabs({ tabs }: { tabs: { href: string; label: string }[] }) {
+// root: a aba principal, que só fica marcada no endereço exato.
+export function FinanceTabs({ tabs, root = "/financeiro" }: { tabs: { href: string; label: string }[]; root?: string }) {
   const pathname = usePathname();
   return (
     <nav className="no-print flex flex-wrap gap-1 border-b border-slate-200">
       {tabs.map((tab) => {
-        const active = tab.href === "/financeiro" ? pathname === tab.href : pathname.startsWith(tab.href);
+        const active = tab.href === root ? pathname === tab.href : pathname.startsWith(tab.href);
         return (
           <Link
             key={tab.href}

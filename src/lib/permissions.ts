@@ -49,3 +49,8 @@ export function canCancelCharge(user: PermissionUser, charge: { status: "PENDENT
 export function canViewCommission(user: PermissionUser, professionalId: string) {
   return canManageFinance(user) || user.id === professionalId;
 }
+
+// Contabilidade e parte trabalhista: o administrador e o auxiliar administrativo.
+export function canAccessAccounting(user: PermissionUser) {
+  return user.role === "ADMIN" || user.role === "ADMINISTRATIVO";
+}

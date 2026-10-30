@@ -38,6 +38,18 @@ Este é o primeiro módulo: **Prontuário**.
 - Recibo numerado, com valor por extenso, para imprimir ou salvar em PDF
 - O administrador vê tudo; a recepção lança cobranças e recebe pagamentos; cada profissional vê só o próprio repasse
 
+### Contabilidade e trabalhista
+
+- Aba para o administrador e para o novo perfil "Auxiliar administrativo" (a recepção e os profissionais não veem)
+- Funcionários da clínica: dados pessoais, função, setor, tipo de vínculo (CLT, PJ, estágio, autônomo), admissão, salário e desligamento
+- Férias (CLT): períodos de cada ano trabalhado, prazo para tirar, dias já tirados e férias marcadas, com aviso de férias vencendo ou vencidas
+- Aviso do fim do contrato de experiência (90 dias)
+- Folha do mês: faltas, horas extras, outros ganhos e descontos de cada funcionário para enviar ao contador, e o líquido que ele devolve.
+  Um botão lança os salários como despesas no Financeiro, com vencimento no 5º dia útil
+- Impostos e obrigações do mês (FGTS, INSS/DCTFWeb, DAS, ISS, eSocial, salários, 13º...), com vencimento, atraso e "marcar como pago".
+  Com o valor pago, a guia entra como despesa no Financeiro. A lista pode ser ajustada para cada clínica
+- Dados do contador e planilha do mês (abre no Excel) com receitas, despesas, folha e obrigações, para enviar ao contador
+
 ## Usuários de demonstração
 
 Código da clínica: `demo`. Senha de todos: `senha123`.
@@ -48,6 +60,7 @@ Código da clínica: `demo`. Senha de todos: `senha123`.
 | carlos@demo.com | Psicólogo (CRP) |
 | recepcao@demo.com | Recepção |
 | admin@demo.com | Administrador |
+| administrativo@demo.com | Auxiliar administrativo |
 
 ## Para quem for rodar o código
 

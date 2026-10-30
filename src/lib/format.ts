@@ -34,7 +34,7 @@ export function isValidCpf(value: string) {
   return true;
 }
 
-export const roleLabel = { ADMIN: "Administrador", PROFISSIONAL: "Profissional de saúde", RECEPCAO: "Recepção" } as const;
+export const roleLabel = { ADMIN: "Administrador", PROFISSIONAL: "Profissional de saúde", RECEPCAO: "Recepção", ADMINISTRATIVO: "Auxiliar administrativo" } as const;
 
 export function onlyDigits(value: string | null | undefined) {
   return (value ?? "").replace(/\D/g, "");
