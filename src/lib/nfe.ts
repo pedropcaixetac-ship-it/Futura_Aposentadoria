@@ -93,3 +93,36 @@ export function parseNfe(xml: string): Nfe | null {
     installments,
   };
 }
+
+// O que dá para saber só pela chave de acesso (44 números, também impressa no código de barras do DANFE).
+// Itens e valores não estão na chave: esses só vêm pelo XML.
+export type AccessKeyInfo = { cnpj: string; series: string; number: string; issueMonth: string; model: string };
+
+const ufCodes = new Set([11, 12, 13, 14, 15, 16, 17, 21, 22, 23, 24, 25, 26, 27, 28, 29, 31, 32, 33, 35, 41, 42, 43, 50, 51, 52, 53]);
+
+// Último número da chave: conta de verificação (módulo 11) que pega erro de digitação ou leitura.
+export function accessKeyCheckDigit(first43: string) {
+  let sum = 0;
+  let weight = 2;
+  for (let i = first43.length - 1; i >= 0; i--) {
+    sum += Number(first43[i]) * weight;
+    weight = weight === 9 ? 2 : weight + 1;
+  }
+  const dv = 11 - (sum % 11);
+  return dv >= 10 ? 0 : dv;
+}
+
+export function parseAccessKey(input: string): AccessKeyInfo | null {
+  const key = input.replace(/\D/g, "");
+  if (key.length !== 44 || !ufCodes.has(Number(key.slice(0, 2)))) return null;
+  if (accessKeyCheckDigit(key.slice(0, 43)) !== Number(key[43])) return null;
+  const month = Number(key.slice(4, 6));
+  if (month < 1 || month > 12) return null;
+  return {
+    issueMonth: `20${key.slice(2, 4)}-${key.slice(4, 6)}`,
+    cnpj: key.slice(6, 20),
+    model: key.slice(20, 22),
+    series: String(Number(key.slice(22, 25))),
+    number: String(Number(key.slice(25, 34))),
+  };
+}
