@@ -50,6 +50,19 @@ Este é o primeiro módulo: **Prontuário**.
 - Desligamento com data e motivo: a pessoa perde o acesso na hora, mas continua no cadastro, porque assina atendimentos antigos
 - Tudo fica na auditoria
 
+### Contabilidade e trabalhista
+
+- Aba para o administrador e para o novo perfil "Auxiliar administrativo" (e para quem o administrador liberar em "Editar permissões")
+- Usa a mesma equipe do cadastro de servidores: aqui entram só os dados do contrato de trabalho (vínculo CLT, PJ, estágio ou autônomo,
+  admissão, salário, jornada, PIS, Pix). Nome, CPF, função, setor e desligamento vêm do cadastro de servidores
+- Férias (CLT): períodos de cada ano trabalhado, prazo para tirar, dias já tirados e férias marcadas, com aviso de férias vencendo ou vencidas
+- Aviso do fim do contrato de experiência (90 dias)
+- Folha do mês: faltas, horas extras, outros ganhos e descontos de cada funcionário para enviar ao contador, e o líquido que ele devolve.
+  Um botão lança os salários como despesas no Financeiro, com vencimento no 5º dia útil
+- Impostos e obrigações do mês (FGTS, INSS/DCTFWeb, DAS, ISS, eSocial, salários, 13º...), com vencimento, atraso e "marcar como pago".
+  Com o valor pago, a guia entra como despesa no Financeiro. A lista pode ser ajustada para cada clínica
+- Dados do contador e planilha do mês (abre no Excel) com receitas, despesas, folha e obrigações, para enviar ao contador
+
 ## Usuários de demonstração
 
 Código da clínica: `demo`. Senha de todos: `senha123`. Dá para entrar pelo e-mail, pelo CPF ou pelo conselho.
@@ -60,6 +73,7 @@ Código da clínica: `demo`. Senha de todos: `senha123`. Dá para entrar pelo e-
 | carlos@demo.com | 390.533.447-05 | CRP 06/98765 | Psicólogo |
 | recepcao@demo.com | 111.444.777-35 | | Recepção |
 | admin@demo.com | 123.456.789-09 | | Administrador |
+| administrativo@demo.com | | | Auxiliar administrativo |
 
 ## Para quem for rodar o código
 

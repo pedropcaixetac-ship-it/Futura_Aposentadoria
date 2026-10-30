@@ -15,6 +15,16 @@ enum Role {
   ADMIN
   PROFISSIONAL
   RECEPCAO
+  // Auxiliar administrativo: cuida da contabilidade e da parte trabalhista.
+  ADMINISTRATIVO
+}
+
+// Tipo de vínculo de trabalho de um servidor.
+enum EmploymentType {
+  CLT
+  PJ
+  ESTAGIO
+  AUTONOMO
 }
 
 enum EncounterStatus {
@@ -57,22 +67,32 @@ model Clinic {
   phone             String?
   // Último número de recibo emitido (os recibos seguem uma sequência por clínica).
   lastReceiptNumber Int      @default(0)
+  // Contabilidade: regime de impostos e contato do escritório de contabilidade.
+  taxRegime         String?
+  accountantName    String?
+  accountantEmail   String?
+  accountantPhone   String?
 
-  users      User[]
-  patients   Patient[]
-  templates  RecordTemplate[]
-  encounters Encounter[]
-  auditLogs  AuditLog[]
-  priceItems PriceItem[]
-  charges    Charge[]
-  expenses   Expense[]
-  documents  ClinicalDocument[]
+  users          User[]
+  patients       Patient[]
+  templates      RecordTemplate[]
+  encounters     Encounter[]
+  auditLogs      AuditLog[]
+  priceItems     PriceItem[]
+  charges        Charge[]
+  expenses       Expense[]
+  documents      ClinicalDocument[]
+  contracts      EmploymentContract[]
+  vacations      Vacation[]
+  payrollEntries PayrollEntry[]
+  obligations    TaxObligation[]
+  obligationDone ObligationEntry[]
 }
 
 model User {
-  id                String   @id @default(cuid())
+  id                String    @id @default(cuid())
   clinicId          String
-  clinic            Clinic   @relation(fields: [clinicId], references: [id])
+  clinic            Clinic    @relation(fields: [clinicId], references: [id])
   name              String
   email             String
   // CPF só com números. Serve para entrar no sistema no lugar do e-mail.
@@ -92,14 +112,14 @@ model User {
   jobTitle          String?
   // Abas liberadas para a pessoa. Enquanto customTabs for false, valem as abas
   // padrão do perfil (ver src/lib/tabs.ts).
-  customTabs        Boolean  @default(false)
-  allowedTabs       String[] @default([])
+  customTabs        Boolean   @default(false)
+  allowedTabs       String[]  @default([])
   // false bloqueia o login. No desligamento a pessoa perde o acesso, mas continua
   // no cadastro, porque é a autora de atendimentos antigos do prontuário.
-  active            Boolean  @default(true)
+  active            Boolean   @default(true)
   terminatedAt      DateTime? @db.Date
   terminationReason String?
-  createdAt         DateTime @default(now())
+  createdAt         DateTime  @default(now())
 
   sessions   Session[]
   encounters Encounter[]
@@ -108,6 +128,8 @@ model User {
   snippets   TextSnippet[]
   charges    Charge[]
   documents  ClinicalDocument[]
+  // Dados de contrato de trabalho (aba Contabilidade). Vazio para quem não é funcionário da clínica.
+  contract   EmploymentContract?
 
   @@unique([clinicId, email])
   @@unique([clinicId, cpf])
@@ -143,7 +165,7 @@ model Patient {
 
   // Contato (telefones guardados só com os números)
   phone                 String?
-  phoneWhatsapp         Boolean @default(true)
+  phoneWhatsapp         Boolean   @default(true)
   landline              String?
   email                 String?
   emergencyContactName  String?
@@ -378,4 +400,108 @@ model Cid10 {
   description String
 
   @@index([description])
+}
+
+// ---------- Contabilidade e parte trabalhista ----------
+
+// Dados de contrato de trabalho de um servidor. A pessoa em si (nome, CPF, função, setor,
+// desligamento) está no cadastro de servidores (User); aqui fica só o que é trabalhista.
+model EmploymentContract {
+  id            String         @id @default(cuid())
+  clinicId      String
+  clinic        Clinic         @relation(fields: [clinicId], references: [id])
+  userId        String         @unique
+  user          User           @relation(fields: [userId], references: [id])
+  type          EmploymentType @default(CLT)
+  admissionDate DateTime       @db.Date
+  salaryCents   Int
+  weeklyHours   Int?
+  pis           String?
+  // Chave Pix ou dados bancários para o pagamento do salário.
+  paymentInfo   String?
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  vacations      Vacation[]
+  payrollEntries PayrollEntry[]
+
+  @@index([clinicId])
+}
+
+// Férias tiradas (ou marcadas) por um funcionário.
+model Vacation {
+  id         String             @id @default(cuid())
+  clinicId   String
+  clinic     Clinic             @relation(fields: [clinicId], references: [id])
+  contractId String
+  contract   EmploymentContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  startDate  DateTime           @db.Date
+  endDate    DateTime           @db.Date
+  notes      String?
+  createdAt  DateTime           @default(now())
+
+  @@index([contractId, startDate])
+}
+
+// Uma linha da folha do mês: o que aconteceu com o funcionário no mês (faltas, horas extras...),
+// para enviar ao contador, e o valor líquido que o contador devolve.
+model PayrollEntry {
+  id              String             @id @default(cuid())
+  clinicId        String
+  clinic          Clinic             @relation(fields: [clinicId], references: [id])
+  contractId      String
+  contract        EmploymentContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  // Mês de competência, no formato aaaa-mm.
+  month           String
+  baseCents       Int
+  absenceDays     Int                @default(0)
+  overtimeHours   Int                @default(0)
+  additionsCents  Int                @default(0)
+  deductionsCents Int                @default(0)
+  netCents        Int?
+  notes           String?
+  // Despesa criada no Financeiro quando o salário foi lançado.
+  expenseId       String?
+  updatedAt       DateTime           @updatedAt
+
+  @@unique([contractId, month])
+  @@index([clinicId, month])
+}
+
+// Obrigação que se repete todo mês (ou todo ano): impostos, FGTS, eSocial, salários...
+model TaxObligation {
+  id          String   @id @default(cuid())
+  clinicId    String
+  clinic      Clinic   @relation(fields: [clinicId], references: [id])
+  name        String
+  // "Imposto", "Trabalhista" ou "Envio" (declarações e documentos, sem valor a pagar).
+  kind        String
+  dueDay      Int
+  // true: dueDay é o n-ésimo dia útil (ex.: salário até o 5º dia útil).
+  businessDay Boolean  @default(false)
+  // Só para obrigações anuais: o mês (1 a 12) em que vencem.
+  onlyMonth   Int?
+  hint        String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  entries ObligationEntry[]
+}
+
+// Registro de que a obrigação de um mês foi cumprida.
+model ObligationEntry {
+  id           String        @id @default(cuid())
+  clinicId     String
+  clinic       Clinic        @relation(fields: [clinicId], references: [id])
+  obligationId String
+  obligation   TaxObligation @relation(fields: [obligationId], references: [id], onDelete: Cascade)
+  month        String
+  doneAt       DateTime      @db.Date
+  amountCents  Int?
+  expenseId    String?
+  notes        String?
+  createdAt    DateTime      @default(now())
+
+  @@unique([obligationId, month])
 }
