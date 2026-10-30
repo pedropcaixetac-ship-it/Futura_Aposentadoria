@@ -1,0 +1,79 @@
+# Cópia de segurança diária do banco (Neon), trancada com senha, guardada por 30 dias aqui no GitHub.
+# Toda cópia é restaurada num banco descartável e conferida: se a cópia não volta, a execução falha
+# e o GitHub manda e-mail para o dono do repositório. O banco de produção só é lido, nunca alterado.
+#
+# Precisa de dois segredos em Settings → Secrets and variables → Actions:
+#   BACKUP_DATABASE_URL  endereço de conexão direta do Neon (o "unpooled", da branch de produção)
+#   BACKUP_SENHA         senha longa para trancar a cópia (guarde num lugar seguro: sem ela a cópia não abre)
+# Como restaurar uma cópia: docs/backup.md.
+name: Cópia de segurança do banco
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # 3h da manhã em Brasília
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      teste:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: teste
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PG: docker run --rm --network host -v ${{ github.workspace }}:/w -w /w postgres:18
+      TESTE_URL: postgresql://postgres:teste@localhost:5432/postgres
+    steps:
+      - name: Conferir segredos
+        env:
+          BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          BACKUP_SENHA: ${{ secrets.BACKUP_SENHA }}
+        run: |
+          if [ -z "$BACKUP_DATABASE_URL" ] || [ -z "$BACKUP_SENHA" ]; then
+            echo "::error::Faltam os segredos BACKUP_DATABASE_URL e BACKUP_SENHA (ver docs/backup.md)."
+            exit 1
+          fi
+
+      - name: Copiar o banco
+        env:
+          BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+        run: |
+          $PG pg_dump "$BACKUP_DATABASE_URL" --format=custom --no-owner --no-acl --file=banco.dump
+          # Contagem de linhas de todas as tabelas na hora da cópia, para comparar depois da restauração.
+          $PG psql "$BACKUP_DATABASE_URL" -At -f scripts/backup-contagem.sql > contagem-producao.txt
+          echo "Tamanho da cópia: $(du -h banco.dump | cut -f1)"
+
+      - name: Restaurar num banco descartável e conferir
+        run: |
+          $PG pg_restore --dbname="$TESTE_URL" --no-owner --no-acl --exit-on-error banco.dump
+          $PG psql "$TESTE_URL" -At -f scripts/backup-contagem.sql > contagem-restaurada.txt
+          if ! diff contagem-producao.txt contagem-restaurada.txt; then
+            echo "::error::A cópia restaurada não tem as mesmas linhas do banco de produção."
+            exit 1
+          fi
+          echo "Restauração conferida: $(wc -l < contagem-restaurada.txt) tabelas com o mesmo número de linhas."
+          grep -E '^"(Patient|Encounter|Appointment)"' contagem-restaurada.txt || true
+
+      - name: Trancar a cópia com senha
+        env:
+          BACKUP_SENHA: ${{ secrets.BACKUP_SENHA }}
+        run: |
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$BACKUP_SENHA" \
+            --symmetric --cipher-algo AES256 --output banco.dump.gpg banco.dump
+          rm banco.dump
+
+      - name: Guardar por 30 dias
+        uses: actions/upload-artifact@v4
+        with:
+          name: banco-${{ github.run_id }}
+          path: banco.dump.gpg
+          retention-days: 30
+          if-no-files-found: error
