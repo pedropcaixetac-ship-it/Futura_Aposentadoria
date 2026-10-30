@@ -85,6 +85,7 @@ export async function suspendClinic(id: string, _: FormState, formData: FormData
   await prisma.$transaction([
     prisma.clinic.update({ where: { id }, data: { active: false, suspendedAt: new Date(), suspendedReason: reason } }),
     prisma.session.deleteMany({ where: { user: { clinicId: id } } }),
+    prisma.patientSession.deleteMany({ where: { patient: { clinicId: id } } }),
   ]);
   await platformAudit({ userId: owner.id, action: "CLINICA_SUSPENSA", clinicId: id, details: { motivo: reason } });
   revalidatePath("/painel", "layout");

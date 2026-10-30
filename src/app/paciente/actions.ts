@@ -32,6 +32,8 @@ export async function patientLogin(_: { error: string }, formData: FormData) {
   }
 
   await prisma.patient.update({ where: { id: patient.id }, data: { appLoginFailures: 0, appLockedUntil: null } });
+  // Clínica suspensa no Painel do dono: o aplicativo do paciente também fica fechado.
+  if (!clinic.active) return { error: "O aplicativo desta clínica está fora do ar no momento. Fale com a recepção." };
   await createPatientSession(patient.id);
   await audit({ ...base, action: "PACIENTE_APP_ENTROU" });
   redirect("/paciente");
