@@ -2,7 +2,7 @@ import type { ClinicalDocument, Encounter, Patient, User } from "@prisma/client"
 import { age, formatCpf, formatDate, formatDateTime } from "./format";
 import { documentTypeLabel } from "./documents";
 import type { Diagnosis, TemplateField } from "./record";
-import type { PdfInput } from "./pdf";
+import type { PdfInput, PdfSection } from "./pdf";
 import { vitalsSummary, type Vitals } from "./vitals";
 import { displayName } from "./staff";
 
@@ -22,15 +22,15 @@ function patientLines(patient: Patient) {
   return lines;
 }
 
-export function encounterPdfInput(
-  clinicName: string,
-  encounter: Encounter & { patient: Patient; professional: User; addenda: { text: string; createdAt: Date; author: User }[] },
-): PdfInput {
+type EncounterForPdf = Encounter & { professional: User; addenda: { text: string; createdAt: Date; author: User }[] };
+
+// Sinais vitais, campos do modelo, diagnósticos e adendos de um atendimento.
+function encounterSections(encounter: EncounterForPdf): PdfSection[] {
   const fields = encounter.fields as TemplateField[];
   const content = encounter.content as Record<string, string>;
   const diagnoses = encounter.diagnoses as Diagnosis[];
 
-  const sections = fields.map((f) => ({ title: f.label, text: content[f.key] ?? "" }));
+  const sections: PdfSection[] = fields.map((f) => ({ title: f.label, text: content[f.key] ?? "" }));
   const vitals = vitalsSummary(encounter.vitals as Vitals | null);
   if (vitals) sections.unshift({ title: "Sinais vitais", text: vitals });
   if (diagnoses.length) {
@@ -40,6 +40,11 @@ export function encounterPdfInput(
     const who = [displayName(a.author), council(a.author)].filter(Boolean).join(" · ");
     sections.push({ title: `Adendo em ${formatDateTime(a.createdAt)} (${who})`, text: a.text });
   }
+  return sections;
+}
+
+export function encounterPdfInput(clinicName: string, encounter: EncounterForPdf & { patient: Patient }): PdfInput {
+  const sections = encounterSections(encounter);
 
   return {
     clinicName,
@@ -62,6 +67,46 @@ export function documentPdfInput(clinicName: string, doc: ClinicalDocument & { p
     professional: { name: displayName(doc.author), council: council(doc.author), specialty: doc.author.specialty },
     place: `Emitido em ${formatDateTime(doc.createdAt)}`,
     integrityCode: doc.contentHash,
+  };
+}
+
+// Prontuário completo: resumo clínico e todos os atendimentos finalizados, do mais antigo ao mais recente.
+export function recordPdfInput(
+  clinicName: string,
+  patient: Patient,
+  encounters: (EncounterForPdf & { documents: ClinicalDocument[] })[],
+  generatedBy: { name: string; jobTitle: string | null; sex: string | null },
+): PdfInput {
+  const sections: PdfSection[] = [
+    { heading: true, title: "Resumo clínico", text: "" },
+    { title: "Alergias", text: patient.allergies ?? "Não informado" },
+    { title: "Medicamentos em uso", text: patient.currentMedications ?? "Não informado" },
+    { title: "Antecedentes pessoais", text: patient.personalHistory ?? "Não informado" },
+    { title: "Antecedentes familiares", text: patient.familyHistory ?? "Não informado" },
+  ];
+  for (const e of encounters) {
+    const who = [displayName(e.professional), council(e.professional), e.professional.specialty].filter(Boolean).join(" · ");
+    sections.push({ heading: true, title: `Atendimento de ${formatDateTime(e.startedAt)}`, text: who });
+    sections.push(...encounterSections(e));
+    for (const d of e.documents) {
+      sections.push({ title: `${documentTypeLabel[d.type]} de ${formatDateTime(d.createdAt)}`, text: d.body });
+    }
+    sections.push({
+      text: `Finalizado em ${formatDateTime(e.finalizedAt)}. Código de integridade: ${e.contentHash ?? "—"}`,
+      small: true,
+    });
+  }
+  if (encounters.length === 0) sections.push({ heading: true, title: "Atendimentos", text: "Nenhum atendimento finalizado." });
+
+  return {
+    clinicName,
+    title: "Prontuário do paciente",
+    info: [
+      ...patientLines(patient),
+      `${encounters.length} atendimento${encounters.length === 1 ? "" : "s"} finalizado${encounters.length === 1 ? "" : "s"}`,
+    ],
+    sections,
+    place: `Gerado em ${formatDateTime(new Date())} por ${displayName(generatedBy)}`,
   };
 }
 
