@@ -139,6 +139,7 @@ model Clinic {
   claimBatches   ClaimBatch[]
   claimItems     ClaimItem[]
   claimAppeals   ClaimAppeal[]
+  problems       ProblemReport[]
 }
 
 model User {
@@ -228,6 +229,7 @@ model User {
   @@unique([clinicId, cpf])
   whatsappMessages WhatsappMessage[]
   claims              InsuranceClaim[]
+  problems            ProblemReport[]
 }
 
 model Session {
@@ -1019,6 +1021,33 @@ model InsuranceClaim {
 // ---- Painel do dono do sistema ----
 // Equipe da empresa que vende o sistema. Fica separada dos usuários das clínicas:
 // cadastra e suspende clínicas, mas não tem acesso a pacientes nem ao prontuário (LGPD).
+// Problemas do sistema para a empresa dona olhar no Painel do dono: erros registrados
+// automaticamente e relatos feitos pelo botão "Relatar problema". O mesmo erro repetido
+// não cria uma linha nova a cada vez: soma em `count` e atualiza `lastSeenAt`.
+model ProblemReport {
+  id          String    @id @default(cuid())
+  // ERRO (automático) ou RELATO (alguém da clínica escreveu).
+  kind        String
+  clinicId    String?
+  clinic      Clinic?   @relation(fields: [clinicId], references: [id])
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id])
+  message     String
+  // Tela em que aconteceu (endereço, sem os parâmetros).
+  page        String?
+  // Código que o Next.js mostra na tela de erro; liga o relato ao erro registrado.
+  digest      String?
+  details     String?
+  fingerprint String?
+  count       Int       @default(1)
+  lastSeenAt  DateTime  @default(now())
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([resolvedAt, lastSeenAt])
+  @@index([fingerprint])
+}
+
 model PlatformUser {
   id           String   @id @default(cuid())
   name         String
