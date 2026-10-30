@@ -8,7 +8,8 @@ import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { canCancelCharge, canManageCharges, canManageFinance } from "@/lib/permissions";
 import { parseMoney } from "@/lib/money";
-import { commission, commissionDescription, expenseCategories, monthRange, parseDateInput, paymentMethods, today } from "@/lib/finance";
+import { commission, commissionDescription, expenseCategories, monthRange, parseDateInput, paymentMethods, purchaseExpenseDescription, purchaseKinds, today } from "@/lib/finance";
+import { validatePurchase, type PurchaseInput } from "@/lib/purchase";
 
 export type FormState = { error: string; ok?: string };
 
@@ -219,6 +220,107 @@ export async function cancelExpense(expenseId: string) {
   });
   if (count === 0) throw new Error("Despesa não encontrada");
   await audit({ clinicId: user.clinicId, userId: user.id, action: "DESPESA_CANCELADA", entity: "Expense", entityId: expenseId });
+  revalidateFinance();
+}
+
+// ---------- Compras (notas fiscais de entrada) ----------
+
+export async function createPurchase(_: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireAdmin();
+  let lists: Pick<PurchaseInput, "items" | "installments">;
+  try {
+    lists = { items: JSON.parse(String(formData.get("items") ?? "[]")), installments: JSON.parse(String(formData.get("installments") ?? "[]")) };
+  } catch {
+    return { error: "Não foi possível ler os itens da nota. Recarregue a página e tente de novo." };
+  }
+  const result = validatePurchase({
+    kind: text(formData, "kind") ?? "",
+    supplierName: text(formData, "supplierName") ?? "",
+    supplierCnpj: text(formData, "supplierCnpj") ?? "",
+    invoiceNumber: text(formData, "invoiceNumber") ?? "",
+    invoiceSeries: text(formData, "invoiceSeries") ?? "",
+    accessKey: text(formData, "accessKey") ?? "",
+    issueDate: text(formData, "issueDate") ?? "",
+    total: text(formData, "total") ?? "",
+    notes: text(formData, "notes") ?? "",
+    ...lists,
+  });
+  if ("error" in result) return result;
+  const data = result.data;
+
+  const paidNow = formData.get("paidNow") === "on";
+  const paymentMethod = method(formData);
+  if (paidNow && !paymentMethod) return { error: "Informe a forma de pagamento." };
+  const paidAt = parseDateInput(text(formData, "paidAt") ?? "") ?? today();
+
+  // A mesma nota (mesmo número e mesmo fornecedor, ou mesma chave de acesso) não pode entrar duas vezes.
+  const duplicate = await prisma.purchase.findFirst({
+    where: {
+      clinicId: user.clinicId,
+      status: "ATIVA",
+      OR: [
+        { invoiceNumber: data.invoiceNumber, ...(data.supplierCnpj ? { supplierCnpj: data.supplierCnpj } : { supplierName: { equals: data.supplierName, mode: "insensitive" } }) },
+        ...(data.accessKey ? [{ accessKey: data.accessKey }] : []),
+      ],
+    },
+  });
+  if (duplicate) return { error: `Esta nota já foi lançada (NF ${duplicate.invoiceNumber} de ${duplicate.supplierName}).` };
+
+  const count = data.installments.length;
+  const purchase = await prisma.purchase.create({
+    data: {
+      clinicId: user.clinicId,
+      createdById: user.id,
+      kind: data.kind,
+      supplierName: data.supplierName,
+      supplierCnpj: data.supplierCnpj,
+      invoiceNumber: data.invoiceNumber,
+      invoiceSeries: data.invoiceSeries,
+      accessKey: data.accessKey,
+      issueDate: data.issueDate,
+      totalCents: data.totalCents,
+      notes: data.notes,
+      items: { create: data.items },
+      expenses: {
+        create: data.installments.map((p) => ({
+          clinicId: user.clinicId,
+          description: purchaseExpenseDescription(data.invoiceNumber, data.supplierName, p.installment, count),
+          category: purchaseKinds[data.kind],
+          amountCents: p.amountCents,
+          dueDate: p.dueDate,
+          installment: p.installment,
+          ...(paidNow && { status: "PAGO" as const, paymentMethod, paidAt }),
+        })),
+      },
+    },
+  });
+  await audit({
+    clinicId: user.clinicId,
+    userId: user.id,
+    action: "COMPRA_LANCADA",
+    entity: "Purchase",
+    entityId: purchase.id,
+    details: { invoiceNumber: data.invoiceNumber, totalCents: data.totalCents, installments: count },
+  });
+  revalidateFinance();
+  redirect(`/financeiro/compras/${purchase.id}`);
+}
+
+// Cancela a nota lançada por engano e as parcelas dela na aba Despesas.
+export async function cancelPurchase(purchaseId: string) {
+  const user = await requireAdmin();
+  await prisma.$transaction(async (tx) => {
+    const { count } = await tx.purchase.updateMany({
+      where: { id: purchaseId, clinicId: user.clinicId, status: "ATIVA" },
+      data: { status: "CANCELADA" },
+    });
+    if (count === 0) throw new Error("Nota não encontrada");
+    await tx.expense.updateMany({
+      where: { purchaseId, clinicId: user.clinicId, status: { not: "CANCELADO" } },
+      data: { status: "CANCELADO" },
+    });
+  });
+  await audit({ clinicId: user.clinicId, userId: user.id, action: "COMPRA_CANCELADA", entity: "Purchase", entityId: purchaseId });
   revalidateFinance();
 }
 

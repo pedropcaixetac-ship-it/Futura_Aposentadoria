@@ -40,6 +40,9 @@ Este é o primeiro módulo: **Prontuário**.
 - Resumo do mês: quanto entrou, quanto saiu, saldo, quanto falta receber e pagamentos atrasados
 - Receitas: cobrança de cada atendimento finalizado (ou avulsa), com forma de pagamento e situação
 - Despesas da clínica, com vencimento e aviso de atraso
+- Compras: entrada de nota fiscal de compra (material, medicamento, insumo, equipamento), com itens, lote e validade.
+  O XML da NF-e enviado pelo fornecedor preenche tudo sozinho. O pagamento (à vista ou em parcelas) entra nas Despesas,
+  e a mesma nota não pode ser lançada duas vezes
 - Tabela de preços, que preenche o valor da cobrança
 - Repasse por profissional (porcentagem do valor recebido), que pode ser lançado como despesa
 - Recibo numerado, com valor por extenso, para imprimir ou salvar em PDF

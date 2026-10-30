@@ -82,6 +82,7 @@ model Clinic {
   priceItems     PriceItem[]
   charges        Charge[]
   expenses       Expense[]
+  purchases      Purchase[]
   documents      ClinicalDocument[]
   workHours      WorkHours[]
   scheduleBlocks ScheduleBlock[]
@@ -389,11 +390,62 @@ model Expense {
   paymentMethod PaymentMethod?
   paidAt        DateTime?      @db.Date
   notes         String?
+  // Parcela de uma nota fiscal de compra (aba Compras), quando houver.
+  purchaseId    String?
+  purchase      Purchase?      @relation(fields: [purchaseId], references: [id])
+  installment   Int?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
   @@index([clinicId, dueDate])
   @@index([clinicId, paidAt])
+  @@index([purchaseId])
+}
+
+// Nota fiscal de compra (material, medicamento, insumo...). O pagamento vira uma ou mais
+// despesas (parcelas) na aba Despesas.
+model Purchase {
+  id            String         @id @default(cuid())
+  clinicId      String
+  clinic        Clinic         @relation(fields: [clinicId], references: [id])
+  kind          String
+  supplierName  String
+  supplierCnpj  String?
+  invoiceNumber String
+  invoiceSeries String?
+  accessKey     String?
+  issueDate     DateTime       @db.Date
+  totalCents    Int
+  notes         String?
+  status        PurchaseStatus @default(ATIVA)
+  createdById   String
+  createdAt     DateTime       @default(now())
+
+  items    PurchaseItem[]
+  expenses Expense[]
+
+  @@index([clinicId, issueDate])
+  @@index([clinicId, supplierCnpj, invoiceNumber])
+}
+
+enum PurchaseStatus {
+  ATIVA
+  CANCELADA
+}
+
+model PurchaseItem {
+  id             String    @id @default(cuid())
+  purchaseId     String
+  purchase       Purchase  @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  position       Int
+  description    String
+  unit           String?
+  quantity       Decimal   @db.Decimal(12, 3)
+  unitPriceCents Int
+  totalCents     Int
+  // Lote e validade (importante para medicamentos e insumos).
+  batch          String?
+  expiresAt      DateTime? @db.Date
 }
 
 // Horário de atendimento de um profissional num dia da semana (0 = domingo).

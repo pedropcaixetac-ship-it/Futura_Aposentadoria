@@ -293,6 +293,46 @@ async function seedFinanceDemo() {
   console.log("Exemplos do financeiro criados");
 }
 
+// Exemplo da aba Compras: uma nota de medicamentos em 2 parcelas (a primeira já paga).
+async function seedPurchasesDemo() {
+  const clinic = await prisma.clinic.findUnique({ where: { slug: "demo" } });
+  if (!clinic || (await prisma.purchase.count({ where: { clinicId: clinic.id } })) > 0) return;
+  const admin = await prisma.user.findFirst({ where: { clinicId: clinic.id, role: "ADMIN" } });
+  if (!admin) return;
+  const day = (offset: number) => {
+    const iso = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+    return new Date(new Date(`${iso}T00:00:00Z`).getTime() + offset * 86400000);
+  };
+  const supplier = "Distribuidora Saúde Exemplo Ltda";
+  await prisma.purchase.create({
+    data: {
+      clinicId: clinic.id,
+      createdById: admin.id,
+      kind: "Medicamentos",
+      supplierName: supplier,
+      supplierCnpj: "11222333000181",
+      invoiceNumber: "4521",
+      invoiceSeries: "1",
+      issueDate: day(-3),
+      totalCents: 86000,
+      items: {
+        create: [
+          { position: 1, description: "Dipirona sódica 500 mg/ml ampola 2 ml", unit: "CX", quantity: 4, unitPriceCents: 9500, totalCents: 38000, batch: "DP2291", expiresAt: day(60) },
+          { position: 2, description: "Lidocaína 2% sem vasoconstritor 20 ml", unit: "FR", quantity: 10, unitPriceCents: 2800, totalCents: 28000, batch: "LD0912", expiresAt: day(400) },
+          { position: 3, description: "Seringa descartável 5 ml (caixa com 100)", unit: "CX", quantity: 2, unitPriceCents: 10000, totalCents: 20000, batch: "SR7781", expiresAt: day(900) },
+        ],
+      },
+      expenses: {
+        create: [
+          { clinicId: clinic.id, description: `NF 4521 · ${supplier} (1/2)`, category: "Medicamentos", amountCents: 43000, dueDate: day(-3), installment: 1, status: "PAGO", paymentMethod: "BOLETO", paidAt: day(-3) },
+          { clinicId: clinic.id, description: `NF 4521 · ${supplier} (2/2)`, category: "Medicamentos", amountCents: 43000, dueDate: day(27), installment: 2 },
+        ],
+      },
+    },
+  });
+  console.log("Exemplo de compras criado");
+}
+
 // CPFs de exemplo (válidos, mas fictícios) para testar o login por CPF. Também preenche bancos já criados.
 async function seedLoginDemo() {
   const clinic = await prisma.clinic.findUnique({ where: { slug: "demo" } });
@@ -313,6 +353,7 @@ async function main() {
   await seedDemo();
   await seedAgenda();
   await seedFinanceDemo();
+  await seedPurchasesDemo();
   await seedLoginDemo();
 }
 
