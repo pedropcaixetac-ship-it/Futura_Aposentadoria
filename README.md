@@ -142,6 +142,9 @@ Este é o primeiro módulo: **Prontuário**.
   e nada é apagado
 - A equipe da empresa não vê pacientes nem prontuários (LGPD), só dados administrativos
 - Registro de tudo o que a equipe fez no painel, que não pode ser alterado nem apagado
+- Uma clínica nunca vê dados de outra: cada tela filtra pela clínica de quem está usando, e o próprio banco de dados
+  recusa ligar um registro (consulta, atendimento, cobrança...) a paciente ou profissional de outra clínica.
+  Um teste automático avisa se uma tela nova esquecer o filtro ou se uma ligação nova ficar sem a trava
 
 ## Usuários de demonstração
 
