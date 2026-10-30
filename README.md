@@ -70,6 +70,7 @@ Este é o primeiro módulo: **Prontuário**.
 - Função, especialidade e setor em listas prontas (com "Outro" para digitar). A função já sugere o perfil de acesso e o conselho
 - Perfis de saúde: acesso completo (médico, enfermeiro, psicólogo...) ou restrito (técnico/auxiliar de enfermagem, radiologia...).
   O restrito vê o resumo clínico e só os próprios atendimentos; não abre consultas de outros, não emite documentos nem imprime o histórico
+- Médico especialista: campo RQE no cadastro (aparece quando o conselho é CRM). Sai junto com o CRM nas telas e nos PDFs ("CRM 123456/SP · RQE 12345")
 - "Dr."/"Dra." aparece sozinho antes do nome de médicos, psicólogos e dentistas ("Dra." quando o sexo é feminino).
   Não se digita no nome: se vier digitado, é retirado ao salvar
 - Dá para cadastrar quem faz parte da equipe mas não usa o sistema (ex.: limpeza): sem e-mail, sem senha e sem login

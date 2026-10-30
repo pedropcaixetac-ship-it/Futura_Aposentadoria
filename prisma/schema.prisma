@@ -152,6 +152,8 @@ model User {
   councilType       String?
   councilNumber     String?
   councilUf         String?
+  // RQE: Registro de Qualificação de Especialista do médico (CRM). Pode ter mais de um, separados por vírgula.
+  rqe               String?
   specialty         String?
   // Setor onde a pessoa trabalha (ex.: Recepção, Consultório 2), mostrado na barra lateral.
   sector            String?

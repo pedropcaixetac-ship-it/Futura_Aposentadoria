@@ -8,7 +8,7 @@ import { age, formatCpf, formatDate, formatDateTime } from "@/lib/format";
 import { filterEncounters, filtersQuery, FREE_TEMPLATE, hasFilters, parseHistoryFilters } from "@/lib/history";
 import { EncounterContent } from "../encounter-content";
 import { PrintButton } from "../atendimentos/[encounterId]/print-button";
-import { displayName } from "@/lib/staff";
+import { displayName, councilLabel } from "@/lib/staff";
 
 // Histórico completo (ou filtrado) pronto para imprimir ou salvar em PDF.
 // Só entram atendimentos finalizados: rascunhos ainda podem mudar.
@@ -97,7 +97,7 @@ export default async function HistoryPrintPage({
             <p className="font-semibold">{formatDateTime(e.startedAt)} · {e.template?.name ?? "Evolução livre"}</p>
             <p className="text-sm text-slate-600">
               {displayName(e.professional)}
-              {e.professional.councilNumber && ` · ${e.professional.councilType} ${e.professional.councilNumber}/${e.professional.councilUf}`}
+              {e.professional.councilNumber && ` · ${councilLabel(e.professional)}`}
             </p>
           </header>
           <EncounterContent encounter={e} />

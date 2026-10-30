@@ -33,6 +33,7 @@ export type StaffInput = {
   councilType: string | null;
   councilNumber: string | null;
   councilUf: string | null;
+  rqe: string | null;
   password: string | null;
 };
 
@@ -154,6 +155,8 @@ export function parseStaff(formData: FormData): StaffInput {
     councilType: text(formData, "councilType"),
     councilNumber: text(formData, "councilNumber"),
     councilUf: text(formData, "councilUf")?.toUpperCase() ?? null,
+    // Só médico (CRM) tem RQE; guarda os números separados por vírgula.
+    rqe: text(formData, "councilType") === "CRM" ? normalizeRqe(text(formData, "rqe")) : null,
     password: systemAccess ? String(formData.get("password") ?? "") || null : null,
   };
 }
@@ -174,6 +177,8 @@ export function validateStaff(input: StaffInput, { needsPassword }: { needsPassw
   if (!input.role) return "Escolha o perfil de acesso.";
   if (input.councilNumber && (!input.councilType || !input.councilUf)) return "Informe o conselho e o estado (UF) do registro.";
   if (input.councilUf && !/^[A-Z]{2}$/.test(input.councilUf)) return "UF do conselho inválida (ex.: SP).";
+  if (input.rqe && !input.councilNumber) return "Informe o CRM junto com o RQE.";
+  if (input.rqe && !/^\d+(, \d+)*$/.test(input.rqe)) return "RQE deve ter só números (se tiver mais de um, separe por vírgula).";
   if (input.systemAccess && needsPassword && !input.password) return "Crie uma senha inicial para a pessoa entrar no sistema.";
   if (input.password && input.password.length < 8) return "A senha precisa ter pelo menos 8 caracteres.";
   return null;
@@ -214,4 +219,19 @@ export function validateNewPassword(current: string, next: string, confirm: stri
   if (next !== confirm) return "A confirmação não é igual à nova senha.";
   if (next === current) return "A nova senha precisa ser diferente da atual.";
   return null;
+}
+
+function normalizeRqe(value: string | null) {
+  if (!value) return null;
+  const parts = value.split(/[,;/\s]+/).map((p) => p.replace(/^rqe\.?/i, "").replace(/^n[º°o]?\.?/i, "").trim()).filter(Boolean);
+  return parts.length ? parts.join(", ") : null;
+}
+
+type CouncilUser = { councilType: string | null; councilNumber: string | null; councilUf: string | null; rqe?: string | null };
+
+// Registro como sai em telas e PDFs: "CRM 123456/SP · RQE 12345".
+export function councilLabel(u: CouncilUser) {
+  if (!u.councilNumber) return null;
+  const council = `${u.councilType ?? ""} ${u.councilNumber}${u.councilUf ? `/${u.councilUf}` : ""}`.trim();
+  return u.rqe ? `${council} · RQE ${u.rqe}` : council;
 }

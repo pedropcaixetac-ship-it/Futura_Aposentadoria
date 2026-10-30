@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { hasTab, sanitizeTabs, userTabs } from "../src/lib/tabs";
-import { displayName, parseStaff, staffFunction, validateNewPassword, validateStaff } from "../src/lib/staff";
+import { councilLabel, displayName, parseStaff, staffFunction, validateNewPassword, validateStaff } from "../src/lib/staff";
 import { canOpenEncounter, canViewClinical, canWorkClinical } from "../src/lib/permissions";
 
 const padrao = { customTabs: false, allowedTabs: [] as string[] };
@@ -115,4 +115,17 @@ test("troca da própria senha em Meu cadastro", () => {
   assert.match(validateNewPassword("antiga123", "curta", "curta")!, /8 caracteres/);
   assert.match(validateNewPassword("antiga123", "novaSenha9", "outraSenha")!, /confirmação/);
   assert.match(validateNewPassword("antiga123", "antiga123", "antiga123")!, /diferente/);
+});
+
+test("RQE do médico especialista sai junto com o CRM", () => {
+  const base = { name: "Ana Souza", cpf: "529.982.247-25", birthDate: "1985-01-01", phone: "62999990000", councilNumber: "123456", councilUf: "SP" };
+  const medica = parseStaff(form({ ...base, councilType: "CRM", rqe: "RQE nº 12345; 678" }));
+  assert.equal(medica.rqe, "12345, 678");
+  assert.equal(validateStaff(medica, { needsPassword: false }), null);
+  assert.equal(councilLabel(medica), "CRM 123456/SP · RQE 12345, 678");
+  // Outros conselhos não têm RQE.
+  assert.equal(parseStaff(form({ ...base, councilType: "COREN", rqe: "12345" })).rqe, null);
+  assert.match(validateStaff(parseStaff(form({ ...base, councilType: "CRM", rqe: "abc" })), { needsPassword: false })!, /RQE/);
+  assert.match(validateStaff(parseStaff(form({ ...base, councilNumber: "", councilType: "CRM", rqe: "12345" })), { needsPassword: false })!, /CRM/);
+  assert.equal(councilLabel({ councilType: "CRP", councilNumber: "06/98765", councilUf: "SP", rqe: null }), "CRP 06/98765/SP");
 });

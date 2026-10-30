@@ -1,9 +1,9 @@
 import { formatDateTime } from "@/lib/format";
 import { highlight } from "@/lib/history";
 import type { Diagnosis, TemplateField } from "@/lib/record";
-import { displayName } from "@/lib/staff";
+import { displayName, councilLabel } from "@/lib/staff";
 
-type Author = { name: string; jobTitle: string | null; sex: string | null; councilType: string | null; councilNumber: string | null; councilUf: string | null };
+type Author = { name: string; jobTitle: string | null; sex: string | null; councilType: string | null; councilNumber: string | null; councilUf: string | null; rqe: string | null };
 
 export function Marked({ text, term }: { text: string; term: string }) {
   return (
@@ -20,7 +20,8 @@ export function Marked({ text, term }: { text: string; term: string }) {
 }
 
 function council(a: Author) {
-  return a.councilNumber ? ` · ${a.councilType} ${a.councilNumber}/${a.councilUf}` : "";
+  const label = councilLabel(a);
+  return label ? ` · ${label}` : "";
 }
 
 // Conteúdo completo de um atendimento (campos, diagnósticos e adendos),

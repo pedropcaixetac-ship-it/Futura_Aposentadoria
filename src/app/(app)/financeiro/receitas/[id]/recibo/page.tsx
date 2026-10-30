@@ -8,7 +8,7 @@ import { formatCpf, formatDate } from "@/lib/format";
 import { formatMoney, moneyInWords } from "@/lib/money";
 import { paymentMethodLabel } from "@/lib/finance";
 import { PrintButton } from "@/app/(app)/pacientes/[id]/atendimentos/[encounterId]/print-button";
-import { displayName } from "@/lib/staff";
+import { displayName, councilLabel } from "@/lib/staff";
 
 function formatCnpj(cnpj: string) {
   return cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
@@ -34,7 +34,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
   });
 
   const { clinic, patient, professional } = charge;
-  const council = professional?.councilNumber ? `${professional.councilType} ${professional.councilNumber}/${professional.councilUf}` : null;
+  const council = professional ? councilLabel(professional) : null;
   const city = clinic.address?.split(/[-,]/).map((s) => s.trim()).filter(Boolean).at(-1);
 
   return (
