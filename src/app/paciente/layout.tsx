@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: "Minhas consultas",
   manifest: "/paciente/manifest.webmanifest",
   appleWebApp: { capable: true, title: "Minhas consultas", statusBarStyle: "black" },
+  icons: { apple: "/icons/paciente-apple-touch-icon.png" },
   robots: { index: false, follow: false },
 };
 

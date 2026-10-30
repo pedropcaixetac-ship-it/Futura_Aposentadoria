@@ -1,4 +1,4 @@
-// Manifest do aplicativo do paciente (o da equipe fica em src/app/manifest.ts).
+// Manifest do aplicativo do paciente, com ícone próprio (dourado, com calendário) para não confundir com o da equipe.
 export function GET() {
   return Response.json(
     {
@@ -14,9 +14,9 @@ export function GET() {
       background_color: "#0b1c38",
       theme_color: "#0b1c38",
       icons: [
-        { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-        { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
-        { src: "/icons/maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+        { src: "/icons/paciente-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+        { src: "/icons/paciente-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+        { src: "/icons/paciente-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
       ],
     },
     { headers: { "Content-Type": "application/manifest+json" } },
