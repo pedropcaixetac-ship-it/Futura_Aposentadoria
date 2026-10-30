@@ -83,17 +83,55 @@ model Patient {
   id        String    @id @default(cuid())
   clinicId  String
   clinic    Clinic    @relation(fields: [clinicId], references: [id])
-  name      String
-  socialName String?
-  birthDate DateTime?
-  sex       String?
-  cpf       String?
-  phone     String?
-  email     String?
-  address   String?
-  insurance String?
-  insuranceNumber String?
-  guardianName String?
+  // false quando veio do cadastro rápido da recepção e ainda falta completar.
+  registrationComplete Boolean @default(true)
+
+  // Identificação
+  name          String
+  socialName    String?
+  birthDate     DateTime?
+  sex           String?
+  cpf           String?
+  rg            String?
+  cns           String?
+  motherName    String?
+  maritalStatus String?
+  occupation    String?
+  photo         String? // imagem pequena (data URL), reduzida no navegador
+
+  // Contato (telefones guardados só com os números)
+  phone                 String?
+  phoneWhatsapp         Boolean @default(true)
+  landline              String?
+  email                 String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+
+  // Endereço
+  cep        String?
+  street     String?
+  number     String?
+  complement String?
+  district   String?
+  city       String?
+  state      String?
+
+  // Convênio ("Particular" quando não há convênio)
+  insurance           String?
+  insuranceNumber     String?
+  insuranceValidUntil DateTime?
+
+  // Responsável legal
+  guardianName         String?
+  guardianCpf          String?
+  guardianRelationship String?
+  guardianPhone        String?
+
+  // Outros
+  referralSource String?
+  notes          String?
+  lgpdConsentAt  DateTime?
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
@@ -108,6 +146,7 @@ model Patient {
 
   @@index([clinicId, name])
   @@unique([clinicId, cpf])
+  @@unique([clinicId, cns])
 }
 
 // Modelo de atendimento (ex.: "Consulta clínica geral", "Psicologia - sessão").
