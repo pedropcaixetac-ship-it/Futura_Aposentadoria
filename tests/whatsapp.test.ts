@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { canMessage, confirmationLink, returnLink, whatsappLink, whatsappNumber } from "../src/lib/whatsapp";
+import { MESSAGES, canMessage, fillMessage, unknownFields, whatsappNumber, whatsappUrl } from "../src/lib/whatsapp";
 
 test("telefone do cadastro vira número internacional do WhatsApp", () => {
   assert.equal(whatsappNumber("(11) 98888-1111"), "5511988881111");
@@ -11,32 +11,34 @@ test("telefone do cadastro vira número internacional do WhatsApp", () => {
   assert.equal(whatsappNumber(null), null);
 });
 
-test("link do WhatsApp leva o texto pronto com o primeiro nome", () => {
-  const link = whatsappLink("(11) 98888-1111", "retorno", { patient: "Maria Oliveira", clinic: "Clínica Demo" });
-  assert.ok(link?.startsWith("https://wa.me/5511988881111?text="));
-  const text = decodeURIComponent(link!.split("text=")[1]);
-  assert.match(text, /^Olá, Maria! Aqui é da Clínica Demo\./);
-  assert.doesNotMatch(text, /Oliveira/);
-  assert.equal(whatsappLink("(11) 98888-1111", "livre", { patient: "Maria", clinic: "X" }), "https://wa.me/5511988881111");
-  assert.equal(whatsappLink("123", "contato", { patient: "Maria", clinic: "X" }), null);
+test("link do WhatsApp leva o texto pronto", () => {
+  const link = whatsappUrl("(11) 98888-1111", "Olá, Maria!");
+  assert.equal(link, "https://wa.me/5511988881111?text=Ol%C3%A1%2C%20Maria!");
+  assert.equal(whatsappUrl("(11) 98888-1111", ""), "https://wa.me/5511988881111");
+  assert.equal(whatsappUrl("123", "Oi"), null);
 });
 
-test("confirmação da consulta leva dia, hora e profissional, sem dados clínicos", () => {
-  const link = confirmationLink("(62) 99999-0000", {
-    patient: "Maria Oliveira",
-    clinic: "Clínica Demo",
-    professional: "Dra. Ana",
-    type: "consulta",
-    day: "31/10 (sexta)",
-    time: "14:00",
+test("mensagem padrão de confirmação é preenchida com o primeiro nome, dia e hora", () => {
+  const text = fillMessage(MESSAGES.confirmacao.text, {
+    paciente: "Maria Oliveira",
+    clinica: "Clínica Demo",
+    profissional: "Dra. Ana",
+    tipo: "consulta",
+    dia: "31/10 (sexta)",
+    hora: "14:00",
   });
-  const text = decodeURIComponent(link!.split("text=")[1]);
   assert.equal(
     text,
     "Olá, Maria! Aqui é da Clínica Demo. Você tem consulta com Dra. Ana no dia 31/10 (sexta), às 14:00. " +
       "Você confirma sua presença? Se precisar remarcar, é só responder esta mensagem.",
   );
-  assert.match(decodeURIComponent(returnLink("62999990000", { patient: "João", clinic: "X", professional: "Dr. Carlos" })!), /retorno com Dr\. Carlos/);
+});
+
+test("texto escrito pela clínica: colchetes conhecidos são trocados, os outros são apontados", () => {
+  assert.equal(fillMessage("Oi [paciente], até [dia]!", { paciente: "João Pereira", dia: "amanhã" }), "Oi João, até amanhã!");
+  assert.equal(fillMessage("Valor: [preco]", {}), "Valor: [preco]");
+  assert.deepEqual(unknownFields("retorno", "[paciente] [hora] [hora] [clinica] [xyz]"), ["hora", "xyz"]);
+  assert.deepEqual(unknownFields("confirmacao", MESSAGES.confirmacao.text), []);
 });
 
 test("botão só aparece com autorização e celular com WhatsApp", () => {

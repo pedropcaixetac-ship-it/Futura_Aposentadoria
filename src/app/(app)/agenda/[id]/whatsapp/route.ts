@@ -4,8 +4,9 @@ import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { canManageAgendaOf } from "@/lib/permissions";
 import { appointmentTypeLabel, clinicParts, formatTime, weekdayName } from "@/lib/agenda";
-import { canMessage, confirmationLink, returnLink } from "@/lib/whatsapp";
 import { displayName } from "@/lib/staff";
+import { canMessage, fillMessage, whatsappUrl } from "@/lib/whatsapp";
+import { loadMessages } from "@/lib/whatsapp-data";
 
 // Abre o WhatsApp com a confirmação da consulta (?modelo=confirmacao) ou o aviso
 // de retorno (?modelo=retorno), anota na consulta que a mensagem foi enviada e
@@ -26,20 +27,18 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     return new NextResponse("O paciente não autorizou mensagens pelo WhatsApp ou o celular não tem WhatsApp.", { status: 403 });
   }
 
-  const vars = { patient: patient.socialName || patient.name, clinic: user.clinic.name, professional: displayName(appointment.professional) };
-  let link: string | null;
-  if (modelo === "confirmacao") {
-    const { date, weekday } = clinicParts(appointment.startsAt);
-    const [, month, day] = date.split("-");
-    link = confirmationLink(patient.phone ?? "", {
-      ...vars,
-      type: appointmentTypeLabel[appointment.type].toLowerCase(),
-      day: `${day}/${month} (${weekdayName(weekday).toLowerCase()})`,
-      time: formatTime(appointment.startsAt),
-    });
-  } else {
-    link = returnLink(patient.phone ?? "", vars);
-  }
+  const messages = await loadMessages(user.clinicId);
+  const { date, weekday } = clinicParts(appointment.startsAt);
+  const [, month, day] = date.split("-");
+  const text = fillMessage(messages[modelo], {
+    paciente: patient.socialName || patient.name,
+    clinica: user.clinic.name,
+    profissional: displayName(appointment.professional),
+    tipo: appointmentTypeLabel[appointment.type].toLowerCase(),
+    dia: `${day}/${month} (${weekdayName(weekday).toLowerCase()})`,
+    hora: formatTime(appointment.startsAt),
+  });
+  const link = whatsappUrl(patient.phone, text);
   if (!link) return new NextResponse("Celular inválido.", { status: 400 });
 
   await prisma.appointment.update({

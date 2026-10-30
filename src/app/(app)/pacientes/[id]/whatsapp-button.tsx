@@ -1,21 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import { whatsappTemplates, type WhatsappTemplate } from "@/lib/whatsapp";
+
+const options = [
+  ["contato", "Contato da clínica"],
+  ["retorno", "Aviso de retorno"],
+  ["livre", "Mensagem em branco"],
+] as const;
 
 // Escolhe o texto e abre o WhatsApp numa nova aba, já com a mensagem escrita.
 export function WhatsappButton({ patientId }: { patientId: string }) {
-  const [modelo, setModelo] = useState<WhatsappTemplate>("contato");
+  const [modelo, setModelo] = useState<string>("contato");
   return (
     <div className="flex flex-wrap items-center gap-2">
       <select
         aria-label="Texto da mensagem"
         className="input w-auto!"
         value={modelo}
-        onChange={(e) => setModelo(e.target.value as WhatsappTemplate)}
+        onChange={(e) => setModelo(e.target.value)}
       >
-        {Object.entries(whatsappTemplates).map(([key, t]) => (
-          <option key={key} value={key}>{t.label}</option>
+        {options.map(([key, label]) => (
+          <option key={key} value={key}>{label}</option>
         ))}
       </select>
       <a

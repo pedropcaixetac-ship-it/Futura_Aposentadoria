@@ -133,3 +133,8 @@ export function userTabs(user: TabUser) {
 export function sanitizeTabs(user: PermissionUser, keys: string[]) {
   return TABS.filter((t) => keys.includes(t.key) && !t.blockedReason?.(user)).map((t) => t.key);
 }
+
+// Mensagens padrão do WhatsApp: o administrador e quem tem a aba Recepção.
+export function canEditWhatsappMessages(user: TabUser) {
+  return user.role === "ADMIN" || hasTab(user, "recepcao");
+}

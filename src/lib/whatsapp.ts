@@ -13,64 +13,77 @@ export function whatsappNumber(phone: string | null | undefined) {
   return digits;
 }
 
-export const whatsappTemplates = {
-  livre: { label: "Mensagem em branco", text: () => "" },
+// Mensagens padrão. Cada clínica pode reescrevê-las na Recepção, em
+// "Mensagens do WhatsApp". As partes entre colchetes são preenchidas sozinhas.
+export const MESSAGE_FIELDS = {
+  paciente: "primeiro nome do paciente",
+  clinica: "nome da clínica",
+  profissional: "profissional (com Dr./Dra. quando for o caso)",
+  tipo: "consulta, retorno ou procedimento",
+  dia: "dia da consulta, ex.: 31/10 (sexta)",
+  hora: "horário da consulta",
+} as const;
+
+export type MessageField = keyof typeof MESSAGE_FIELDS;
+
+export const MESSAGES = {
   contato: {
     label: "Contato da clínica",
-    text: (v: TemplateVars) => `Olá, ${v.patient}! Aqui é da ${v.clinic}.`,
+    where: "Botão \"Enviar no WhatsApp\" na ficha do paciente.",
+    fields: ["paciente", "clinica"],
+    text: "Olá, [paciente]! Aqui é da [clinica].",
+  },
+  confirmacao: {
+    label: "Pedido de confirmação da consulta",
+    where: "Botão \"Pedir confirmação\" na Recepção e na página da consulta.",
+    fields: ["paciente", "clinica", "profissional", "tipo", "dia", "hora"],
+    text:
+      "Olá, [paciente]! Aqui é da [clinica]. Você tem [tipo] com [profissional] no dia [dia], às [hora]. " +
+      "Você confirma sua presença? Se precisar remarcar, é só responder esta mensagem.",
   },
   retorno: {
     label: "Aviso de retorno",
-    text: (v: TemplateVars) =>
-      `Olá, ${v.patient}! Aqui é da ${v.clinic}. Está chegando a hora do seu retorno. ` +
+    where: "\"Retornos para avisar\" na Recepção e a ficha do paciente.",
+    fields: ["paciente", "clinica", "profissional"],
+    text:
+      "Olá, [paciente]! Aqui é da [clinica]. Está chegando a hora do seu retorno com [profissional]. " +
       "Responda esta mensagem para escolhermos o melhor dia e horário para você.",
   },
-} as const;
+} satisfies Record<string, { label: string; where: string; fields: MessageField[]; text: string }>;
 
-export type WhatsappTemplate = keyof typeof whatsappTemplates;
-type TemplateVars = { patient: string; clinic: string };
+export type MessageKey = keyof typeof MESSAGES;
+export type MessageTexts = Record<MessageKey, string>;
 
-export function isWhatsappTemplate(value: string): value is WhatsappTemplate {
-  return Object.hasOwn(whatsappTemplates, value);
+export function isMessageKey(value: string): value is MessageKey {
+  return Object.hasOwn(MESSAGES, value);
 }
+
+export const MAX_MESSAGE_LENGTH = 1000;
 
 // Usa só o primeiro nome do paciente, como numa conversa normal.
 function firstName(name: string) {
   return name.trim().split(/\s+/)[0];
 }
 
-function waMe(phone: string, text: string) {
+// Troca [paciente], [dia] etc. pelos valores. Colchetes desconhecidos ficam como estão.
+export function fillMessage(text: string, values: Partial<Record<MessageField, string>>) {
+  const filled = { ...values, ...(values.paciente && { paciente: firstName(values.paciente) }) };
+  return text.replace(/\[(\w+)\]/g, (match, key: string) => filled[key as MessageField] ?? match);
+}
+
+// Colchetes que a mensagem usa mas que não existem para ela (ex.: [hora] no aviso de retorno).
+export function unknownFields(key: MessageKey, text: string) {
+  const allowed: readonly string[] = MESSAGES[key].fields;
+  return [...new Set([...text.matchAll(/\[(\w+)\]/g)].map((m) => m[1]))].filter((f) => !allowed.includes(f));
+}
+
+export function whatsappUrl(phone: string | null | undefined, text: string) {
   const number = whatsappNumber(phone);
   if (!number) return null;
   return `https://wa.me/${number}${text ? `?text=${encodeURIComponent(text)}` : ""}`;
 }
 
-export function whatsappLink(phone: string, template: WhatsappTemplate, vars: TemplateVars) {
-  return waMe(phone, whatsappTemplates[template].text({ ...vars, patient: firstName(vars.patient) }));
-}
-
 // O botão só aparece com autorização do paciente e um celular que tenha WhatsApp.
 export function canMessage(patient: { whatsappOptIn: boolean; phoneWhatsapp: boolean; phone: string | null }) {
   return patient.whatsappOptIn && patient.phoneWhatsapp && !!whatsappNumber(patient.phone);
-}
-
-// day no formato "31/10 (sexta)"; type em minúsculas: "consulta", "retorno".
-type AppointmentVars = TemplateVars & { professional: string; type: string; day: string; time: string };
-
-// Mensagens ligadas a uma consulta da agenda.
-export const appointmentMessages = {
-  confirmacao: (v: AppointmentVars) =>
-    `Olá, ${v.patient}! Aqui é da ${v.clinic}. Você tem ${v.type} com ${v.professional} no dia ${v.day}, às ${v.time}. ` +
-    "Você confirma sua presença? Se precisar remarcar, é só responder esta mensagem.",
-  retorno: (v: TemplateVars & { professional: string }) =>
-    `Olá, ${v.patient}! Aqui é da ${v.clinic}. Está chegando a hora do seu retorno com ${v.professional}. ` +
-    "Responda esta mensagem para escolhermos o melhor dia e horário para você.",
-} as const;
-
-export function confirmationLink(phone: string, vars: AppointmentVars) {
-  return waMe(phone, appointmentMessages.confirmacao({ ...vars, patient: firstName(vars.patient) }));
-}
-
-export function returnLink(phone: string, vars: TemplateVars & { professional: string }) {
-  return waMe(phone, appointmentMessages.retorno({ ...vars, patient: firstName(vars.patient) }));
 }
