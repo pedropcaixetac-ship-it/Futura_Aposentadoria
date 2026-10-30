@@ -64,7 +64,7 @@ export function RowMenu({ id, name, active, isSelf, reactivate }: Props) {
             </Link>
           )}
           {!active && (
-            <form action={reactivate}>
+            <form action={async () => { await reactivate(); setOpen(null); }}>
               <button className={item}>Reativar acesso</button>
             </form>
           )}
