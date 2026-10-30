@@ -25,6 +25,8 @@ import { EncounterContent, Marked } from "./encounter-content";
 import { PatientDetails } from "./patient-details";
 import { WhatsappButton } from "./whatsapp-button";
 import { displayName } from "@/lib/staff";
+import { availableProviders } from "@/lib/signature/providers";
+import { SignBox } from "./atendimentos/[encounterId]/sign-box";
 
 export default async function PatientRecordPage({
   params,
@@ -73,6 +75,15 @@ export default async function PatientRecordPage({
     });
   }
 
+  // Última cópia assinada do prontuário completo (sem atendimento nem documento ligado).
+  const signedCopy = full
+    ? await prisma.signedPdf.findFirst({
+        where: { patientId: id, clinicId: user.clinicId, encounterId: null, documentId: null },
+        select: { id: true, signerName: true, signedAt: true, provider: true },
+        orderBy: { signedAt: "desc" },
+      })
+    : null;
+
   const shown = filterEncounters(encounters, filters);
   // Opções dos filtros: só quem atendeu e os tipos usados neste paciente.
   const professionals = [...new Map(encounters.map((e) => [e.professional.id, e.professional])).values()];
@@ -119,6 +130,22 @@ export default async function PatientRecordPage({
           <Link href={`/agenda/novo?paciente=${id}`} className="btn-secondary">Agendar consulta</Link>
           {full && (
             <a href={`/api/pdf/prontuario/${id}`} target="_blank" className="btn-secondary">Gerar PDF do prontuário</a>
+          )}
+          {full && (
+            <SignBox
+              target={{ kind: "prontuario", id }}
+              signed={null}
+              canSign
+              providers={availableProviders()}
+              back={`/pacientes/${id}`}
+              label="Assinar prontuário"
+            />
+          )}
+          {signedCopy && (
+            <a href={`/api/pdf/assinado/${signedCopy.id}`} target="_blank" className="text-sm text-emerald-700 underline"
+              title={`Assinado por ${signedCopy.signerName}`}>
+              ✓ Cópia assinada de {formatDateTime(signedCopy.signedAt)}{signedCopy.provider === "TESTE" ? " (teste)" : ""}
+            </a>
           )}
           <Link href={`/pacientes/${id}/editar`} className="btn-secondary">Editar cadastro</Link>
         </div>

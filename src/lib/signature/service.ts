@@ -4,7 +4,9 @@ import { audit } from "../audit";
 import { formatCpf, formatDateTime } from "../format";
 import { documentTypeLabel } from "../documents";
 import { buildPdf } from "../pdf";
-import { documentPdfInput, encounterPdfInput } from "../pdf-content";
+import { documentPdfInput, encounterPdfInput, recordPdfInput } from "../pdf-content";
+import { loadRecordForPdf } from "../prontuario";
+import { canViewClinical } from "../permissions";
 import type { CurrentUser } from "../auth";
 import { certificateHolder, parseCertificate, type RawSigner } from "./cms";
 import { signPdf } from "./pdf-sign";
@@ -12,20 +14,35 @@ import { providerLabel, signDigest, type ProviderId } from "./providers";
 import { open } from "./secret-box";
 import { testCertificate } from "./test-certificate";
 
-export type SignTarget = { kind: "atendimento" | "documento"; id: string };
+// prontuario: cópia do prontuário completo; o id é o do paciente.
+export type SignTarget = { kind: "atendimento" | "documento" | "prontuario"; id: string };
 
 export function isSignTarget(value: unknown): value is SignTarget {
   const v = value as SignTarget;
-  return !!v && (v.kind === "atendimento" || v.kind === "documento") && typeof v.id === "string";
+  return !!v && (v.kind === "atendimento" || v.kind === "documento" || v.kind === "prontuario") && typeof v.id === "string";
 }
 
 // Só voltamos para telas do prontuário, nunca para um endereço de fora.
 export function isSafeBack(value: unknown): value is string {
-  return typeof value === "string" && /^\/pacientes\/[\w-]+\/atendimentos\/[\w-]+(\/revisao)?$/.test(value);
+  return typeof value === "string" && /^\/pacientes\/[\w-]+(\/atendimentos\/[\w-]+(\/revisao)?)?$/.test(value);
 }
 
 // Carrega o que vai ser assinado e confere se quem pede é o autor.
 async function loadTarget(user: CurrentUser, target: SignTarget) {
+  if (target.kind === "prontuario") {
+    // Mesmo PDF do botão "Gerar PDF do prontuário". Cada cópia assinada é nova,
+    // porque o prontuário cresce a cada atendimento.
+    const record = canViewClinical(user) ? await loadRecordForPdf(user.clinicId, target.id) : null;
+    if (!record) throw new Error("Paciente não encontrado");
+    return {
+      already: false,
+      patientId: record.patient.id,
+      back: `/pacientes/${record.patient.id}`,
+      label: `Prontuário de ${record.patient.name}`,
+      link: {},
+      input: recordPdfInput(user.clinic.name, record.patient, record.encounters, user),
+    };
+  }
   if (target.kind === "atendimento") {
     const encounter = await prisma.encounter.findFirst({
       where: { id: target.id, clinicId: user.clinicId, status: "FINALIZADO", professionalId: user.id },

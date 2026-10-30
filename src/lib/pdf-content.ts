@@ -70,7 +70,10 @@ export function documentPdfInput(clinicName: string, doc: ClinicalDocument & { p
 export function recordPdfInput(
   clinicName: string,
   patient: Patient,
-  encounters: (EncounterForPdf & { documents: ClinicalDocument[] })[],
+  encounters: (EncounterForPdf & {
+    documents: ClinicalDocument[];
+    signedPdf?: { signerName: string; signedAt: Date; provider: string } | null;
+  })[],
   generatedBy: { name: string; jobTitle: string | null; sex: string | null },
 ): PdfInput {
   const sections: PdfSection[] = [
@@ -88,7 +91,12 @@ export function recordPdfInput(
       sections.push({ title: `${documentTypeLabel[d.type]} de ${formatDateTime(d.createdAt)}`, text: d.body });
     }
     sections.push({
-      text: `Finalizado em ${formatDateTime(e.finalizedAt)}. Código de integridade: ${e.contentHash ?? "—"}`,
+      text: [
+        `Finalizado em ${formatDateTime(e.finalizedAt)}. Código de integridade: ${e.contentHash ?? "—"}`,
+        e.signedPdf
+          ? `Assinado digitalmente${e.signedPdf.provider === "TESTE" ? " (TESTE, sem validade jurídica)" : " com certificado ICP-Brasil"} por ${e.signedPdf.signerName} em ${formatDateTime(e.signedPdf.signedAt)}.`
+          : "Sem assinatura digital.",
+      ].join("\n"),
       small: true,
     });
   }
