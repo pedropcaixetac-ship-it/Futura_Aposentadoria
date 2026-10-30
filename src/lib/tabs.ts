@@ -1,9 +1,18 @@
 import type { Role } from "@prisma/client";
-import { canManageTemplates, canViewClinical, type PermissionUser } from "./permissions";
+import { canManageTemplates, canUseReception, canViewClinical, type PermissionUser } from "./permissions";
 
 // Abas do sistema que o administrador pode liberar ou tirar de cada pessoa
 // em "Cadastro de servidores > Editar permissões".
-export type TabKey = "pacientes" | "modelos" | "textos-prontos" | "financeiro" | "auditoria" | "servidores";
+export type TabKey =
+  | "recepcao"
+  | "agenda"
+  | "pacientes"
+  | "modelos"
+  | "textos-prontos"
+  | "assinatura"
+  | "financeiro"
+  | "auditoria"
+  | "servidores";
 
 export type TabUser = PermissionUser & { customTabs: boolean; allowedTabs: string[] };
 
@@ -21,7 +30,23 @@ type Tab = {
 
 const allRoles: Role[] = ["ADMIN", "PROFISSIONAL", "RECEPCAO"];
 
+// A ordem desta lista é a ordem do menu lateral.
 export const TABS: Tab[] = [
+  {
+    key: "recepcao",
+    label: "Recepção",
+    href: "/recepcao",
+    description: "Chegada e falta dos pacientes do dia.",
+    defaultRoles: ["ADMIN", "RECEPCAO"],
+    blockedReason: (u) => (canUseReception(u) ? null : "Só para recepção e administradores."),
+  },
+  {
+    key: "agenda",
+    label: "Agenda",
+    href: "/agenda",
+    description: "Recepção e administrador veem a agenda de todos; o profissional, só a própria.",
+    defaultRoles: allRoles,
+  },
   {
     key: "pacientes",
     label: "Pacientes",
@@ -46,10 +71,18 @@ export const TABS: Tab[] = [
     blockedReason: (u) => (canViewClinical(u) ? null : "Só para profissionais de saúde com registro em conselho."),
   },
   {
+    key: "assinatura",
+    label: "Assinatura digital",
+    href: "/assinatura",
+    description: "Certificado ICP-Brasil para assinar receitas, atestados e atendimentos.",
+    defaultRoles: allRoles,
+    blockedReason: (u) => (canViewClinical(u) ? null : "Só para profissionais de saúde com registro em conselho."),
+  },
+  {
     key: "financeiro",
     label: "Financeiro",
     href: "/financeiro",
-    description: "Recepção lança cobranças e recebe pagamentos; profissionais veem o próprio repasse.",
+    description: "Recepção lança cobranças e recebe pagamentos; profissionais veem o próprio repasse. Inclui Compras.",
     defaultRoles: allRoles,
   },
   {

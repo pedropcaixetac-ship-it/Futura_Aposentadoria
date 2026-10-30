@@ -11,6 +11,22 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum AppointmentType {
+  CONSULTA
+  RETORNO
+  PROCEDIMENTO
+}
+
+enum AppointmentStatus {
+  AGENDADO
+  CONFIRMADO
+  CHEGOU
+  EM_ATENDIMENTO
+  ATENDIDO
+  FALTOU
+  DESMARCADO
+}
+
 enum Role {
   ADMIN
   PROFISSIONAL
@@ -58,15 +74,20 @@ model Clinic {
   // Último número de recibo emitido (os recibos seguem uma sequência por clínica).
   lastReceiptNumber Int      @default(0)
 
-  users      User[]
-  patients   Patient[]
-  templates  RecordTemplate[]
-  encounters Encounter[]
-  auditLogs  AuditLog[]
-  priceItems PriceItem[]
-  charges    Charge[]
-  expenses   Expense[]
-  documents  ClinicalDocument[]
+  users          User[]
+  patients       Patient[]
+  templates      RecordTemplate[]
+  encounters     Encounter[]
+  auditLogs      AuditLog[]
+  priceItems     PriceItem[]
+  charges        Charge[]
+  expenses       Expense[]
+  purchases      Purchase[]
+  documents      ClinicalDocument[]
+  workHours      WorkHours[]
+  scheduleBlocks ScheduleBlock[]
+  appointments   Appointment[]
+  signedPdfs     SignedPdf[]
 }
 
 model User {
@@ -104,13 +125,20 @@ model User {
   terminationReason String?
   createdAt         DateTime @default(now())
 
-  sessions   Session[]
-  encounters Encounter[]
-  addenda    Addendum[]
-  auditLogs  AuditLog[]
-  snippets   TextSnippet[]
-  charges    Charge[]
-  documents  ClinicalDocument[]
+  sessions            Session[]
+  encounters          Encounter[]
+  addenda             Addendum[]
+  auditLogs           AuditLog[]
+  snippets            TextSnippet[]
+  templates           RecordTemplate[]
+  charges             Charge[]
+  documents           ClinicalDocument[]
+  workHours           WorkHours[]
+  scheduleBlocks      ScheduleBlock[]
+  appointments        Appointment[]      @relation("AppointmentProfessional")
+  appointmentsCreated Appointment[]      @relation("AppointmentCreator")
+  signatureSessions   SignatureSession[]
+  signedPdfs          SignedPdf[]
 
   @@unique([clinicId, email])
   @@unique([clinicId, cpf])
@@ -146,7 +174,7 @@ model Patient {
 
   // Contato (telefones guardados só com os números)
   phone                 String?
-  phoneWhatsapp         Boolean @default(true)
+  phoneWhatsapp         Boolean   @default(true)
   landline              String?
   email                 String?
   emergencyContactName  String?
@@ -189,9 +217,11 @@ model Patient {
   personalHistory    String?
   familyHistory      String?
 
-  encounters Encounter[]
-  charges    Charge[]
-  documents  ClinicalDocument[]
+  encounters   Encounter[]
+  charges      Charge[]
+  documents    ClinicalDocument[]
+  appointments Appointment[]
+  signedPdfs   SignedPdf[]
 
   @@unique([clinicId, cpf])
   @@unique([clinicId, cns])
@@ -200,17 +230,24 @@ model Patient {
 
 // Modelo de atendimento (ex.: "Consulta clínica geral", "Psicologia - sessão").
 // fields é uma lista de campos: [{ key, label, type: "text" | "textarea" }]
+// Cada modelo pertence a um profissional (ownerId), que monta o formulário do seu jeito.
+// Sem ownerId, é um modelo da clínica, que todos os profissionais podem usar.
 model RecordTemplate {
   id        String   @id @default(cuid())
   clinicId  String
   clinic    Clinic   @relation(fields: [clinicId], references: [id])
+  ownerId   String?
+  owner     User?    @relation(fields: [ownerId], references: [id])
   name      String
+  // Não é mais usado nas telas (os modelos agora são por profissional).
   specialty String?
   fields    Json
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 
   encounters Encounter[]
+
+  @@index([clinicId, ownerId])
 }
 
 // Um atendimento no prontuário. Enquanto RASCUNHO pode ser editado;
@@ -239,9 +276,11 @@ model Encounter {
   // Impressão digital (SHA-256) do conteúdo finalizado, para detectar adulteração.
   contentHash    String?
 
-  addenda   Addendum[]
-  documents ClinicalDocument[]
-  charges   Charge[]
+  addenda     Addendum[]
+  documents   ClinicalDocument[]
+  charges     Charge[]
+  appointment Appointment?
+  signedPdf   SignedPdf?
 
   @@index([clinicId, patientId, startedAt])
 }
@@ -265,7 +304,49 @@ model ClinicalDocument {
   // Impressão digital (SHA-256) do texto emitido, como nos atendimentos.
   contentHash String
 
+  signedPdf SignedPdf?
+
   @@index([encounterId])
+}
+
+// Autorização que o profissional deu no app do certificado (BirdID, VIDaaS)
+// para o sistema assinar por algumas horas sem pedir confirmação a cada documento.
+model SignatureSession {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider         String
+  // Guardado cifrado: quem ler o banco não consegue assinar.
+  accessToken      String
+  certificateAlias String
+  // Certificado do profissional e cadeia, em base64, separados por vírgula.
+  certificateChain String
+  expiresAt        DateTime
+  createdAt        DateTime @default(now())
+
+  @@unique([userId, provider])
+}
+
+// PDF assinado com certificado ICP-Brasil. Não pode ser alterado nem apagado.
+model SignedPdf {
+  id                String            @id @default(cuid())
+  clinicId          String
+  clinic            Clinic            @relation(fields: [clinicId], references: [id])
+  patientId         String
+  patient           Patient           @relation(fields: [patientId], references: [id])
+  encounterId       String?           @unique
+  encounter         Encounter?        @relation(fields: [encounterId], references: [id])
+  documentId        String?           @unique
+  document          ClinicalDocument? @relation(fields: [documentId], references: [id])
+  signerId          String
+  signer            User              @relation(fields: [signerId], references: [id])
+  provider          String
+  signerName        String
+  signerCpf         String?
+  certificateSerial String
+  pdf               Bytes
+  sha256            String
+  signedAt          DateTime          @default(now())
 }
 
 model Addendum {
@@ -369,11 +450,125 @@ model Expense {
   paymentMethod PaymentMethod?
   paidAt        DateTime?      @db.Date
   notes         String?
+  // Parcela de uma nota fiscal de compra (aba Compras), quando houver.
+  purchaseId    String?
+  purchase      Purchase?      @relation(fields: [purchaseId], references: [id])
+  installment   Int?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
   @@index([clinicId, dueDate])
   @@index([clinicId, paidAt])
+  @@index([purchaseId])
+}
+
+// Nota fiscal de compra (material, medicamento, insumo...). O pagamento vira uma ou mais
+// despesas (parcelas) na aba Despesas.
+model Purchase {
+  id            String         @id @default(cuid())
+  clinicId      String
+  clinic        Clinic         @relation(fields: [clinicId], references: [id])
+  kind          String
+  supplierName  String
+  supplierCnpj  String?
+  invoiceNumber String
+  invoiceSeries String?
+  accessKey     String?
+  issueDate     DateTime       @db.Date
+  totalCents    Int
+  notes         String?
+  status        PurchaseStatus @default(ATIVA)
+  createdById   String
+  createdAt     DateTime       @default(now())
+
+  items    PurchaseItem[]
+  expenses Expense[]
+
+  @@index([clinicId, issueDate])
+  @@index([clinicId, supplierCnpj, invoiceNumber])
+}
+
+enum PurchaseStatus {
+  ATIVA
+  CANCELADA
+}
+
+model PurchaseItem {
+  id             String    @id @default(cuid())
+  purchaseId     String
+  purchase       Purchase  @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  position       Int
+  description    String
+  unit           String?
+  quantity       Decimal   @db.Decimal(12, 3)
+  unitPriceCents Int
+  totalCents     Int
+  // Lote e validade (importante para medicamentos e insumos).
+  batch          String?
+  expiresAt      DateTime? @db.Date
+}
+
+// Horário de atendimento de um profissional num dia da semana (0 = domingo).
+// Um profissional pode ter mais de um período no mesmo dia (manhã e tarde).
+// Horários em minutos desde a meia-noite, no horário de Brasília.
+model WorkHours {
+  id             String @id @default(cuid())
+  clinicId       String
+  clinic         Clinic @relation(fields: [clinicId], references: [id])
+  professionalId String
+  professional   User   @relation(fields: [professionalId], references: [id])
+  weekday        Int
+  startMinute    Int
+  endMinute      Int
+  // Duração padrão de cada consulta neste período.
+  slotMinutes    Int
+
+  @@index([clinicId, professionalId])
+}
+
+// Período em que o profissional não atende (almoço, férias, congresso...).
+model ScheduleBlock {
+  id             String   @id @default(cuid())
+  clinicId       String
+  clinic         Clinic   @relation(fields: [clinicId], references: [id])
+  professionalId String
+  professional   User     @relation(fields: [professionalId], references: [id])
+  startsAt       DateTime
+  endsAt         DateTime
+  reason         String?
+  createdAt      DateTime @default(now())
+
+  @@index([clinicId, professionalId, startsAt])
+}
+
+model Appointment {
+  id             String            @id @default(cuid())
+  clinicId       String
+  clinic         Clinic            @relation(fields: [clinicId], references: [id])
+  professionalId String
+  professional   User              @relation("AppointmentProfessional", fields: [professionalId], references: [id])
+  patientId      String
+  patient        Patient           @relation(fields: [patientId], references: [id])
+  startsAt       DateTime
+  endsAt         DateTime
+  type           AppointmentType   @default(CONSULTA)
+  // Vazio = particular; preenchido = nome do convênio.
+  insurance      String?
+  notes          String?
+  status         AppointmentStatus @default(AGENDADO)
+  arrivedAt      DateTime?
+  cancelReason   String?
+  // Atendimento do prontuário aberto a partir deste agendamento.
+  encounterId    String?           @unique
+  encounter      Encounter?        @relation(fields: [encounterId], references: [id])
+  createdById    String
+  createdBy      User              @relation("AppointmentCreator", fields: [createdById], references: [id])
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([clinicId, startsAt])
+  @@index([clinicId, professionalId, startsAt])
+  @@index([clinicId, patientId])
 }
 
 model Cid10 {

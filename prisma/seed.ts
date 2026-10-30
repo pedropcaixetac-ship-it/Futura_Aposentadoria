@@ -37,6 +37,13 @@ const retorno = [
   { key: "conduta", label: "Conduta", type: "textarea" },
 ];
 
+// Exemplo de modelo próprio: a Dra. Ana prefere um formulário mais enxuto.
+const consultaAna = [
+  { key: "queixa", label: "Queixa principal", type: "text" },
+  { key: "hda", label: "História e exame", type: "textarea" },
+  { key: "conduta", label: "Conduta e orientações", type: "textarea" },
+];
+
 const psicologia = [
   { key: "demanda", label: "Demanda", type: "textarea" },
   { key: "registro", label: "Registro da sessão", type: "textarea" },
@@ -81,15 +88,19 @@ async function seedDemo() {
     ],
   });
 
+  const ana = await prisma.user.findFirstOrThrow({ where: { clinicId: clinic.id, email: "ana@demo.com" } });
+  const carlos = await prisma.user.findFirstOrThrow({ where: { clinicId: clinic.id, email: "carlos@demo.com" } });
+
+  // Modelos da clínica (sem dono) e modelos próprios de cada profissional.
   await prisma.recordTemplate.createMany({
     data: [
       { clinicId: clinic.id, name: "Consulta (primeira vez)", fields: consultaGeral },
       { clinicId: clinic.id, name: "Retorno", fields: retorno },
-      { clinicId: clinic.id, name: "Sessão de psicologia", specialty: "Psicologia", fields: psicologia },
+      { clinicId: clinic.id, ownerId: ana.id, name: "Minha consulta", fields: consultaAna },
+      { clinicId: clinic.id, ownerId: carlos.id, name: "Sessão de psicologia", fields: psicologia },
     ],
   });
 
-  const ana = await prisma.user.findFirstOrThrow({ where: { clinicId: clinic.id, email: "ana@demo.com" } });
   await prisma.textSnippet.createMany({
     data: [
       {
@@ -138,6 +149,75 @@ async function seedDemo() {
     ],
   });
   console.log("Clínica de demonstração criada (senha de todos: senha123)");
+}
+
+// Horário de Brasília (sem horário de verão): hora local + 3 = UTC.
+function brasilia(daysFromToday: number, hour: number, minute = 0) {
+  const now = new Date(Date.now() - 3 * 3600 * 1000);
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + daysFromToday, hour + 3, minute));
+}
+
+// Horários de atendimento e algumas consultas na clínica de demonstração.
+// Roda à parte, para aparecer também em quem já tinha a clínica criada.
+async function seedAgenda() {
+  const clinic = await prisma.clinic.findUnique({ where: { slug: "demo" } });
+  if (!clinic || (await prisma.workHours.count({ where: { clinicId: clinic.id } })) > 0) return;
+
+  const users = await prisma.user.findMany({ where: { clinicId: clinic.id } });
+  const byEmail = (email: string) => users.find((u) => u.email === email)!;
+  const ana = byEmail("ana@demo.com");
+  const carlos = byEmail("carlos@demo.com");
+  const recepcao = byEmail("recepcao@demo.com");
+
+  const weekdays = [1, 2, 3, 4, 5];
+  await prisma.workHours.createMany({
+    data: [
+      ...weekdays.flatMap((weekday) => [
+        { clinicId: clinic.id, professionalId: ana.id, weekday, startMinute: 8 * 60, endMinute: 12 * 60, slotMinutes: 30 },
+        { clinicId: clinic.id, professionalId: ana.id, weekday, startMinute: 14 * 60, endMinute: 18 * 60, slotMinutes: 30 },
+      ]),
+      ...weekdays.map((weekday) => ({ clinicId: clinic.id, professionalId: carlos.id, weekday, startMinute: 13 * 60, endMinute: 19 * 60, slotMinutes: 50 })),
+    ],
+  });
+
+  const patients = await prisma.patient.findMany({ where: { clinicId: clinic.id } });
+  const maria = patients.find((p) => p.name === "Maria Oliveira")!;
+  const joao = patients.find((p) => p.name === "João Pereira")!;
+  const extra = await Promise.all(
+    [
+      { name: "Fernanda Costa", phone: "11966663333" },
+      { name: "Roberto Alves", phone: "11955554444", insurance: "Bradesco Saúde" },
+      { name: "Luíza Martins", phone: "11944445555" },
+    ].map((data) => prisma.patient.create({ data: { ...data, clinicId: clinic.id } })),
+  );
+  const [fernanda, roberto, luiza] = extra;
+
+  const appt = (professionalId: string, patientId: string, start: Date, minutes: number, rest: Record<string, unknown> = {}) => ({
+    clinicId: clinic.id,
+    professionalId,
+    patientId,
+    startsAt: start,
+    endsAt: new Date(start.getTime() + minutes * 60_000),
+    createdById: recepcao.id,
+    ...rest,
+  });
+  await prisma.appointment.createMany({
+    data: [
+      appt(ana.id, maria.id, brasilia(0, 8), 30, { status: "ATENDIDO" as const }),
+      appt(ana.id, joao.id, brasilia(0, 9), 30, { status: "CHEGOU" as const, arrivedAt: brasilia(0, 8, 50), type: "RETORNO" as const, insurance: "Unimed" }),
+      appt(ana.id, fernanda.id, brasilia(0, 9, 30), 30, { status: "CONFIRMADO" as const }),
+      appt(ana.id, roberto.id, brasilia(0, 10, 30), 30, { insurance: "Bradesco Saúde", notes: "Trazer exames de sangue" }),
+      appt(ana.id, luiza.id, brasilia(0, 14), 60, { type: "PROCEDIMENTO" as const }),
+      appt(ana.id, maria.id, brasilia(1, 8, 30), 30, { type: "RETORNO" as const }),
+      appt(carlos.id, luiza.id, brasilia(0, 14), 50, { status: "CONFIRMADO" as const }),
+      appt(carlos.id, fernanda.id, brasilia(0, 15, 40), 50, { status: "DESMARCADO" as const, cancelReason: "Paciente viajou" }),
+      appt(carlos.id, roberto.id, brasilia(2, 13), 50, { insurance: "Bradesco Saúde" }),
+    ],
+  });
+  await prisma.scheduleBlock.create({
+    data: { clinicId: clinic.id, professionalId: ana.id, startsAt: brasilia(0, 11, 30), endsAt: brasilia(0, 12), reason: "Reunião" },
+  });
+  console.log("Agenda de demonstração criada");
 }
 
 // Exemplos do financeiro na clínica de demonstração. Roda à parte do resto
@@ -213,6 +293,46 @@ async function seedFinanceDemo() {
   console.log("Exemplos do financeiro criados");
 }
 
+// Exemplo da aba Compras: uma nota de medicamentos em 2 parcelas (a primeira já paga).
+async function seedPurchasesDemo() {
+  const clinic = await prisma.clinic.findUnique({ where: { slug: "demo" } });
+  if (!clinic || (await prisma.purchase.count({ where: { clinicId: clinic.id } })) > 0) return;
+  const admin = await prisma.user.findFirst({ where: { clinicId: clinic.id, role: "ADMIN" } });
+  if (!admin) return;
+  const day = (offset: number) => {
+    const iso = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+    return new Date(new Date(`${iso}T00:00:00Z`).getTime() + offset * 86400000);
+  };
+  const supplier = "Distribuidora Saúde Exemplo Ltda";
+  await prisma.purchase.create({
+    data: {
+      clinicId: clinic.id,
+      createdById: admin.id,
+      kind: "Medicamentos",
+      supplierName: supplier,
+      supplierCnpj: "11222333000181",
+      invoiceNumber: "4521",
+      invoiceSeries: "1",
+      issueDate: day(-3),
+      totalCents: 86000,
+      items: {
+        create: [
+          { position: 1, description: "Dipirona sódica 500 mg/ml ampola 2 ml", unit: "CX", quantity: 4, unitPriceCents: 9500, totalCents: 38000, batch: "DP2291", expiresAt: day(60) },
+          { position: 2, description: "Lidocaína 2% sem vasoconstritor 20 ml", unit: "FR", quantity: 10, unitPriceCents: 2800, totalCents: 28000, batch: "LD0912", expiresAt: day(400) },
+          { position: 3, description: "Seringa descartável 5 ml (caixa com 100)", unit: "CX", quantity: 2, unitPriceCents: 10000, totalCents: 20000, batch: "SR7781", expiresAt: day(900) },
+        ],
+      },
+      expenses: {
+        create: [
+          { clinicId: clinic.id, description: `NF 4521 · ${supplier} (1/2)`, category: "Medicamentos", amountCents: 43000, dueDate: day(-3), installment: 1, status: "PAGO", paymentMethod: "BOLETO", paidAt: day(-3) },
+          { clinicId: clinic.id, description: `NF 4521 · ${supplier} (2/2)`, category: "Medicamentos", amountCents: 43000, dueDate: day(27), installment: 2 },
+        ],
+      },
+    },
+  });
+  console.log("Exemplo de compras criado");
+}
+
 // CPFs de exemplo (válidos, mas fictícios) para testar o login por CPF. Também preenche bancos já criados.
 async function seedLoginDemo() {
   const clinic = await prisma.clinic.findUnique({ where: { slug: "demo" } });
@@ -246,7 +366,9 @@ async function seedStaffDemo() {
 async function main() {
   await seedCid10();
   await seedDemo();
+  await seedAgenda();
   await seedFinanceDemo();
+  await seedPurchasesDemo();
   await seedLoginDemo();
   await seedStaffDemo();
 }

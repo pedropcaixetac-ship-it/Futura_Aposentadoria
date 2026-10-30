@@ -6,12 +6,21 @@ import type { Vitals } from "@/lib/vitals";
 import type { Snippet } from "@/app/(app)/textos-prontos/actions";
 import { CidPicker } from "./cid-picker";
 import { ConsultationTimer } from "./consultation-timer";
+import { DictationButton } from "./dictation-button";
 import { SnippetMenu } from "./snippet-menu";
 import { VitalsInput } from "./vitals-input";
 
 const AUTOSAVE_DELAY_MS = 3000;
 
 type SaveState = { kind: "idle" } | { kind: "dirty" } | { kind: "saving" } | { kind: "saved"; at: string } | { kind: "error" };
+
+export type LastEncounter = {
+  when: string;
+  professionalName: string;
+  fields: TemplateField[];
+  content: Record<string, string>;
+  diagnoses: Diagnosis[];
+};
 
 type Props = {
   patient: { name: string; ageLine: string | null; insurance: string | null; allergies: string | null };
@@ -22,6 +31,7 @@ type Props = {
   diagnoses: Diagnosis[];
   vitals: Vitals | null;
   snippets: Snippet[];
+  lastEncounter: LastEncounter | null;
   autosave: (formData: FormData) => Promise<string>;
   finalize: (formData: FormData) => Promise<void>;
 };
@@ -35,6 +45,7 @@ export function EncounterEditor({
   diagnoses: initialDiagnoses,
   vitals,
   snippets: initialSnippets,
+  lastEncounter,
   autosave,
   finalize,
 }: Props) {
@@ -84,12 +95,33 @@ export function EncounterEditor({
     return () => window.removeEventListener("beforeunload", warn);
   }, [saveState.kind]);
 
-  // Campo vazio recebe o texto pronto; campo já preenchido ganha o texto no final.
-  const insert = (key: string, text: string) => {
+  // Campo vazio recebe o texto; campo já preenchido ganha o texto no final.
+  const insert = (key: string, text: string, separator = "\n") => {
     const el = inputs.current[key];
-    if (!el) return;
-    el.value = el.value.trim() ? `${el.value.trimEnd()}\n${text}` : text;
+    if (!el || !text) return;
+    el.value = el.value.trim() ? `${el.value.trimEnd()}${separator}${text}` : text;
     el.focus();
+    markDirty();
+  };
+
+  // Traz o texto da última consulta finalizada. Campos com o mesmo nome são copiados um a um;
+  // o que não tiver campo correspondente vai para o primeiro campo, com o título original.
+  const copyLast = () => {
+    if (!lastEncounter) return;
+    const filled = fields.some((f) => inputs.current[f.key]?.value.trim());
+    if (filled && !confirm("Os campos já preenchidos serão substituídos pelo texto da última consulta. Continuar?")) return;
+
+    const keys = new Set(fields.map((f) => f.key));
+    const leftovers = lastEncounter.fields
+      .filter((f) => !keys.has(f.key) && lastEncounter.content[f.key]?.trim())
+      .map((f) => `${f.label}: ${lastEncounter.content[f.key].trim()}`);
+    fields.forEach((f, i) => {
+      const el = inputs.current[f.key];
+      if (!el) return;
+      const parts = [lastEncounter.content[f.key]?.trim() ?? "", ...(i === 0 ? leftovers : [])].filter(Boolean);
+      el.value = parts.join("\n");
+    });
+    if (lastEncounter.diagnoses.length) setDiagnoses(lastEncounter.diagnoses);
     markDirty();
   };
 
@@ -112,7 +144,7 @@ export function EncounterEditor({
       }}
       className="space-y-4"
     >
-      <div className="sticky top-0 z-30 rounded-b-lg bg-marinho-900 px-4 py-3 text-white shadow-md">
+      <div className="sticky top-[3.5rem] z-30 rounded-b-lg md:top-0 bg-marinho-900 px-4 py-3 text-white shadow-md">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <div className="min-w-0">
             <p className="text-xs uppercase tracking-wide text-dourado-300">{heading}</p>
@@ -151,17 +183,30 @@ export function EncounterEditor({
       <VitalsInput initial={vitals} />
 
       <div className="card space-y-4">
+        {lastEncounter && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-marinho-50 px-3 py-2 text-sm">
+            <span className="text-slate-600">
+              Última consulta: {lastEncounter.when} · {lastEncounter.professionalName}
+            </span>
+            <button type="button" onClick={copyLast} className="btn-secondary px-3 py-1 text-xs">
+              ⧉ Copiar da última consulta
+            </button>
+          </div>
+        )}
         {fields.map((f) => (
           <div key={f.key}>
             <div className="mb-1 flex items-center justify-between gap-2">
               <label className="label mb-0" htmlFor={f.key}>{f.label}</label>
-              <SnippetMenu
-                fieldKey={f.key}
-                snippets={snippets}
-                currentText={() => inputs.current[f.key]?.value ?? ""}
-                onPick={(text) => insert(f.key, text)}
-                onCreated={(s) => setSnippets((prev) => [...prev, s])}
-              />
+              <span className="flex items-center gap-2">
+                <DictationButton onText={(text) => insert(f.key, text, " ")} />
+                <SnippetMenu
+                  fieldKey={f.key}
+                  snippets={snippets}
+                  currentText={() => inputs.current[f.key]?.value ?? ""}
+                  onPick={(text) => insert(f.key, text)}
+                  onCreated={(s) => setSnippets((prev) => [...prev, s])}
+                />
+              </span>
             </div>
             {f.type === "text" ? (
               <input

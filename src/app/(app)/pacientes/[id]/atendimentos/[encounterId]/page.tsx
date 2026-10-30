@@ -8,16 +8,26 @@ import { age, formatDate, formatDateTime } from "@/lib/format";
 import { documentHash, encounterHash, type Diagnosis, type TemplateField } from "@/lib/record";
 import { documentTypeLabel } from "@/lib/documents";
 import { addAddendum, autosaveEncounter, finalizeEncounter, issueDocument } from "../../actions";
+import { updateClinicalSummary } from "../../../actions";
 import type { Vitals } from "@/lib/vitals";
 import { DocumentForm } from "./document-form";
+import { SignBox } from "./sign-box";
+import { availableProviders } from "@/lib/signature/providers";
 import { EncounterEditor } from "./encounter-editor";
 import { PrintButton } from "./print-button";
 import { PatientHistory } from "./patient-history";
 import { VitalsView } from "./vitals-view";
 
-export default async function EncounterPage({ params }: { params: Promise<{ id: string; encounterId: string }> }) {
+export default async function EncounterPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string; encounterId: string }>;
+  searchParams: Promise<{ assinatura?: string }>;
+}) {
   const user = await requireUser("pacientes");
   const { id, encounterId } = await params;
+  const { assinatura } = await searchParams;
   if (!canViewClinical(user)) notFound();
 
   const encounter = await prisma.encounter.findFirst({
@@ -27,7 +37,8 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
       professional: true,
       template: true,
       addenda: { include: { author: true }, orderBy: { createdAt: "asc" } },
-      documents: { include: { author: true }, orderBy: { createdAt: "asc" } },
+      signedPdf: { select: { id: true, signerName: true, signedAt: true, provider: true } },
+      documents: { include: { author: true, signedPdf: { select: { id: true, signerName: true, signedAt: true, provider: true } } }, orderBy: { createdAt: "asc" } },
     },
   });
   if (!encounter) notFound();
@@ -43,6 +54,7 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
 
   const editable = canEditEncounter(user, encounter);
   const canIssueDocuments = encounter.professionalId === user.id;
+  const providers = encounter.professionalId === user.id ? availableProviders() : [];
   const snippets = editable
     ? await prisma.textSnippet.findMany({
         where: { ownerId: user.id },
@@ -60,6 +72,9 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
       })
     : [];
 
+  // "Copiar da última consulta" usa a última do próprio profissional; se não houver, a última de qualquer um.
+  const last = history.find((e) => e.professionalId === user.id) ?? history[0];
+
   const fields = encounter.fields as TemplateField[];
   const content = encounter.content as Record<string, string>;
   const diagnoses = encounter.diagnoses as Diagnosis[];
@@ -74,7 +89,13 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
       <div className="no-print flex items-center justify-between">
         <Link href={`/pacientes/${id}`} className="text-sm text-marinho-700 hover:underline">← Voltar ao prontuário</Link>
         {encounter.status === "FINALIZADO" && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
+            <SignBox
+              target={{ kind: "atendimento", id: encounter.id }}
+              signed={encounter.signedPdf}
+              canSign={encounter.professionalId === user.id}
+              providers={providers}
+            />
             <a href={`/api/pdf/atendimento/${encounter.id}`} target="_blank" className="btn-secondary">Baixar PDF</a>
             <PrintButton />
           </div>
@@ -94,6 +115,17 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
           </p>
           {patient.allergies && <p className="text-sm font-semibold text-red-700">Alergias: {patient.allergies}</p>}
         </div>
+      )}
+
+      {assinatura === "erro" && (
+        <p className="no-print rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800">
+          Não foi possível assinar. Confira se o seu CPF está certo em Assinatura digital e tente de novo.
+        </p>
+      )}
+      {assinatura === "cancelada" && (
+        <p className="no-print rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+          A assinatura foi cancelada no app do certificado.
+        </p>
       )}
 
       {!intact && (
@@ -118,11 +150,24 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
             diagnoses={diagnoses}
             vitals={vitals}
             snippets={snippets}
+            lastEncounter={
+              last
+                ? {
+                    when: formatDateTime(last.startedAt),
+                    professionalName: last.professional.name,
+                    fields: last.fields as TemplateField[],
+                    content: last.content as Record<string, string>,
+                    diagnoses: last.diagnoses as Diagnosis[],
+                  }
+                : null
+            }
             autosave={autosaveEncounter.bind(null, encounter.id)}
             finalize={finalizeEncounter.bind(null, encounter.id)}
           />
           <PatientHistory
+            patientId={id}
             summary={patient}
+            updateSummary={updateClinicalSummary.bind(null, id)}
             encounters={history.map((e) => ({
               id: e.id,
               startedAt: e.startedAt,
@@ -201,7 +246,15 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
                       <p className="text-xs font-semibold text-red-700">Atenção: este documento não confere com o emitido.</p>
                     )}
                   </div>
-                  <a href={`/api/pdf/documento/${d.id}`} target="_blank" className="btn-secondary shrink-0">PDF</a>
+                  <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                    <SignBox
+                      target={{ kind: "documento", id: d.id }}
+                      signed={d.signedPdf}
+                      canSign={d.authorId === user.id}
+                      providers={providers}
+                    />
+                    <a href={`/api/pdf/documento/${d.id}`} target="_blank" className="btn-secondary">PDF</a>
+                  </div>
                 </li>
               ))}
             </ul>

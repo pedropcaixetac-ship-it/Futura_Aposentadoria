@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
@@ -23,7 +24,13 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="space-y-5">
-      <MonthNav basePath="/financeiro/despesas" range={range} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <MonthNav basePath="/financeiro/despesas" range={range} />
+        <p className="text-sm text-slate-500">
+          Compra com nota fiscal (material, medicamento, insumo)?{" "}
+          <Link href="/financeiro/compras/nova" className="font-medium text-marinho-700 hover:underline">Lance na aba Compras</Link>
+        </p>
+      </div>
 
       <details className="card group">
         <summary className="cursor-pointer list-none font-semibold text-marinho-800">
@@ -99,7 +106,11 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
               <tr key={e.id} className={`border-t border-slate-100 ${e.status === "CANCELADO" ? "text-slate-400" : ""}`}>
                 <td className="whitespace-nowrap px-4 py-2">{formatDate(e.dueDate)}</td>
                 <td className="px-4 py-2 font-medium">
-                  {e.description}
+                  {e.purchaseId ? (
+                    <Link href={`/financeiro/compras/${e.purchaseId}`} className="text-marinho-700 hover:underline">{e.description}</Link>
+                  ) : (
+                    e.description
+                  )}
                   {e.notes && <span className="block text-xs font-normal text-slate-500">{e.notes}</span>}
                 </td>
                 <td className="px-4 py-2">{e.category}</td>

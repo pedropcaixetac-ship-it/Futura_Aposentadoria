@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
+  <NFe>
+    <infNFe Id="NFe52261011222333000181550010000078901123456789" versao="4.00">
+      <ide><cUF>52</cUF><natOp>Venda de mercadoria</natOp><mod>55</mod><serie>1</serie><nNF>7890</nNF><dhEmi>2026-10-28T09:15:00-03:00</dhEmi></ide>
+      <emit><CNPJ>11222333000181</CNPJ><xNome>Farma &amp; Cia Distribuidora Ltda</xNome><xFant>Farma Cia</xFant><enderEmit><xLgr>Rua A</xLgr></enderEmit></emit>
+      <dest><CNPJ>99888777000166</CNPJ><xNome>Clinica Demo</xNome></dest>
+      <det nItem="1"><prod><cProd>001</cProd><xProd>Luva de procedimento M (caixa com 100)</xProd><uCom>CX</uCom><qCom>10.0000</qCom><vUnCom>32.5000000000</vUnCom><vProd>325.00</vProd><rastro><nLote>LV2026A</nLote><qLote>10.000</qLote><dFab>2026-01-10</dFab><dVal>2028-01-10</dVal></rastro></prod><imposto><ICMS/></imposto></det>
+      <det nItem="2"><prod><cProd>002</cProd><xProd>Soro fisiologico 0,9% 500 ml</xProd><uCom>UN</uCom><qCom>24.0000</qCom><vUnCom>6.1250000000</vUnCom><vProd>147.00</vProd><med><cProdANVISA>123</cProdANVISA><nLote>SF889</nLote><dVal>2027-06-30</dVal></med></prod></det>
+      <total><ICMSTot><vProd>472.00</vProd><vFrete>28.00</vFrete><vNF>500.00</vNF></ICMSTot></total>
+      <cobr><fat><nFat>7890</nFat><vLiq>500.00</vLiq></fat>
+        <dup><nDup>001</nDup><dVenc>2026-11-27</dVenc><vDup>250.00</vDup></dup>
+        <dup><nDup>002</nDup><dVenc>2026-12-27</dVenc><vDup>250.00</vDup></dup>
+      </cobr>
+      <pag><detPag><tPag>15</tPag><vPag>500.00</vPag></detPag></pag>
+    </infNFe>
+  </NFe>
+  <protNFe versao="4.00"><infProt><chNFe>52261011222333000181550010000078901123456789</chNFe></infProt></protNFe>
+</nfeProc>

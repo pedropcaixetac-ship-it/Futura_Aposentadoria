@@ -20,10 +20,14 @@ const items: { key: keyof Summary; label: string }[] = [
 export function ClinicalSummary({
   summary,
   action,
+  compact = false,
 }: {
   summary: Summary;
   action: (state: FormState, formData: FormData) => Promise<FormState>;
+  // Uma coluna só, para caber na lateral da consulta.
+  compact?: boolean;
 }) {
+  const grid = compact ? "grid gap-3" : "grid gap-3 sm:grid-cols-2";
   const [editing, setEditing] = useState(false);
   const [state, formAction, pending] = useActionState(async (prev: FormState, fd: FormData) => {
     const result = await action(prev, fd);
@@ -38,7 +42,7 @@ export function ClinicalSummary({
           <h2 className="font-semibold">Resumo clínico</h2>
           <button onClick={() => setEditing(true)} className="no-print text-sm text-marinho-700 hover:underline">Editar</button>
         </div>
-        <dl className="grid gap-3 sm:grid-cols-2">
+        <dl className={grid}>
           {items.map(({ key, label }) => (
             <div key={key}>
               <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</dt>
@@ -55,7 +59,7 @@ export function ClinicalSummary({
   return (
     <form action={formAction} className="card space-y-3">
       <h2 className="font-semibold">Resumo clínico</h2>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className={grid}>
         {items.map(({ key, label }) => (
           <div key={key}>
             <label className="label" htmlFor={key}>{label}</label>

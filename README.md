@@ -23,9 +23,18 @@ Este é o primeiro módulo: **Prontuário**.
 - Auditoria (LGPD): quem abriu ou alterou cada prontuário, quando e de onde. Esses registros também não podem ser apagados
 - Impressão do atendimento e PDF do atendimento finalizado
 - Receitas, atestados, pedidos de exame e relatórios emitidos dentro do atendimento, em PDF com o cabeçalho da clínica.
-  Depois de emitidos não podem ser alterados nem apagados. É sobre esses PDFs que entrará a assinatura digital ICP-Brasil
+  Depois de emitidos não podem ser alterados nem apagados
+- Assinatura digital ICP-Brasil com certificado em nuvem (VIDaaS e BirdID), no padrão PAdES. O profissional autoriza
+  uma vez no app do certificado e assina por 8 horas com um clique. Fora da produção há um "certificado de teste",
+  sem validade jurídica, para experimentar. As credenciais de cada provedor vão nas variáveis de `.env.example`
 - Barra lateral com a clínica, o usuário, o setor e o menu de cada perfil
 - "Usar modelo" ao lado de cada campo do atendimento, com os textos prontos de cada profissional
+- Agenda por dia (uma coluna por profissional) e por semana, com horários de atendimento, bloqueios
+  (almoço, férias), cadastro rápido de paciente, aviso de horário ocupado com opção de encaixe,
+  situação da consulta em cores e sala de espera. O profissional inicia o atendimento direto da agenda,
+  e a consulta vira "Atendido" quando o atendimento é finalizado
+- Recepção: lista das consultas do dia, onde a recepcionista marca quem confirmou, chegou ou faltou,
+  e a sala de espera com o tempo de espera de cada paciente
 - WhatsApp (primeira etapa): botão "Enviar no WhatsApp" na ficha do paciente, que abre o WhatsApp da recepção com o
   texto pronto (contato ou aviso de retorno). Só aparece se o paciente autorizou no cadastro (LGPD), e cada envio fica na auditoria
 
@@ -34,6 +43,9 @@ Este é o primeiro módulo: **Prontuário**.
 - Resumo do mês: quanto entrou, quanto saiu, saldo, quanto falta receber e pagamentos atrasados
 - Receitas: cobrança de cada atendimento finalizado (ou avulsa), com forma de pagamento e situação
 - Despesas da clínica, com vencimento e aviso de atraso
+- Compras: entrada de nota fiscal de compra (material, medicamento, insumo, equipamento), com itens, lote e validade.
+  O XML da NF-e enviado pelo fornecedor preenche tudo sozinho. O pagamento (à vista ou em parcelas) entra nas Despesas,
+  e a mesma nota não pode ser lançada duas vezes
 - Tabela de preços, que preenche o valor da cobrança
 - Repasse por profissional (porcentagem do valor recebido), que pode ser lançado como despesa
 - Recibo numerado, com valor por extenso, para imprimir ou salvar em PDF
