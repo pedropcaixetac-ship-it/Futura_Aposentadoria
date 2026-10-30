@@ -26,6 +26,16 @@ Este é o primeiro módulo: **Prontuário**.
 - Barra lateral com a clínica, o usuário, o setor e o menu de cada perfil
 - "Usar modelo" ao lado de cada campo do atendimento, com os textos prontos de cada profissional
 
+### Financeiro
+
+- Resumo do mês: quanto entrou, quanto saiu, saldo, quanto falta receber e pagamentos atrasados
+- Receitas: cobrança de cada atendimento finalizado (ou avulsa), com forma de pagamento e situação
+- Despesas da clínica, com vencimento e aviso de atraso
+- Tabela de preços, que preenche o valor da cobrança
+- Repasse por profissional (porcentagem do valor recebido), que pode ser lançado como despesa
+- Recibo numerado, com valor por extenso, para imprimir ou salvar em PDF
+- O administrador vê tudo; a recepção lança cobranças e recebe pagamentos; cada profissional vê só o próprio repasse
+
 ## Usuários de demonstração
 
 Código da clínica: `demo`. Senha de todos: `senha123`.

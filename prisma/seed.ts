@@ -4,6 +4,7 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { encounterHash } from "../src/lib/record";
 
 const prisma = new PrismaClient();
 
@@ -137,9 +138,83 @@ async function seedDemo() {
   console.log("Clínica de demonstração criada (senha de todos: senha123)");
 }
 
+// Exemplos do financeiro na clínica de demonstração. Roda à parte do resto
+// para que clínicas de demonstração já existentes também recebam os exemplos.
+async function seedFinanceDemo() {
+  const clinic = await prisma.clinic.findUnique({ where: { slug: "demo" } });
+  if (!clinic || (await prisma.priceItem.count({ where: { clinicId: clinic.id } })) > 0) return;
+
+  const day = (offset: number) => {
+    const iso = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+    return new Date(new Date(`${iso}T00:00:00Z`).getTime() + offset * 86400000);
+  };
+  const ana = await prisma.user.findFirst({ where: { clinicId: clinic.id, email: "ana@demo.com" } });
+  const carlos = await prisma.user.findFirst({ where: { clinicId: clinic.id, email: "carlos@demo.com" } });
+  const maria = await prisma.patient.findFirst({ where: { clinicId: clinic.id, name: "Maria Oliveira" } });
+  const joao = await prisma.patient.findFirst({ where: { clinicId: clinic.id, name: "João Pereira" } });
+  if (!ana || !carlos || !maria || !joao) return;
+
+  await prisma.clinic.update({ where: { id: clinic.id }, data: { address: "Rua Exemplo, 100, Centro - Goiânia", phone: "(62) 3333-4444" } });
+  await prisma.user.update({ where: { id: ana.id }, data: { commissionPercent: 60 } });
+  await prisma.user.update({ where: { id: carlos.id }, data: { commissionPercent: 70 } });
+
+  await prisma.priceItem.createMany({
+    data: [
+      { clinicId: clinic.id, name: "Consulta clínica geral", priceCents: 25000 },
+      { clinicId: clinic.id, name: "Retorno", priceCents: 15000 },
+      { clinicId: clinic.id, name: "Sessão de psicologia", priceCents: 18000 },
+      { clinicId: clinic.id, name: "Eletrocardiograma", priceCents: 12000 },
+    ],
+  });
+
+  // Um atendimento finalizado ainda sem cobrança, para aparecer em "Atendimentos ainda sem cobrança".
+  if ((await prisma.encounter.count({ where: { clinicId: clinic.id, patientId: joao.id } })) === 0) {
+    const fields = [{ key: "evolucao", label: "Evolução", type: "textarea" }];
+    const encounter = await prisma.encounter.create({
+      data: { clinicId: clinic.id, patientId: joao.id, professionalId: ana.id, fields, content: { evolucao: "Consulta de rotina, sem queixas." } },
+    });
+    const finalizedAt = new Date();
+    await prisma.encounter.update({
+      where: { id: encounter.id },
+      data: { status: "FINALIZADO", finalizedAt, contentHash: encounterHash({ ...encounter, finalizedAt }) },
+    });
+  }
+
+  const paid = [
+    { patientId: maria.id, professionalId: ana.id, description: "Consulta clínica geral", amountCents: 25000, date: day(-3), paymentMethod: "PIX" as const },
+    { patientId: maria.id, professionalId: carlos.id, description: "Sessão de psicologia", amountCents: 18000, date: day(-2), paymentMethod: "CARTAO_DEBITO" as const },
+    { patientId: maria.id, professionalId: carlos.id, description: "Sessão de psicologia", amountCents: 18000, date: day(-1), paymentMethod: "DINHEIRO" as const },
+  ];
+  for (const c of paid) {
+    const { lastReceiptNumber } = await prisma.clinic.update({ where: { id: clinic.id }, data: { lastReceiptNumber: { increment: 1 } } });
+    await prisma.charge.create({
+      data: {
+        clinicId: clinic.id, patientId: c.patientId, professionalId: c.professionalId, description: c.description, amountCents: c.amountCents,
+        dueDate: c.date, status: "PAGO", paymentMethod: c.paymentMethod, paidAt: c.date, receiptNumber: lastReceiptNumber,
+      },
+    });
+  }
+  await prisma.charge.createMany({
+    data: [
+      { clinicId: clinic.id, patientId: joao.id, professionalId: ana.id, description: "Eletrocardiograma", amountCents: 12000, dueDate: day(-10) },
+      { clinicId: clinic.id, patientId: joao.id, professionalId: ana.id, description: "Retorno", amountCents: 15000, dueDate: day(5) },
+    ],
+  });
+
+  await prisma.expense.createMany({
+    data: [
+      { clinicId: clinic.id, description: "Aluguel da sala", category: "Aluguel e condomínio", amountCents: 350000, dueDate: day(-5), status: "PAGO", paymentMethod: "BOLETO", paidAt: day(-5) },
+      { clinicId: clinic.id, description: "Luvas e material descartável", category: "Materiais e insumos", amountCents: 42000, dueDate: day(-2), status: "PAGO", paymentMethod: "PIX", paidAt: day(-2) },
+      { clinicId: clinic.id, description: "Internet", category: "Água, luz, internet e telefone", amountCents: 15000, dueDate: day(4) },
+    ],
+  });
+  console.log("Exemplos do financeiro criados");
+}
+
 async function main() {
   await seedCid10();
   await seedDemo();
+  await seedFinanceDemo();
 }
 
 main().finally(() => prisma.$disconnect());

@@ -35,6 +35,14 @@ test("auditoria não pode ser apagada", async () => {
   await assert.rejects(prisma.auditLog.delete({ where: { id: log.id } }), /não podem ser alterados/);
 });
 
+test("número do recibo não se repete na mesma clínica", async () => {
+  const clinic = await testClinic();
+  const patient = await prisma.patient.create({ data: { clinicId: clinic.id, name: "Paciente Teste" } });
+  const charge = (n: number) => ({ clinicId: clinic.id, patientId: patient.id, description: "Consulta", amountCents: 100, dueDate: new Date(), receiptNumber: n });
+  await prisma.charge.create({ data: charge(1) });
+  await assert.rejects(prisma.charge.create({ data: charge(1) }), /Unique constraint/);
+});
+
 test("documento emitido (receita, atestado) não pode ser alterado nem excluído", async () => {
   const clinic = await testClinic();
   const professional = await prisma.user.create({
