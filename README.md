@@ -118,6 +118,16 @@ Este é o primeiro módulo: **Prontuário**.
 - Abre em tela cheia, sem a barra do navegador, com ícone e cores da clínica (azul-marinho e dourado)
 - Todas as telas cabem na largura do celular; o menu lateral vira uma gaveta aberta pelo botão ☰
 
+### Aplicativo do paciente ("Minhas consultas")
+
+- Endereço `/paciente` (também há um link na tela de entrada da equipe). Pode ser instalado no celular com nome e ícone próprios
+- O paciente entra com o código da clínica, o CPF e a data de nascimento do cadastro (quem não tem CPF no cadastro não consegue entrar)
+- Mostra só as consultas: próximas (com o botão "Entrar na teleconsulta" quando for o caso) e as 10 últimas. Nada do prontuário
+- Depois de 5 tentativas erradas seguidas, a entrada daquele paciente fica travada por 15 minutos
+- Entradas, saídas, erros e travas ficam na auditoria
+- A sessão do paciente é separada da equipe: não abre nenhuma tela do sistema da clínica
+- Demonstração: clínica `demo`, CPF 111.444.777-35, nascimento 12/04/1975 (Maria Oliveira)
+
 ## Usuários de demonstração
 
 Código da clínica: `demo`. Senha de todos: `senha123`. Dá para entrar pelo e-mail, pelo CPF ou pelo conselho.

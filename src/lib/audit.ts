@@ -91,4 +91,8 @@ export const auditActionLabel: Record<string, string> = {
   TELECONSULTA_PROFISSIONAL_ENTROU: "Entrou na chamada da teleconsulta",
   TELECONSULTA_PACIENTE_ENTROU: "Paciente entrou na chamada",
   TELECONSULTA_ENCERRADA: "Encerrou teleconsulta",
+  PACIENTE_APP_ENTROU: "Paciente entrou no aplicativo",
+  PACIENTE_APP_FALHOU: "Tentativa de entrada do paciente no aplicativo falhou",
+  PACIENTE_APP_BLOQUEADO: "Entrada do paciente no aplicativo travada por tentativas erradas",
+  PACIENTE_APP_SAIU: "Paciente saiu do aplicativo",
 };

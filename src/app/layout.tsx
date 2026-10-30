@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: "Prontuário Eletrônico",
   description: "Prontuário eletrônico e gestão de clínicas",
   applicationName: "Prontuário",
+  manifest: "/manifest.webmanifest",
   // No iPhone o ícone e o nome vêm daqui, e não do manifest.
   appleWebApp: { capable: true, title: "Prontuário", statusBarStyle: "black" },
   icons: { apple: "/icons/apple-touch-icon.png" },
