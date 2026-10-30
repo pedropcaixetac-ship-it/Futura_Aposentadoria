@@ -177,6 +177,8 @@ export async function setAppointmentStatus(id: string, status: AppointmentStatus
       status,
       arrivedAt: status === "CHEGOU" ? new Date() : status === "AGENDADO" || status === "FALTOU" ? null : appointment.arrivedAt,
       cancelReason: null,
+      // Quem mexeu agora foi a recepção, não mais o paciente pelo aplicativo.
+      confirmedInAppAt: null,
     },
   });
   await audit({

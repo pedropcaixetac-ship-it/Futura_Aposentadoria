@@ -38,9 +38,9 @@ export async function getCurrentPatient() {
   if (!token) return null;
   const session = await prisma.patientSession.findUnique({
     where: { id: hashToken(token) },
-    include: { patient: { select: { id: true, name: true, socialName: true, clinicId: true, clinic: { select: { name: true } } } } },
+    include: { patient: { select: { id: true, name: true, socialName: true, clinicId: true, clinic: { select: { name: true, active: true } } } } },
   });
-  if (!session || session.expiresAt < new Date()) return null;
+  if (!session || session.expiresAt < new Date() || !session.patient.clinic.active) return null;
   return session.patient;
 }
 

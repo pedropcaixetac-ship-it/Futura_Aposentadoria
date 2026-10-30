@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import type { AppointmentStatus } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
 import { canUseReception } from "@/lib/permissions";
-import { addDays, appointmentTypeLabel, clinicTime, formatDayLabel, formatTime, formatWait, isValidDate, nextStatuses, occupiesSlot, statusLabel, statusStyle, today } from "@/lib/agenda";
+import { addDays, appointmentTypeLabel, clinicTime, formatDayLabel, formatTime, formatWait, isValidDate, nextStatuses, occupiesSlot, statusLabel, statusStyle, statusText, today } from "@/lib/agenda";
 import { listProfessionals, loadAgenda } from "@/lib/agenda-data";
 import { formatDateTime, formatPhone } from "@/lib/format";
 import { canMessage } from "@/lib/whatsapp";
@@ -39,7 +39,7 @@ export default async function ReceptionPage({ searchParams }: { searchParams: Pr
   const count = (s: AppointmentStatus[]) => active.filter((a) => s.includes(a.status)).length;
   const now = Date.now();
   const tomorrow = addDays(todayDate, 1);
-  const [toConfirmTomorrow, returns] = await Promise.all([
+  const [toConfirmTomorrow, returns, cancelledInApp] = await Promise.all([
     date === todayDate
       ? prisma.appointment.count({
           where: {
@@ -51,6 +51,19 @@ export default async function ReceptionPage({ searchParams }: { searchParams: Pr
         })
       : 0,
     returnsToNotify(user.clinicId),
+    // Consultas que o paciente desmarcou pelo aplicativo na última semana e que ainda iam acontecer:
+    // a recepção vê para remarcar ou encaixar outra pessoa no horário.
+    prisma.appointment.findMany({
+      where: {
+        clinicId: user.clinicId,
+        status: "DESMARCADO",
+        cancelledInAppAt: { gte: new Date(Date.now() - 7 * 24 * 3600 * 1000) },
+        startsAt: { gte: new Date() },
+      },
+      select: { id: true, startsAt: true, professionalId: true, cancelledInAppAt: true, patient: { select: { name: true, socialName: true } } },
+      orderBy: { startsAt: "asc" },
+      take: 10,
+    }),
   ]);
   const pendingReturns = returns.filter((r) => !r.returnNoticeSentAt).length;
 
@@ -83,6 +96,23 @@ export default async function ReceptionPage({ searchParams }: { searchParams: Pr
               <strong>{pendingReturns}</strong> retorno{pendingReturns > 1 ? "s" : ""} para avisar →
             </Link>
           )}
+        </div>
+      )}
+
+      {cancelledInApp.length > 0 && (
+        <div className="card border-red-200 bg-red-50/60">
+          <h2 className="mb-1 font-semibold text-red-900">Desmarcadas pelo paciente no aplicativo</h2>
+          <p className="mb-2 text-xs text-red-800">O horário ficou livre na agenda. Se quiser, ligue para remarcar ou encaixe outra pessoa.</p>
+          <ul className="divide-y divide-red-100 text-sm">
+            {cancelledInApp.map((a) => (
+              <li key={a.id} className="py-1.5">
+                <Link href={`/agenda/${a.id}`} className="hover:underline">
+                  <span className="font-medium">{formatDateTime(a.startsAt)}</span> · {a.patient.socialName || a.patient.name} · {name.get(a.professionalId)}
+                </Link>
+                <span className="text-xs text-red-800"> (desmarcou em {formatDateTime(a.cancelledInAppAt)})</span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -157,7 +187,7 @@ export default async function ReceptionPage({ searchParams }: { searchParams: Pr
                 </td>
                 <td className="px-4 py-2">{name.get(a.professionalId)}</td>
                 <td className="px-4 py-2">
-                  <span className={`whitespace-nowrap rounded border-l-4 px-2 py-0.5 text-xs ${statusStyle[a.status]}`}>{statusLabel[a.status]}</span>
+                  <span className={`whitespace-nowrap rounded border-l-4 px-2 py-0.5 text-xs ${statusStyle[a.status]}`}>{statusText(a)}</span>
                 </td>
                 <td className="px-4 py-2">
                   <div className="flex flex-wrap gap-1.5">

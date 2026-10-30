@@ -95,4 +95,6 @@ export const auditActionLabel: Record<string, string> = {
   PACIENTE_APP_FALHOU: "Tentativa de entrada do paciente no aplicativo falhou",
   PACIENTE_APP_BLOQUEADO: "Entrada do paciente no aplicativo travada por tentativas erradas",
   PACIENTE_APP_SAIU: "Paciente saiu do aplicativo",
+  PACIENTE_APP_CONFIRMOU: "Paciente confirmou a consulta pelo aplicativo",
+  PACIENTE_APP_DESMARCOU: "Paciente desmarcou a consulta pelo aplicativo",
 };

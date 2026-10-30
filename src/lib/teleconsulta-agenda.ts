@@ -6,7 +6,8 @@ import { deleteRoom } from "./video";
 // Mantém a teleconsulta de um agendamento em dia com a agenda:
 // - marcada como "Teleconsulta": cria o link (ou acompanha a remarcação);
 // - desmarcada ou trocada para outro tipo: o link deixa de funcionar.
-export async function syncAppointmentTeleconsultation(appointmentId: string, userId: string) {
+// userId vazio quando quem mexeu foi o próprio paciente, pelo aplicativo.
+export async function syncAppointmentTeleconsultation(appointmentId: string, userId: string | null) {
   const appointment = await prisma.appointment.findUniqueOrThrow({
     where: { id: appointmentId },
     include: { teleconsultation: true },
