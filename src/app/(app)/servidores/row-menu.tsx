@@ -14,16 +14,22 @@ type Props = {
   reactivate: () => Promise<void>;
 };
 
+// Altura aproximada do menu aberto (três opções), para saber se cabe embaixo do botão.
+const MENU_HEIGHT = 160;
+
 // Os "três pontinhos" no fim de cada linha da tabela de servidores.
 export function RowMenu({ id, name, active, systemAccess, isSelf, locked, reactivate }: Props) {
   // Posição na tela de onde o menu abre. O menu fica "solto" (fixed) para não ser cortado pela tabela.
-  const [open, setOpen] = useState<{ top: number; right: number } | null>(null);
+  const [open, setOpen] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   function toggle(event: React.MouseEvent<HTMLButtonElement>) {
     if (open) return setOpen(null);
     const rect = event.currentTarget.getBoundingClientRect();
-    setOpen({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    const right = window.innerWidth - rect.right;
+    // Perto do fim da tela (ex.: último servidor da lista), o menu abre para cima.
+    const roomBelow = window.innerHeight - rect.bottom;
+    setOpen(roomBelow < MENU_HEIGHT && rect.top > roomBelow ? { bottom: window.innerHeight - rect.top + 4, right } : { top: rect.bottom + 4, right });
   }
 
   useEffect(() => {
