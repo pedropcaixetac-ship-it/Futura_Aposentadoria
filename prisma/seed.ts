@@ -5,6 +5,8 @@ import bcrypt from "bcryptjs";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { encounterHash } from "../src/lib/record";
+import { dateInput } from "../src/lib/finance";
+import { defaultObligations, obligationDueDate } from "../src/lib/accounting";
 
 const prisma = new PrismaClient();
 
@@ -243,12 +245,73 @@ async function seedStaffDemo() {
   }
 }
 
+// Exemplos da aba Contabilidade: auxiliar administrativo, contratos de trabalho com férias e experiência.
+// Quem trabalha na clínica mas não usa o sistema (limpeza, estágio) entra no cadastro de servidores sem acesso ao sistema.
+async function seedAccountingDemo() {
+  const clinic = await prisma.clinic.findUnique({ where: { slug: "demo" } });
+  if (!clinic || (await prisma.employmentContract.count({ where: { clinicId: clinic.id } })) > 0) return;
+
+  const day = (offset: number) => {
+    const iso = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+    return new Date(new Date(`${iso}T00:00:00Z`).getTime() + offset * 86400000);
+  };
+  const passwordHash = await bcrypt.hash("senha123", 10);
+  const person = async (name: string, data: { email: string | null; role: "ADMINISTRATIVO" | "RECEPCAO"; jobTitle: string; sector: string }) =>
+    (await prisma.user.findFirst({ where: { clinicId: clinic.id, name } })) ??
+    prisma.user.create({
+      data: {
+        clinicId: clinic.id, name, passwordHash, email: data.email, role: data.role, jobTitle: data.jobTitle, sector: data.sector,
+        systemAccess: !!data.email,
+      },
+    });
+
+  const paula = await person("Paula Administrativo", { email: "administrativo@demo.com", role: "ADMINISTRATIVO", jobTitle: "Auxiliar administrativo", sector: "Administrativo" });
+  const marcos = await person("Marcos Silva", { email: null, role: "RECEPCAO", jobTitle: "Auxiliar de limpeza", sector: "Serviços gerais" });
+  const renata = await person("Renata Costa", { email: null, role: "RECEPCAO", jobTitle: "Estagiária de enfermagem", sector: "Enfermagem" });
+  const julia = await prisma.user.findFirst({ where: { clinicId: clinic.id, email: "recepcao@demo.com" } });
+  if (!julia) return;
+
+  await prisma.clinic.update({
+    where: { id: clinic.id },
+    data: { taxRegime: "Simples Nacional", accountantName: "Escritório Contábil Exemplo", accountantEmail: "contador@exemplo.com.br" },
+  });
+  const contract = (userId: string, data: { type: "CLT" | "ESTAGIO"; admissionDate: Date; salaryCents: number; weeklyHours: number }) =>
+    prisma.employmentContract.create({ data: { clinicId: clinic.id, userId, ...data } });
+  const juliaC = await contract(julia.id, { type: "CLT", admissionDate: day(-700), salaryCents: 220000, weeklyHours: 44 });
+  await contract(paula.id, { type: "CLT", admissionDate: day(-40), salaryCents: 250000, weeklyHours: 44 });
+  const marcosC = await contract(marcos.id, { type: "CLT", admissionDate: day(-1100), salaryCents: 160000, weeklyHours: 44 });
+  await contract(renata.id, { type: "ESTAGIO", admissionDate: day(-120), salaryCents: 90000, weeklyHours: 30 });
+  await prisma.vacation.createMany({
+    data: [
+      { clinicId: clinic.id, contractId: marcosC.id, startDate: day(-700), endDate: day(-671) },
+      { clinicId: clinic.id, contractId: marcosC.id, startDate: day(-300), endDate: day(-271) },
+      { clinicId: clinic.id, contractId: juliaC.id, startDate: day(-200), endDate: day(-186), notes: "Primeira parte" },
+    ],
+  });
+
+  // Obrigações acompanhadas há dois meses, já feitas até hoje, menos o INSS deste mês (para aparecer um atraso).
+  if ((await prisma.taxObligation.count({ where: { clinicId: clinic.id } })) === 0) {
+    await prisma.taxObligation.createMany({ data: defaultObligations.map((o) => ({ ...o, clinicId: clinic.id, createdAt: day(-60) })) });
+  }
+  const obligations = await prisma.taxObligation.findMany({ where: { clinicId: clinic.id } });
+  const months = [dateInput(day(-30)).slice(0, 7), dateInput(day(0)).slice(0, 7)];
+  for (const o of obligations) {
+    for (const month of months) {
+      const due = obligationDueDate(o, month);
+      if (!due || due >= day(0) || due < day(-60) || (month === months[1] && o.name.startsWith("INSS"))) continue;
+      await prisma.obligationEntry.create({ data: { clinicId: clinic.id, obligationId: o.id, month, doneAt: due } });
+    }
+  }
+  console.log("Exemplos da contabilidade criados");
+}
+
 async function main() {
   await seedCid10();
   await seedDemo();
   await seedFinanceDemo();
   await seedLoginDemo();
   await seedStaffDemo();
+  await seedAccountingDemo();
 }
 
 main().finally(() => prisma.$disconnect());

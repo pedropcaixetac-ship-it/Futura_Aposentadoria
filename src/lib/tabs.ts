@@ -3,7 +3,7 @@ import { canManageTemplates, canViewClinical, type PermissionUser } from "./perm
 
 // Abas do sistema que o administrador pode liberar ou tirar de cada pessoa
 // em "Cadastro de servidores > Editar permissões".
-export type TabKey = "pacientes" | "modelos" | "textos-prontos" | "financeiro" | "auditoria" | "servidores";
+export type TabKey = "pacientes" | "modelos" | "textos-prontos" | "financeiro" | "auditoria" | "servidores" | "contabilidade";
 
 export type TabUser = PermissionUser & { customTabs: boolean; allowedTabs: string[] };
 
@@ -51,6 +51,13 @@ export const TABS: Tab[] = [
     href: "/financeiro",
     description: "Recepção lança cobranças e recebe pagamentos; profissionais veem o próprio repasse.",
     defaultRoles: allRoles,
+  },
+  {
+    key: "contabilidade",
+    label: "Contabilidade e trabalhista",
+    href: "/contabilidade",
+    description: "Contratos, férias, folha do mês, impostos e planilha para o contador.",
+    defaultRoles: ["ADMIN", "ADMINISTRATIVO"],
   },
   {
     key: "auditoria",
