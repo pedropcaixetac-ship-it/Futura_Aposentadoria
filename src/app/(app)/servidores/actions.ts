@@ -9,7 +9,7 @@ import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { parseDateInput } from "@/lib/finance";
-import { parseStaff, staffEditBlock, terminationReasons, validateStaff } from "@/lib/staff";
+import { clinicalLoginBlock, parseStaff, staffEditBlock, terminationReasons, validateStaff } from "@/lib/staff";
 import { sanitizeTabs } from "@/lib/tabs";
 
 export type FormState = { error: string; ok?: string };
@@ -40,7 +40,10 @@ export async function saveStaff(id: string | null, _: FormState, formData: FormD
   const admin = await requireUser("servidores");
   const input = parseStaff(formData);
   const current = id ? await findStaff(admin.clinicId, id) : null;
-  const error = validateStaff(input, { needsPassword: !current?.systemAccess }) ?? staffEditBlock(admin, current, input.role);
+  const error =
+    validateStaff(input, { needsPassword: !current?.systemAccess }) ??
+    staffEditBlock(admin, current, input.role) ??
+    clinicalLoginBlock(admin, current, input);
   if (error) return { error };
   if (current?.id === admin.id && (input.role !== "ADMIN" || !input.systemAccess)) {
     return { error: "Você não pode tirar o seu próprio perfil de gerente do sistema." };

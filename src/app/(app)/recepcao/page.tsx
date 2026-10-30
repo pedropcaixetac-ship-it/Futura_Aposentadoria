@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import type { AppointmentStatus } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
 import { canUseReception } from "@/lib/permissions";
-import { addDays, appointmentTypeLabel, clinicTime, formatDayLabel, formatTime, isValidDate, nextStatuses, occupiesSlot, statusLabel, statusStyle, today } from "@/lib/agenda";
+import { addDays, appointmentTypeLabel, clinicTime, formatDayLabel, formatTime, formatWait, isValidDate, nextStatuses, occupiesSlot, statusLabel, statusStyle, today } from "@/lib/agenda";
 import { listProfessionals, loadAgenda } from "@/lib/agenda-data";
 import { formatDateTime, formatPhone } from "@/lib/format";
 import { canMessage } from "@/lib/whatsapp";
@@ -113,7 +113,7 @@ export default async function ReceptionPage({ searchParams }: { searchParams: Pr
                 {a.arrivedAt && (
                   <span className="text-amber-900">
                     chegou às {formatTime(a.arrivedAt)}
-                    {date === todayDate && ` · esperando há ${Math.max(0, Math.round((now - a.arrivedAt.getTime()) / 60_000))} min`}
+                    {date === todayDate && ` · esperando há ${formatWait(now - a.arrivedAt.getTime())}`}
                   </span>
                 )}
               </li>

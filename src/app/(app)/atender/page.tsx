@@ -2,7 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { availableProviders } from "@/lib/signature/providers";
-import { appointmentTypeLabel, formatDayLabel, formatTime, today } from "@/lib/agenda";
+import { appointmentTypeLabel, formatDayLabel, formatTime, formatWait, today } from "@/lib/agenda";
 import { columnFor, listProfessionals, loadAgenda } from "@/lib/agenda-data";
 import { listUsableTemplates } from "@/lib/templates";
 import { AgendaGrid, StatusLegend } from "../agenda/agenda-grid";
@@ -68,7 +68,7 @@ export default async function AttendPage({ searchParams }: { searchParams: Promi
                     Marcado às {formatTime(a.startsAt)} · {appointmentTypeLabel[a.type]} · {a.insurance ?? "Particular"}
                     {a.arrivedAt && (
                       <>
-                        {" "}· chegou às {formatTime(a.arrivedAt)}, esperando há {Math.max(0, Math.round((now - a.arrivedAt.getTime()) / 60_000))} min
+                        {" "}· chegou às {formatTime(a.arrivedAt)}, esperando há {formatWait(now - a.arrivedAt.getTime())}
                       </>
                     )}
                   </p>
