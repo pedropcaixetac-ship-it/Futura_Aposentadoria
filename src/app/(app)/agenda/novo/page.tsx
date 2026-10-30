@@ -7,7 +7,7 @@ import { listProfessionals } from "@/lib/agenda-data";
 import { saveAppointment } from "../actions";
 import { AppointmentForm } from "../appointment-form";
 
-type SearchParams = { profissional?: string; data?: string; hora?: string; duracao?: string; paciente?: string };
+type SearchParams = { profissional?: string; data?: string; hora?: string; duracao?: string; paciente?: string; tipo?: string };
 
 export default async function NewAppointmentPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const user = await requireUser("agenda");
@@ -40,7 +40,7 @@ export default async function NewAppointmentPage({ searchParams }: { searchParam
           date: isValidDate(params.data) ? params.data : today(),
           time: params.hora && parseMinutes(params.hora) !== null ? params.hora : "",
           duration: Number.isInteger(duration) && duration >= 5 ? duration : 30,
-          type: "CONSULTA",
+          type: params.tipo === "retorno" ? "RETORNO" : "CONSULTA",
           insurance: patient?.insurance && patient.insurance !== "Particular" ? patient.insurance : null,
           notes: null,
         }}

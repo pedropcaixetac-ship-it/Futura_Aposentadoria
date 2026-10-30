@@ -39,6 +39,8 @@ Este é o primeiro módulo: **Prontuário**.
   e a sala de espera com o tempo de espera de cada paciente
 - WhatsApp (primeira etapa): botão "Enviar no WhatsApp" na ficha do paciente, que abre o WhatsApp da recepção com o
   texto pronto (contato ou aviso de retorno). Só aparece se o paciente autorizou no cadastro (LGPD), e cada envio fica na auditoria
+- WhatsApp na agenda: botão "Pedir confirmação" em cada consulta (também na Recepção, com o aviso das consultas de amanhã),
+  retorno previsto anotado na consulta e a lista "Retornos para avisar" na Recepção. A mensagem ainda é enviada pela recepcionista
 
 ### Financeiro
 

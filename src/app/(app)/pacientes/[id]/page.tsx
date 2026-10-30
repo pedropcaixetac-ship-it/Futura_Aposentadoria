@@ -5,7 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { canEditEncounter, canManageCharges, canViewClinical } from "@/lib/permissions";
 import { age, formatCpf, formatDate, formatDateTime, formatPhone } from "@/lib/format";
-import { whatsappNumber } from "@/lib/whatsapp";
+import { canMessage } from "@/lib/whatsapp";
 import { listUsableTemplates } from "@/lib/templates";
 import type { Diagnosis, TemplateField } from "@/lib/record";
 import {
@@ -40,7 +40,7 @@ export default async function PatientRecordPage({
   if (!patient) notFound();
 
   const clinical = canViewClinical(user);
-  const canWhatsapp = patient.whatsappOptIn && patient.phoneWhatsapp && !!whatsappNumber(patient.phone);
+  const canWhatsapp = canMessage(patient);
   const [encounters, templates] = clinical
     ? await Promise.all([
         prisma.encounter.findMany({

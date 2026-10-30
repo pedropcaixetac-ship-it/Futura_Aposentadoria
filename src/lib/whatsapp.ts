@@ -35,10 +35,42 @@ export function isWhatsappTemplate(value: string): value is WhatsappTemplate {
 }
 
 // Usa só o primeiro nome do paciente, como numa conversa normal.
-export function whatsappLink(phone: string, template: WhatsappTemplate, vars: TemplateVars) {
+function firstName(name: string) {
+  return name.trim().split(/\s+/)[0];
+}
+
+function waMe(phone: string, text: string) {
   const number = whatsappNumber(phone);
   if (!number) return null;
-  const firstName = vars.patient.trim().split(/\s+/)[0];
-  const text = whatsappTemplates[template].text({ ...vars, patient: firstName });
   return `https://wa.me/${number}${text ? `?text=${encodeURIComponent(text)}` : ""}`;
+}
+
+export function whatsappLink(phone: string, template: WhatsappTemplate, vars: TemplateVars) {
+  return waMe(phone, whatsappTemplates[template].text({ ...vars, patient: firstName(vars.patient) }));
+}
+
+// O botão só aparece com autorização do paciente e um celular que tenha WhatsApp.
+export function canMessage(patient: { whatsappOptIn: boolean; phoneWhatsapp: boolean; phone: string | null }) {
+  return patient.whatsappOptIn && patient.phoneWhatsapp && !!whatsappNumber(patient.phone);
+}
+
+// day no formato "31/10 (sexta)"; type em minúsculas: "consulta", "retorno".
+type AppointmentVars = TemplateVars & { professional: string; type: string; day: string; time: string };
+
+// Mensagens ligadas a uma consulta da agenda.
+export const appointmentMessages = {
+  confirmacao: (v: AppointmentVars) =>
+    `Olá, ${v.patient}! Aqui é da ${v.clinic}. Você tem ${v.type} com ${v.professional} no dia ${v.day}, às ${v.time}. ` +
+    "Você confirma sua presença? Se precisar remarcar, é só responder esta mensagem.",
+  retorno: (v: TemplateVars & { professional: string }) =>
+    `Olá, ${v.patient}! Aqui é da ${v.clinic}. Está chegando a hora do seu retorno com ${v.professional}. ` +
+    "Responda esta mensagem para escolhermos o melhor dia e horário para você.",
+} as const;
+
+export function confirmationLink(phone: string, vars: AppointmentVars) {
+  return waMe(phone, appointmentMessages.confirmacao({ ...vars, patient: firstName(vars.patient) }));
+}
+
+export function returnLink(phone: string, vars: TemplateVars & { professional: string }) {
+  return waMe(phone, appointmentMessages.retorno({ ...vars, patient: firstName(vars.patient) }));
 }

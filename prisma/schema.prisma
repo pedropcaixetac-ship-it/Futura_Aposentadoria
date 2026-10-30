@@ -580,6 +580,11 @@ model Appointment {
   status         AppointmentStatus @default(AGENDADO)
   arrivedAt      DateTime?
   cancelReason   String?
+  // WhatsApp: quando a recepção pediu a confirmação desta consulta.
+  confirmationSentAt DateTime?
+  // Retorno previsto depois desta consulta e quando o paciente foi avisado.
+  returnDueOn        DateTime?         @db.Date
+  returnNoticeSentAt DateTime?
   // Atendimento do prontuário aberto a partir deste agendamento.
   encounterId    String?           @unique
   encounter      Encounter?        @relation(fields: [encounterId], references: [id])
@@ -591,6 +596,7 @@ model Appointment {
   @@index([clinicId, startsAt])
   @@index([clinicId, professionalId, startsAt])
   @@index([clinicId, patientId])
+  @@index([clinicId, returnDueOn])
 }
 
 model Cid10 {
