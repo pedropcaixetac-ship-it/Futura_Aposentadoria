@@ -16,6 +16,8 @@ Este é o primeiro módulo: **Prontuário**.
 - Recepção vê o cadastro, mas não o conteúdo clínico
 - Auditoria (LGPD): quem abriu ou alterou cada prontuário, quando e de onde. Esses registros também não podem ser apagados
 - Impressão do atendimento
+- Barra lateral com a clínica, o usuário, o setor e o menu de cada perfil
+- "Usar modelo" ao lado de cada campo do atendimento, com os textos prontos de cada profissional
 
 ## Usuários de demonstração
 
@@ -40,6 +42,9 @@ npm run db:seed             # CID-10 e clínica de demonstração
 npm run dev                 # abre em http://localhost:3000
 npm test                    # testes (precisam do banco)
 ```
+
+Na Vercel, o comando `vercel-build` (em `scripts/vercel-build.sh`) aplica as migrações, carrega os dados iniciais e monta o site.
+Basta conectar um banco Neon ao projeto, que cria `DATABASE_URL` e `DATABASE_URL_UNPOOLED`.
 
 Tecnologias: Next.js 15, TypeScript, PostgreSQL com Prisma e Tailwind CSS.
 A tabela CID-10 (`prisma/data/cid10.tsv`) vem do DATASUS.

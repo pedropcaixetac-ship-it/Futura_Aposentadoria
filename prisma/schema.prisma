@@ -1,0 +1,195 @@
+// Modelo de dados do sistema.
+// Toda informação de uma clínica carrega clinicId, para que uma clínica
+// nunca enxergue dados de outra (o sistema será vendido para várias clínicas).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  PROFISSIONAL
+  RECEPCAO
+}
+
+enum EncounterStatus {
+  RASCUNHO
+  FINALIZADO
+}
+
+model Clinic {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  users     User[]
+  patients  Patient[]
+  templates RecordTemplate[]
+  encounters Encounter[]
+  auditLogs AuditLog[]
+}
+
+model User {
+  id            String   @id @default(cuid())
+  clinicId      String
+  clinic        Clinic   @relation(fields: [clinicId], references: [id])
+  name          String
+  email         String
+  passwordHash  String
+  role          Role
+  // Registro no conselho profissional (CRM, CRP, CRN, CRO...), exigido no prontuário.
+  councilType   String?
+  councilNumber String?
+  councilUf     String?
+  specialty     String?
+  // Setor onde a pessoa trabalha (ex.: Recepção, Consultório 2), mostrado na barra lateral.
+  sector        String?
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  sessions   Session[]
+  encounters Encounter[]
+  addenda    Addendum[]
+  auditLogs  AuditLog[]
+  snippets   TextSnippet[]
+
+  @@unique([clinicId, email])
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Patient {
+  id        String    @id @default(cuid())
+  clinicId  String
+  clinic    Clinic    @relation(fields: [clinicId], references: [id])
+  name      String
+  socialName String?
+  birthDate DateTime?
+  sex       String?
+  cpf       String?
+  phone     String?
+  email     String?
+  address   String?
+  insurance String?
+  insuranceNumber String?
+  guardianName String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Resumo clínico, sempre visível no topo do prontuário.
+  allergies          String?
+  currentMedications String?
+  personalHistory    String?
+  familyHistory      String?
+
+  encounters Encounter[]
+
+  @@index([clinicId, name])
+  @@unique([clinicId, cpf])
+}
+
+// Modelo de atendimento (ex.: "Consulta clínica geral", "Psicologia - sessão").
+// fields é uma lista de campos: [{ key, label, type: "text" | "textarea" }]
+model RecordTemplate {
+  id        String   @id @default(cuid())
+  clinicId  String
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+  name      String
+  specialty String?
+  fields    Json
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  encounters Encounter[]
+}
+
+// Um atendimento no prontuário. Enquanto RASCUNHO pode ser editado;
+// depois de FINALIZADO fica imutável e só aceita adendos.
+model Encounter {
+  id             String          @id @default(cuid())
+  clinicId       String
+  clinic         Clinic          @relation(fields: [clinicId], references: [id])
+  patientId      String
+  patient        Patient         @relation(fields: [patientId], references: [id])
+  professionalId String
+  professional   User            @relation(fields: [professionalId], references: [id])
+  templateId     String?
+  template       RecordTemplate? @relation(fields: [templateId], references: [id])
+  // Cópia dos campos do modelo no momento do atendimento, para que mudar o
+  // modelo depois não altere atendimentos antigos.
+  fields         Json
+  content        Json            @default("{}")
+  diagnoses      Json            @default("[]")
+  status         EncounterStatus @default(RASCUNHO)
+  startedAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  finalizedAt    DateTime?
+  // Impressão digital (SHA-256) do conteúdo finalizado, para detectar adulteração.
+  contentHash    String?
+
+  addenda Addendum[]
+
+  @@index([clinicId, patientId, startedAt])
+}
+
+model Addendum {
+  id          String    @id @default(cuid())
+  encounterId String
+  encounter   Encounter @relation(fields: [encounterId], references: [id])
+  authorId    String
+  author      User      @relation(fields: [authorId], references: [id])
+  text        String
+  createdAt   DateTime  @default(now())
+}
+
+// Trilha de auditoria (LGPD): quem viu ou alterou o quê, e quando.
+model AuditLog {
+  id        String   @id @default(cuid())
+  clinicId  String
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  String?
+  patientId String?
+  details   Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([clinicId, createdAt])
+  @@index([clinicId, patientId])
+}
+
+// Texto pronto de cada profissional ("usar modelo" ao lado de cada campo).
+// fieldKey vazio: o texto aparece em todos os campos.
+model TextSnippet {
+  id        String   @id @default(cuid())
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id])
+  fieldKey  String?
+  title     String
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([ownerId, fieldKey])
+}
+
+model Cid10 {
+  code        String @id
+  description String
+
+  @@index([description])
+}

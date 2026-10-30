@@ -1,0 +1,32 @@
+import type { Role } from "@prisma/client";
+
+export type PermissionUser = {
+  id: string;
+  role: Role;
+  councilNumber: string | null;
+};
+
+// Só profissionais de saúde com registro em conselho veem o conteúdo clínico.
+// Recepção e administradores sem registro veem apenas o cadastro.
+export function canViewClinical(user: PermissionUser) {
+  return user.role !== "RECEPCAO" && !!user.councilNumber;
+}
+
+export function canEditEncounter(
+  user: PermissionUser,
+  encounter: { professionalId: string; status: "RASCUNHO" | "FINALIZADO" },
+) {
+  return encounter.status === "RASCUNHO" && encounter.professionalId === user.id;
+}
+
+export function canAddAddendum(user: PermissionUser, encounter: { status: "RASCUNHO" | "FINALIZADO" }) {
+  return encounter.status === "FINALIZADO" && canViewClinical(user);
+}
+
+export function canManageTemplates(user: PermissionUser) {
+  return user.role === "ADMIN" || canViewClinical(user);
+}
+
+export function canViewAudit(user: PermissionUser) {
+  return user.role === "ADMIN";
+}
