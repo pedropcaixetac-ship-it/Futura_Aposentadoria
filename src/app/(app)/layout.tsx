@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/auth";
-import { canManageTemplates, canViewAudit, canViewClinical } from "@/lib/permissions";
+import { canManageTemplates, canUseReception, canViewAudit, canViewClinical } from "@/lib/permissions";
 import { roleLabel } from "@/lib/format";
 import { logout } from "../login/actions";
 import { SidebarNav, type NavItem } from "./sidebar-nav";
@@ -19,7 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   // Itens "em breve" são os próximos módulos do plano.
   const items: NavItem[] = [
-    { href: "/recepcao", label: "Recepção", soon: true },
+    ...(canUseReception(user) ? [{ href: "/recepcao", label: "Recepção" }] : []),
     { href: "/agenda", label: "Agenda" },
     { href: "/pacientes", label: "Pacientes" },
     ...(canManageTemplates(user) ? [{ href: "/modelos", label: "Modelos de atendimento" }] : []),

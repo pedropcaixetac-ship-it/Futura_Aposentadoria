@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { canManageAgendaOf, canSeeAllAgendas, canStartFromAppointment } from "@/lib/permissions";
+import { canManageAgendaOf, canSeeAllAgendas, canStartFromAppointment, canUseReception } from "@/lib/permissions";
 import {
   appointmentTypeLabel,
   canCancel,
@@ -16,15 +16,8 @@ import {
 } from "@/lib/agenda";
 import { listProfessionals } from "@/lib/agenda-data";
 import { formatDateTime } from "@/lib/format";
-import { cancelAppointment, saveAppointment, setAppointmentStatus, startFromAppointment } from "../actions";
+import { cancelAppointment, saveAppointment, startFromAppointment } from "../actions";
 import { AppointmentForm } from "../appointment-form";
-
-const statusAction: Partial<Record<string, string>> = {
-  CONFIRMADO: "Confirmar presença",
-  CHEGOU: "Paciente chegou",
-  FALTOU: "Faltou",
-  AGENDADO: "Voltar para agendado",
-};
 
 export default async function AppointmentPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ remarcar?: string }> }) {
   const user = await requireUser();
@@ -130,12 +123,13 @@ export default async function AppointmentPage({ params, searchParams }: { params
       )}
 
       <div className="card space-y-4">
+        {canUseReception(user) && nextStatuses(appointment.status).length > 0 && (
+          <p className="text-sm text-slate-500">
+            Confirmação, chegada e falta são marcadas na{" "}
+            <Link href={`/recepcao?data=${start.date}`} className="text-marinho-700 hover:underline">Recepção</Link>.
+          </p>
+        )}
         <div className="flex flex-wrap gap-2">
-          {nextStatuses(appointment.status).map((s) => (
-            <form key={s} action={setAppointmentStatus.bind(null, id, s)}>
-              <button className={s === "CHEGOU" || s === "CONFIRMADO" ? "btn-primary" : "btn-secondary"}>{statusAction[s]}</button>
-            </form>
-          ))}
           {editable && <Link href={`/agenda/${id}?remarcar=1`} className="btn-secondary">Remarcar ou alterar</Link>}
           <Link href={`/pacientes/${patient.id}`} className="btn-secondary">Ver cadastro do paciente</Link>
         </div>

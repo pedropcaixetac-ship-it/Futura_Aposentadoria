@@ -45,3 +45,8 @@ export function canManageAgendaOf(user: PermissionUser, professionalId: string) 
 export function canStartFromAppointment(user: PermissionUser, appointment: { professionalId: string }) {
   return canViewClinical(user) && appointment.professionalId === user.id;
 }
+
+// Recepção: quem confirma presença e marca chegada ou falta dos pacientes.
+export function canUseReception(user: PermissionUser) {
+  return user.role === "ADMIN" || user.role === "RECEPCAO";
+}

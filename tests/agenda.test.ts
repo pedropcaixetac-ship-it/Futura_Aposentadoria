@@ -10,7 +10,7 @@ import {
   parseMinutes,
   startOfWeek,
 } from "../src/lib/agenda";
-import { canManageAgendaOf, canSeeAllAgendas, canStartFromAppointment } from "../src/lib/permissions";
+import { canManageAgendaOf, canSeeAllAgendas, canStartFromAppointment, canUseReception } from "../src/lib/permissions";
 
 const medica = { id: "m1", role: "PROFISSIONAL" as const, councilNumber: "123" };
 const recepcao = { id: "r1", role: "RECEPCAO" as const, councilNumber: null };
@@ -68,4 +68,9 @@ test("recepção cuida da agenda de todos; profissional só da própria", () => 
   assert.equal(canManageAgendaOf(medica, "m2"), false);
   assert.equal(canStartFromAppointment(medica, { professionalId: "m1" }), true);
   assert.equal(canStartFromAppointment(recepcao, { professionalId: "r1" }), false);
+});
+
+test("só recepção e administrador marcam presença", () => {
+  assert.equal(canUseReception(recepcao), true);
+  assert.equal(canUseReception(medica), false);
 });

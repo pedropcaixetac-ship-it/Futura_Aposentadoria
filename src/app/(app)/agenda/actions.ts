@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { createEncounter } from "@/lib/encounter";
-import { canManageAgendaOf, canStartFromAppointment } from "@/lib/permissions";
+import { canManageAgendaOf, canStartFromAppointment, canUseReception } from "@/lib/permissions";
 import { findProfessional } from "@/lib/agenda-data";
 import {
   canCancel,
@@ -158,8 +158,12 @@ async function loadManageable(id: string) {
   return { user, appointment };
 }
 
+// Presença (confirmou, chegou, faltou) é marcada pela recepção.
 export async function setAppointmentStatus(id: string, status: AppointmentStatus) {
-  const { user, appointment } = await loadManageable(id);
+  const user = await requireUser();
+  if (!canUseReception(user)) throw new Error("Sem permissão");
+  const appointment = await prisma.appointment.findFirst({ where: { id, clinicId: user.clinicId } });
+  if (!appointment) throw new Error("Agendamento não encontrado");
   if (!nextStatuses(appointment.status).includes(status)) throw new Error("Mudança de situação não permitida");
   await prisma.appointment.update({
     where: { id },
@@ -178,6 +182,7 @@ export async function setAppointmentStatus(id: string, status: AppointmentStatus
     patientId: appointment.patientId,
     details: { antes: appointment.status, depois: status },
   });
+  revalidatePath("/recepcao");
   revalidatePath("/agenda", "layout");
 }
 

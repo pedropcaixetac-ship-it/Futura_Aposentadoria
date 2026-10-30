@@ -22,6 +22,8 @@ Este é o primeiro módulo: **Prontuário**.
   (almoço, férias), cadastro rápido de paciente, aviso de horário ocupado com opção de encaixe,
   situação da consulta em cores e sala de espera. O profissional inicia o atendimento direto da agenda,
   e a consulta vira "Atendido" quando o atendimento é finalizado
+- Recepção: lista das consultas do dia, onde a recepcionista marca quem confirmou, chegou ou faltou,
+  e a sala de espera com o tempo de espera de cada paciente
 
 ## Usuários de demonstração
 
