@@ -4,12 +4,16 @@ import { useActionState } from "react";
 import type { TemplateField } from "@/lib/record";
 import { saveTemplate } from "./actions";
 
+export type Professional = { id: string; name: string };
+
 type Props = {
-  template?: { id: string; name: string; specialty: string | null; fields: TemplateField[]; active: boolean };
+  template?: { id: string; name: string; ownerId: string | null; fields: TemplateField[]; active: boolean };
+  // Só o administrador recebe a lista, para escolher de quem é o modelo.
+  professionals?: Professional[];
   onDone?: () => void;
 };
 
-export function TemplateForm({ template, onDone }: Props) {
+export function TemplateForm({ template, professionals, onDone }: Props) {
   const [state, action, pending] = useActionState(async (prev: { error: string }, fd: FormData) => {
     const result = await saveTemplate(prev, fd);
     if (result.ok) onDone?.();
@@ -26,10 +30,15 @@ export function TemplateForm({ template, onDone }: Props) {
           <label className="label">Nome do modelo</label>
           <input className="input" name="name" defaultValue={template?.name} required />
         </div>
-        <div>
-          <label className="label">Especialidade (opcional)</label>
-          <input className="input" name="specialty" defaultValue={template?.specialty ?? ""} />
-        </div>
+        {professionals && (
+          <div>
+            <label className="label">De quem é o modelo</label>
+            <select className="input" name="ownerId" defaultValue={template?.ownerId ?? ""}>
+              <option value="">Toda a clínica</option>
+              {professionals.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+        )}
       </div>
       <div>
         <label className="label">Campos (um por linha)</label>
