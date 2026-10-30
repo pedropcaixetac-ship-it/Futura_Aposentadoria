@@ -16,8 +16,10 @@ import {
 } from "@/lib/agenda";
 import { listProfessionals } from "@/lib/agenda-data";
 import { listUsableTemplates } from "@/lib/templates";
-import { formatDateTime, formatPhone } from "@/lib/format";
-import { cancelAppointment, saveAppointment, startFromAppointment } from "../actions";
+import { formatDate, formatDateTime, formatPhone } from "@/lib/format";
+import { canMessage } from "@/lib/whatsapp";
+import { WhatsappLink } from "../whatsapp-link";
+import { cancelAppointment, saveAppointment, setReturnDue, startFromAppointment } from "../actions";
 import { AppointmentForm } from "../appointment-form";
 
 export default async function AppointmentPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ remarcar?: string }> }) {
@@ -136,6 +138,62 @@ export default async function AppointmentPage({ params, searchParams }: { params
               <button className="btn-primary">Iniciar atendimento</button>
             </form>
           )}
+        </div>
+      )}
+
+      {appointment.status === "AGENDADO" && (
+        <div className="card flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-semibold">Confirmação pelo WhatsApp</h2>
+            <p className="text-sm text-slate-500">
+              {canMessage(patient)
+                ? "Abre o WhatsApp com a mensagem pronta. Quando o paciente responder, marque \"Confirmou\" na Recepção."
+                : "O paciente não autorizou mensagens pelo WhatsApp ou o celular dele não tem WhatsApp. Isso se muda no cadastro."}
+            </p>
+          </div>
+          {canMessage(patient) && (
+            <WhatsappLink
+              href={`/agenda/${id}/whatsapp?modelo=confirmacao`}
+              label="Pedir confirmação"
+              sentAt={appointment.confirmationSentAt && formatDateTime(appointment.confirmationSentAt)}
+            />
+          )}
+        </div>
+      )}
+
+      {appointment.status !== "DESMARCADO" && (
+        <div className="card space-y-3">
+          <h2 className="font-semibold">Retorno</h2>
+          {appointment.returnDueOn ? (
+            <p className="text-sm">
+              Retorno previsto para <strong>{formatDate(appointment.returnDueOn)}</strong>. A recepção verá este paciente em
+              &quot;Retornos para avisar&quot; duas semanas antes, até ele marcar.
+              {appointment.returnNoticeSentAt && (
+                <span className="text-emerald-700"> Aviso enviado em {formatDateTime(appointment.returnNoticeSentAt)}.</span>
+              )}
+            </p>
+          ) : (
+            <p className="text-sm text-slate-500">Se o paciente precisa voltar, anote quando. A recepção é lembrada de avisá-lo.</p>
+          )}
+          <form action={setReturnDue.bind(null, id)} className="flex flex-wrap items-end gap-2">
+            <div>
+              <label className="label" htmlFor="days">Retorno em</label>
+              <select className="input w-auto!" id="days" name="days" defaultValue="">
+                <option value="">Escolher data...</option>
+                {[7, 15, 30, 60, 90, 180, 365].map((d) => (
+                  <option key={d} value={d}>{d === 365 ? "1 ano" : `${d} dias`}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label" htmlFor="date">ou na data</label>
+              <input className="input" id="date" name="date" type="date" />
+            </div>
+            <button className="btn-secondary">{appointment.returnDueOn ? "Alterar retorno" : "Anotar retorno"}</button>
+            {appointment.returnDueOn && (
+              <button name="clear" value="1" className="text-sm text-slate-500 hover:underline">Sem retorno</button>
+            )}
+          </form>
         </div>
       )}
 

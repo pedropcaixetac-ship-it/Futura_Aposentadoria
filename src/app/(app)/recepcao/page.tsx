@@ -3,9 +3,13 @@ import { notFound } from "next/navigation";
 import type { AppointmentStatus } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
 import { canUseReception } from "@/lib/permissions";
-import { addDays, appointmentTypeLabel, formatDayLabel, formatTime, isValidDate, nextStatuses, occupiesSlot, statusLabel, statusStyle, today } from "@/lib/agenda";
+import { addDays, appointmentTypeLabel, clinicTime, formatDayLabel, formatTime, isValidDate, nextStatuses, occupiesSlot, statusLabel, statusStyle, today } from "@/lib/agenda";
 import { listProfessionals, loadAgenda } from "@/lib/agenda-data";
-import { formatPhone } from "@/lib/format";
+import { formatDateTime, formatPhone } from "@/lib/format";
+import { canMessage } from "@/lib/whatsapp";
+import { prisma } from "@/lib/db";
+import { WhatsappLink } from "../agenda/whatsapp-link";
+import { returnsToNotify } from "./retornos/data";
 import { setAppointmentStatus } from "../agenda/actions";
 
 // Texto do botão para cada mudança de situação. Voltar atrás aparece como "Desfazer".
@@ -34,6 +38,21 @@ export default async function ReceptionPage({ searchParams }: { searchParams: Pr
   const waiting = active.filter((a) => a.status === "CHEGOU").sort((a, b) => +(a.arrivedAt ?? 0) - +(b.arrivedAt ?? 0));
   const count = (s: AppointmentStatus[]) => active.filter((a) => s.includes(a.status)).length;
   const now = Date.now();
+  const tomorrow = addDays(todayDate, 1);
+  const [toConfirmTomorrow, returns] = await Promise.all([
+    date === todayDate
+      ? prisma.appointment.count({
+          where: {
+            clinicId: user.clinicId,
+            status: "AGENDADO",
+            confirmationSentAt: null,
+            startsAt: { gte: clinicTime(tomorrow, 0), lt: clinicTime(tomorrow, 24 * 60) },
+          },
+        })
+      : 0,
+    returnsToNotify(user.clinicId),
+  ]);
+  const pendingReturns = returns.filter((r) => !r.returnNoticeSentAt).length;
 
   return (
     <div className="space-y-4">
@@ -48,6 +67,21 @@ export default async function ReceptionPage({ searchParams }: { searchParams: Pr
           <Link href={`/recepcao?data=${addDays(date, 1)}`} className="bg-white px-3 py-1.5 hover:bg-slate-50" aria-label="Próximo dia">→</Link>
         </div>
       </div>
+
+      {(toConfirmTomorrow > 0 || pendingReturns > 0) && (
+        <div className="flex flex-wrap gap-3 text-sm">
+          {toConfirmTomorrow > 0 && (
+            <Link href={`/recepcao?data=${tomorrow}`} className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-emerald-900 hover:bg-emerald-100">
+              <strong>{toConfirmTomorrow}</strong> consulta{toConfirmTomorrow > 1 ? "s" : ""} de amanhã para confirmar pelo WhatsApp →
+            </Link>
+          )}
+          {pendingReturns > 0 && (
+            <Link href="/recepcao/retornos" className="rounded-md border border-dourado-300 bg-dourado-100 px-3 py-2 text-dourado-700 hover:brightness-95">
+              <strong>{pendingReturns}</strong> retorno{pendingReturns > 1 ? "s" : ""} para avisar →
+            </Link>
+          )}
+        </div>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-4">
         {[
@@ -94,6 +128,7 @@ export default async function ReceptionPage({ searchParams }: { searchParams: Pr
               <th className="px-4 py-2 font-medium">Profissional</th>
               <th className="px-4 py-2 font-medium">Situação</th>
               <th className="px-4 py-2 font-medium">Presença</th>
+              <th className="px-4 py-2 font-medium">WhatsApp</th>
             </tr>
           </thead>
           <tbody>
@@ -128,11 +163,24 @@ export default async function ReceptionPage({ searchParams }: { searchParams: Pr
                     })}
                   </div>
                 </td>
+                <td className="px-4 py-2">
+                  {a.status === "AGENDADO" && canMessage(a.patient) && (
+                    <WhatsappLink
+                      small
+                      href={`/agenda/${a.id}/whatsapp?modelo=confirmacao`}
+                      label="Pedir confirmação"
+                      sentAt={a.confirmationSentAt && formatDateTime(a.confirmationSentAt)}
+                    />
+                  )}
+                  {a.status === "AGENDADO" && !canMessage(a.patient) && (
+                    <span className="text-xs text-slate-400">Sem autorização</span>
+                  )}
+                </td>
               </tr>
             ))}
             {appointments.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-slate-400">Nenhuma consulta marcada neste dia.</td>
+                <td colSpan={6} className="px-4 py-8 text-center text-slate-400">Nenhuma consulta marcada neste dia.</td>
               </tr>
             )}
           </tbody>
