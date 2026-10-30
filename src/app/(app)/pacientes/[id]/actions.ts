@@ -12,6 +12,7 @@ import { createEncounter } from "@/lib/encounter";
 import { documentTypes } from "@/lib/documents";
 import { documentHash, encounterHash, parseDiagnoses, sanitizeContent, type TemplateField } from "@/lib/record";
 import { parseVitals } from "@/lib/vitals";
+import { LINK_HOURS, newTeleconsultationToken } from "@/lib/teleconsulta";
 
 export async function startEncounter(patientId: string, formData: FormData) {
   const user = await requireUser("pacientes");
@@ -21,6 +22,36 @@ export async function startEncounter(patientId: string, formData: FormData) {
   if (!patient) throw new Error("Paciente não encontrado");
 
   const encounter = await createEncounter(user, patientId, String(formData.get("templateId") ?? "") || null);
+  redirect(`/pacientes/${patientId}/atendimentos/${encounter.id}`);
+}
+
+// Teleconsulta: um atendimento normal do prontuário com um link de vídeo para o paciente.
+export async function startTeleconsultation(patientId: string, formData: FormData) {
+  const user = await requireUser("pacientes");
+  if (!canViewClinical(user)) throw new Error("Sem permissão");
+
+  const patient = await prisma.patient.findFirst({ where: { id: patientId, clinicId: user.clinicId } });
+  if (!patient) throw new Error("Paciente não encontrado");
+
+  const encounter = await createEncounter(user, patientId, String(formData.get("templateId") ?? "") || null);
+  const teleconsultation = await prisma.teleconsultation.create({
+    data: {
+      clinicId: user.clinicId,
+      patientId,
+      professionalId: user.id,
+      encounterId: encounter.id,
+      token: newTeleconsultationToken(),
+      expiresAt: new Date(Date.now() + LINK_HOURS * 3600 * 1000),
+    },
+  });
+  await audit({
+    clinicId: user.clinicId,
+    userId: user.id,
+    action: "TELECONSULTA_CRIADA",
+    entity: "Teleconsultation",
+    entityId: teleconsultation.id,
+    patientId,
+  });
   redirect(`/pacientes/${patientId}/atendimentos/${encounter.id}`);
 }
 
@@ -71,15 +102,15 @@ export async function autosaveEncounter(encounterId: string, formData: FormData)
   return new Date().toISOString();
 }
 
-export async function finalizeEncounter(encounterId: string, formData: FormData) {
+// Finaliza a partir da tela de revisão, com o que já está salvo no rascunho.
+export async function finalizeEncounter(encounterId: string) {
   const { user, encounter } = await loadEditable(encounterId);
-  const { vitals, ...data } = readForm(encounter.fields as TemplateField[], formData);
   const finalizedAt = new Date();
-  const contentHash = encounterHash({ ...encounter, ...data, vitals, finalizedAt });
+  const contentHash = encounterHash({ ...encounter, finalizedAt });
 
   await prisma.encounter.update({
     where: { id: encounter.id },
-    data: { ...data, vitals: vitals ?? Prisma.DbNull, status: "FINALIZADO", finalizedAt, contentHash },
+    data: { status: "FINALIZADO", finalizedAt, contentHash },
   });
   await audit({
     clinicId: user.clinicId,
@@ -92,7 +123,7 @@ export async function finalizeEncounter(encounterId: string, formData: FormData)
   });
   // Se o atendimento veio da agenda, a consulta passa para "Atendido".
   await prisma.appointment.updateMany({ where: { encounterId: encounter.id }, data: { status: "ATENDIDO" } });
-  redirect(`/pacientes/${encounter.patientId}/atendimentos/${encounter.id}`);
+  redirect(`/pacientes/${encounter.patientId}/atendimentos/${encounter.id}?finalizado=1`);
 }
 
 export async function addAddendum(encounterId: string, formData: FormData) {

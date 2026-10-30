@@ -1,12 +1,13 @@
 import { createHash, randomBytes } from "node:crypto";
 import { cookies, headers } from "next/headers";
 import { isProviderId, type ProviderId } from "./providers";
-import { isSignTarget, type SignTarget } from "./service";
+import { isSafeBack, isSignTarget, type SignTarget } from "./service";
 
 // Dados guardados enquanto o profissional autoriza no app do certificado.
 const COOKIE = "assinatura_pendente";
 
-type Pending = { state: string; verifier: string; provider: Exclude<ProviderId, "TESTE">; target: SignTarget };
+// Pode ser um item só ou vários ("Assinar todos"); back é a tela para onde o profissional volta.
+type Pending = { state: string; verifier: string; provider: Exclude<ProviderId, "TESTE">; targets: SignTarget[]; back: string };
 
 export async function redirectUri() {
   const h = await headers();
@@ -15,10 +16,10 @@ export async function redirectUri() {
   return `${proto}://${host}/api/assinatura/retorno`;
 }
 
-export async function beginAuthorization(provider: Pending["provider"], target: SignTarget) {
+export async function beginAuthorization(provider: Pending["provider"], targets: SignTarget[], back: string) {
   const verifier = randomBytes(32).toString("base64url");
   const state = randomBytes(16).toString("base64url");
-  const pending: Pending = { state, verifier, provider, target };
+  const pending: Pending = { state, verifier, provider, targets, back };
   (await cookies()).set(COOKIE, JSON.stringify(pending), {
     httpOnly: true,
     sameSite: "lax",
@@ -36,7 +37,15 @@ export async function takePending(state: string | null) {
   if (!raw || !state) return null;
   try {
     const pending = JSON.parse(raw) as Pending;
-    if (pending.state !== state || !isProviderId(pending.provider) || !isSignTarget(pending.target)) return null;
+    if (
+      pending.state !== state ||
+      !isProviderId(pending.provider) ||
+      !Array.isArray(pending.targets) ||
+      !pending.targets.every(isSignTarget) ||
+      !isSafeBack(pending.back)
+    ) {
+      return null;
+    }
     return pending;
   } catch {
     return null;

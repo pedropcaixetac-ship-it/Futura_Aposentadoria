@@ -7,7 +7,7 @@ import { canAddAddendum, canEditEncounter, canViewClinical } from "@/lib/permiss
 import { age, formatDate, formatDateTime } from "@/lib/format";
 import { documentHash, encounterHash, type Diagnosis, type TemplateField } from "@/lib/record";
 import { documentTypeLabel } from "@/lib/documents";
-import { addAddendum, autosaveEncounter, finalizeEncounter, issueDocument } from "../../actions";
+import { addAddendum, autosaveEncounter, issueDocument } from "../../actions";
 import { updateClinicalSummary } from "../../../actions";
 import type { Vitals } from "@/lib/vitals";
 import { DocumentForm } from "./document-form";
@@ -17,17 +17,23 @@ import { EncounterEditor } from "./encounter-editor";
 import { PrintButton } from "./print-button";
 import { PatientHistory } from "./patient-history";
 import { VitalsView } from "./vitals-view";
+import { TeleconsultaPanel } from "./teleconsulta-panel";
+import { TeleconsultaRecord } from "./teleconsulta-record";
+import { endTeleconsultation, joinTeleconsultation, teleconsultationStatus } from "./teleconsulta-actions";
+import { teleconsultationPath, teleconsultationState } from "@/lib/teleconsulta";
+import { siteOrigin } from "@/lib/teleconsulta-sala";
+import { videoConfigured } from "@/lib/video";
 
 export default async function EncounterPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string; encounterId: string }>;
-  searchParams: Promise<{ assinatura?: string }>;
+  searchParams: Promise<{ assinatura?: string; finalizado?: string }>;
 }) {
   const user = await requireUser("pacientes");
   const { id, encounterId } = await params;
-  const { assinatura } = await searchParams;
+  const { assinatura, finalizado } = await searchParams;
   if (!canViewClinical(user)) notFound();
 
   const encounter = await prisma.encounter.findFirst({
@@ -36,6 +42,7 @@ export default async function EncounterPage({
       patient: true,
       professional: true,
       template: true,
+      teleconsultation: true,
       addenda: { include: { author: true }, orderBy: { createdAt: "asc" } },
       signedPdf: { select: { id: true, signerName: true, signedAt: true, provider: true } },
       documents: { include: { author: true, signedPdf: { select: { id: true, signerName: true, signedAt: true, provider: true } } }, orderBy: { createdAt: "asc" } },
@@ -84,6 +91,24 @@ export default async function EncounterPage({
     encounter.status !== "FINALIZADO" ||
     (encounter.finalizedAt && encounter.contentHash === encounterHash({ ...encounter, finalizedAt: encounter.finalizedAt }));
 
+  const tele = encounter.teleconsultation;
+  const teleState = tele && teleconsultationState(tele);
+  // O painel do vídeo aparece só para o profissional responsável, enquanto o link vale.
+  const telePanel =
+    tele && tele.professionalId === user.id && (teleState === "AGUARDANDO_TERMO" || teleState === "LIBERADA") ? (
+      <TeleconsultaPanel
+        link={`${await siteOrigin()}${teleconsultationPath(tele.token)}`}
+        patientName={patient.socialName || patient.name}
+        phone={patient.phone}
+        initialConsentAt={tele.consentAt?.toISOString() ?? null}
+        initialPatientJoinedAt={tele.patientJoinedAt?.toISOString() ?? null}
+        configured={videoConfigured()}
+        status={teleconsultationStatus.bind(null, tele.id)}
+        join={joinTeleconsultation.bind(null, tele.id)}
+        end={endTeleconsultation.bind(null, tele.id)}
+      />
+    ) : null;
+
   return (
     <div className={editable ? "space-y-4" : "mx-auto max-w-3xl space-y-4"}>
       <div className="no-print flex items-center justify-between">
@@ -117,6 +142,13 @@ export default async function EncounterPage({
         </div>
       )}
 
+      {finalizado && encounter.status === "FINALIZADO" && (
+        <p className="no-print rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-800">
+          ✓ Atendimento finalizado.
+          {!encounter.signedPdf && providers.length > 0 && " Falta assinar o registro do atendimento: use o botão Assinar acima."}
+        </p>
+      )}
+
       {assinatura === "erro" && (
         <p className="no-print rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800">
           Não foi possível assinar. Confira se o seu CPF está certo em Assinatura digital e tente de novo.
@@ -128,6 +160,9 @@ export default async function EncounterPage({
         </p>
       )}
 
+      {tele && <TeleconsultaRecord tele={tele} />}
+      {!editable && telePanel}
+
       {!intact && (
         <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800">
           Atenção: o conteúdo deste atendimento não confere com o registrado na finalização. Comunique o administrador.
@@ -135,7 +170,7 @@ export default async function EncounterPage({
       )}
 
       {editable ? (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+        <div className={`grid grid-cols-1 gap-4 lg:items-start ${telePanel ? "lg:grid-cols-[minmax(0,1fr)_420px]" : "lg:grid-cols-[minmax(0,1fr)_320px]"}`}>
           <EncounterEditor
             patient={{
               name: patient.socialName || patient.name,
@@ -162,8 +197,10 @@ export default async function EncounterPage({
                 : null
             }
             autosave={autosaveEncounter.bind(null, encounter.id)}
-            finalize={finalizeEncounter.bind(null, encounter.id)}
+            reviewHref={`/pacientes/${id}/atendimentos/${encounter.id}/revisao`}
           />
+          <div className="space-y-4">
+          {telePanel}
           <PatientHistory
             patientId={id}
             summary={patient}
@@ -179,6 +216,7 @@ export default async function EncounterPage({
               vitals: e.vitals as Vitals | null,
             }))}
           />
+          </div>
         </div>
       ) : (
         <div className="card space-y-4">

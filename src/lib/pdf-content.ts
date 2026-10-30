@@ -24,7 +24,6 @@ function patientLines(patient: Patient) {
 export function encounterPdfInput(
   clinicName: string,
   encounter: Encounter & { patient: Patient; professional: User; addenda: { text: string; createdAt: Date; author: User }[] },
-  templateName: string | null,
 ): PdfInput {
   const fields = encounter.fields as TemplateField[];
   const content = encounter.content as Record<string, string>;
@@ -43,7 +42,8 @@ export function encounterPdfInput(
 
   return {
     clinicName,
-    title: templateName ?? "Registro de atendimento",
+    // O nome do modelo usado é coisa interna da clínica; o PDF leva sempre o mesmo título.
+    title: "Registro de atendimento",
     info: [...patientLines(encounter.patient), `Atendimento: ${formatDateTime(encounter.startedAt)}`],
     sections,
     professional: { name: encounter.professional.name, council: council(encounter.professional), specialty: encounter.professional.specialty },
