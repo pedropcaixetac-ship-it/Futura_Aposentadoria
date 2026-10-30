@@ -11,8 +11,8 @@ import {
   formatMinutes,
   formatTime,
   nextStatuses,
-  statusLabel,
   statusStyle,
+  statusText,
 } from "@/lib/agenda";
 import { listProfessionals } from "@/lib/agenda-data";
 import { listUsableTemplates } from "@/lib/templates";
@@ -89,7 +89,7 @@ export default async function AppointmentPage({ params, searchParams }: { params
             </p>
           </div>
           <span className={`rounded border-l-4 px-3 py-1 text-sm font-medium ${statusStyle[appointment.status]}`}>
-            {statusLabel[appointment.status]}
+            {statusText(appointment)}
           </span>
         </div>
 

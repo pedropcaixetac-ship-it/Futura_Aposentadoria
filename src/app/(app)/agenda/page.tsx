@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { canManageAgendaOf, canSeeAllAgendas } from "@/lib/permissions";
-import { addDays, clinicParts, formatDayLabel, formatTime, isValidDate, startOfWeek, statusLabel, today, weekdayOf } from "@/lib/agenda";
+import { addDays, clinicParts, formatDayLabel, formatTime, isValidDate, startOfWeek, statusText, today, weekdayOf } from "@/lib/agenda";
 import { columnFor, listProfessionals, loadAgenda } from "@/lib/agenda-data";
 import { AgendaGrid, StatusLegend, type GridColumn } from "./agenda-grid";
 import { AgendaToolbar } from "./agenda-toolbar";
@@ -110,7 +110,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
               <li key={a.id}>
                 <Link href={`/agenda/${a.id}`} className="text-slate-500 hover:underline">
                   {view === "semana" && `${formatDayLabel(clinicParts(a.startsAt).date)} · `}
-                  {formatTime(a.startsAt)} {a.patient.socialName || a.patient.name} · {name.get(a.professionalId)} · {statusLabel[a.status]}
+                  {formatTime(a.startsAt)} {a.patient.socialName || a.patient.name} · {name.get(a.professionalId)} · {statusText(a)}
                   {a.cancelReason && ` (${a.cancelReason})`}
                 </Link>
               </li>

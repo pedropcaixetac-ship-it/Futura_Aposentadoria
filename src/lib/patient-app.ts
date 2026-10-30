@@ -32,3 +32,19 @@ export function parseBirthDate(value: string) {
 export function sameDay(a: Date, b: Date) {
   return a.toISOString().slice(0, 10) === b.toISOString().slice(0, 10);
 }
+
+// O paciente só mexe em consultas que ainda não começaram e que a recepção ainda não marcou como chegada.
+type PatientAppointment = { status: string; startsAt: Date };
+
+export function patientCanConfirm(a: PatientAppointment, now = new Date()) {
+  return a.status === "AGENDADO" && a.startsAt > now;
+}
+
+export function patientCanCancel(a: PatientAppointment, now = new Date()) {
+  return (a.status === "AGENDADO" || a.status === "CONFIRMADO") && a.startsAt > now;
+}
+
+// Motivo digitado pelo paciente (opcional). Que foi pelo aplicativo, a agenda já mostra como "Desmarcado pelo app".
+export function patientCancelReason(reason: string) {
+  return reason.trim().slice(0, 300) || null;
+}

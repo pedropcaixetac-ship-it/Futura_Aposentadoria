@@ -150,6 +150,12 @@ export const statusLabel: Record<AppointmentStatus, string> = {
   DESMARCADO: "Desmarcado",
 };
 
+// Situação com "pelo app" quando foi o próprio paciente que confirmou ou desmarcou no aplicativo.
+export function statusText(a: { status: AppointmentStatus; confirmedInAppAt?: Date | null; cancelledInAppAt?: Date | null }) {
+  const byApp = (a.status === "CONFIRMADO" && a.confirmedInAppAt) || (a.status === "DESMARCADO" && a.cancelledInAppAt);
+  return byApp ? `${statusLabel[a.status]} pelo app` : statusLabel[a.status];
+}
+
 // Cores de cada situação: fundo, borda e texto.
 export const statusStyle: Record<AppointmentStatus, string> = {
   AGENDADO: "bg-marinho-50 border-marinho-400 text-marinho-900",
