@@ -5,8 +5,10 @@ import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { canAddAddendum, canEditEncounter, canViewClinical } from "@/lib/permissions";
 import { age, formatDate, formatDateTime } from "@/lib/format";
-import { encounterHash, type Diagnosis, type TemplateField } from "@/lib/record";
-import { addAddendum, finalizeEncounter, saveEncounter } from "../../actions";
+import { documentHash, encounterHash, type Diagnosis, type TemplateField } from "@/lib/record";
+import { documentTypeLabel } from "@/lib/documents";
+import { addAddendum, finalizeEncounter, issueDocument, saveEncounter } from "../../actions";
+import { DocumentForm } from "./document-form";
 import { EncounterEditor } from "./encounter-editor";
 import { PrintButton } from "./print-button";
 
@@ -22,6 +24,7 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
       professional: true,
       template: true,
       addenda: { include: { author: true }, orderBy: { createdAt: "asc" } },
+      documents: { include: { author: true }, orderBy: { createdAt: "asc" } },
     },
   });
   if (!encounter) notFound();
@@ -36,6 +39,7 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
   });
 
   const editable = canEditEncounter(user, encounter);
+  const canIssueDocuments = encounter.professionalId === user.id;
   const snippets = editable
     ? await prisma.textSnippet.findMany({
         where: { ownerId: user.id },
@@ -56,7 +60,12 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
     <div className="mx-auto max-w-3xl space-y-4">
       <div className="no-print flex items-center justify-between">
         <Link href={`/pacientes/${id}`} className="text-sm text-marinho-700 hover:underline">← Voltar ao prontuário</Link>
-        {encounter.status === "FINALIZADO" && <PrintButton />}
+        {encounter.status === "FINALIZADO" && (
+          <div className="flex gap-2">
+            <a href={`/api/pdf/atendimento/${encounter.id}`} target="_blank" className="btn-secondary">Baixar PDF</a>
+            <PrintButton />
+          </div>
+        )}
       </div>
 
       <div className="card space-y-1">
@@ -132,6 +141,32 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
               <p className="whitespace-pre-wrap text-sm">{a.text}</p>
             </div>
           ))}
+        </div>
+      )}
+
+      {(encounter.documents.length > 0 || canIssueDocuments) && (
+        <div className="no-print card space-y-3">
+          <h2 className="font-semibold">Receitas, atestados e pedidos</h2>
+          {encounter.documents.length > 0 && (
+            <ul className="divide-y divide-slate-100">
+              {encounter.documents.map((d) => (
+                <li key={d.id} className="flex items-start justify-between gap-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">
+                      {documentTypeLabel[d.type]}
+                      <span className="font-normal text-slate-500"> · {formatDateTime(d.createdAt)} · {d.author.name}</span>
+                    </p>
+                    <p className="truncate text-sm text-slate-600">{d.body.split("\n").find((l) => l.trim())}</p>
+                    {d.contentHash !== documentHash(d) && (
+                      <p className="text-xs font-semibold text-red-700">Atenção: este documento não confere com o emitido.</p>
+                    )}
+                  </div>
+                  <a href={`/api/pdf/documento/${d.id}`} target="_blank" className="btn-secondary shrink-0">PDF</a>
+                </li>
+              ))}
+            </ul>
+          )}
+          {canIssueDocuments && <DocumentForm issue={issueDocument.bind(null, encounter.id)} />}
         </div>
       )}
 
