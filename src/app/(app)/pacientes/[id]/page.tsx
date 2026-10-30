@@ -117,6 +117,9 @@ export default async function PatientRecordPage({
             <Link href={`/financeiro/receitas/nova?paciente=${id}`} className="btn-secondary">Nova cobrança</Link>
           )}
           <Link href={`/agenda/novo?paciente=${id}`} className="btn-secondary">Agendar consulta</Link>
+          {full && (
+            <a href={`/api/pdf/prontuario/${id}`} target="_blank" className="btn-secondary">Gerar PDF do prontuário</a>
+          )}
           <Link href={`/pacientes/${id}/editar`} className="btn-secondary">Editar cadastro</Link>
         </div>
         {!patient.whatsappOptIn && (

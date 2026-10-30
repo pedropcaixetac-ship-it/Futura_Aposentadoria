@@ -10,7 +10,9 @@ const margin = 50;
 const contentWidth = A4.width - margin * 2;
 const footerTop = 125;
 
-export type PdfSection = { title?: string; text: string };
+// heading: título grande com linha, que abre um bloco (ex.: cada atendimento do prontuário).
+// small: texto miúdo e cinza (ex.: código de integridade de cada atendimento).
+export type PdfSection = { title?: string; text: string; heading?: boolean; small?: boolean };
 
 export type PdfInput = {
   clinicName: string;
@@ -18,8 +20,8 @@ export type PdfInput = {
   // Linhas logo abaixo do título (paciente, data, convênio...).
   info: string[];
   sections: PdfSection[];
-  // Bloco de quem emitiu, no rodapé da última página.
-  professional: { name: string; council?: string | null; specialty?: string | null };
+  // Bloco de quem emitiu, no rodapé da última página. Sem ele, não há linha de assinatura.
+  professional?: { name: string; council?: string | null; specialty?: string | null };
   place: string;
   integrityCode?: string | null;
   // Selo de assinatura digital, no pé da última página.
@@ -63,7 +65,7 @@ function wrap(font: PDFFont, size: number, text: string, width: number) {
 export async function buildPdf(input: PdfInput) {
   const pdf = await PDFDocument.create();
   pdf.setTitle(input.title);
-  pdf.setAuthor(input.professional.name);
+  if (input.professional) pdf.setAuthor(input.professional.name);
   pdf.setProducer(input.clinicName);
   pdf.setCreator(input.clinicName);
 
@@ -103,6 +105,21 @@ export async function buildPdf(input: PdfInput) {
   y -= 22;
 
   for (const section of input.sections) {
+    if (section.heading) {
+      ensureSpace(80);
+      y -= 6;
+      page!.drawRectangle({ x: margin, y: y - 5, width: contentWidth, height: 20, color: rgb(0.93, 0.95, 0.98) });
+      write(section.title ?? "", bold, 12, marinho);
+      y -= 2;
+      if (section.text) write(section.text, regular, 10, cinza);
+      y -= 12;
+      continue;
+    }
+    if (section.small) {
+      write(section.text, regular, 8, cinza);
+      y -= 14;
+      continue;
+    }
     if (section.title) {
       ensureSpace(40);
       write(section.title, bold, 11, marinho);
@@ -113,19 +130,21 @@ export async function buildPdf(input: PdfInput) {
   }
 
   // Data, local e linha de assinatura do profissional.
-  ensureSpace(110);
+  ensureSpace(input.professional ? 110 : 30);
   y -= 10;
   page!.drawText(t(input.place), { x: margin, y, size: 10, font: regular, color: cinza });
-  y -= 50;
-  const signX = A4.width / 2 - 120;
-  page!.drawLine({ start: { x: signX, y }, end: { x: signX + 240, y }, thickness: 0.7, color: marinho });
-  y -= 14;
-  for (const line of [input.professional.name, input.professional.council, input.professional.specialty]) {
-    if (!line) continue;
-    const text = t(line, line === input.professional.name ? bold : regular);
-    const font = line === input.professional.name ? bold : regular;
-    page!.drawText(text, { x: A4.width / 2 - font.widthOfTextAtSize(text, 10) / 2, y, size: 10, font, color: marinho });
-    y -= 13;
+  if (input.professional) {
+    y -= 50;
+    const signX = A4.width / 2 - 120;
+    page!.drawLine({ start: { x: signX, y }, end: { x: signX + 240, y }, thickness: 0.7, color: marinho });
+    y -= 14;
+    for (const line of [input.professional.name, input.professional.council, input.professional.specialty]) {
+      if (!line) continue;
+      const font = line === input.professional.name ? bold : regular;
+      const text = t(line, font);
+      page!.drawText(text, { x: A4.width / 2 - font.widthOfTextAtSize(text, 10) / 2, y, size: 10, font, color: marinho });
+      y -= 13;
+    }
   }
 
   if (input.signatureStamp?.length) {
