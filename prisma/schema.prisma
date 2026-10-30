@@ -113,6 +113,7 @@ model Clinic {
   obligations    TaxObligation[]
   obligationDone ObligationEntry[]
   teleconsultations Teleconsultation[]
+  whatsappMessages WhatsappMessage[]
 }
 
 model User {
@@ -190,6 +191,7 @@ model User {
 
   @@unique([clinicId, email])
   @@unique([clinicId, cpf])
+  whatsappMessages WhatsappMessage[]
 }
 
 model Session {
@@ -769,4 +771,19 @@ model ObligationEntry {
   createdAt    DateTime      @default(now())
 
   @@unique([obligationId, month])
+}
+
+// Texto que a clínica escreveu para uma mensagem padrão do WhatsApp
+// (contato, confirmacao, retorno). Sem registro = texto padrão do sistema.
+model WhatsappMessage {
+  id          String   @id @default(cuid())
+  clinicId    String
+  clinic      Clinic   @relation(fields: [clinicId], references: [id])
+  key         String
+  text        String
+  updatedById String
+  updatedBy   User     @relation(fields: [updatedById], references: [id])
+  updatedAt   DateTime @updatedAt
+
+  @@unique([clinicId, key])
 }

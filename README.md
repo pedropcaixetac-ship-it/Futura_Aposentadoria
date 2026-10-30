@@ -45,6 +45,7 @@ Este é o primeiro módulo: **Prontuário**.
   texto pronto (contato ou aviso de retorno). Só aparece se o paciente autorizou no cadastro (LGPD), e cada envio fica na auditoria
 - WhatsApp na agenda: botão "Pedir confirmação" em cada consulta (também na Recepção, com o aviso das consultas de amanhã),
   retorno previsto anotado na consulta e a lista "Retornos para avisar" na Recepção. A mensagem ainda é enviada pela recepcionista
+- Mensagens do WhatsApp editáveis por clínica (Recepção > Mensagens do WhatsApp), com partes preenchidas sozinhas como [paciente] e [hora]
 
 ### Financeiro
 

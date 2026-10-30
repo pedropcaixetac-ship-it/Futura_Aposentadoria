@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
-import { isWhatsappTemplate, whatsappLink } from "@/lib/whatsapp";
+import { displayName } from "@/lib/staff";
+import { canMessage, fillMessage, whatsappUrl } from "@/lib/whatsapp";
+import { loadMessages } from "@/lib/whatsapp-data";
 
 // Passa por aqui antes de abrir o WhatsApp, para conferir o consentimento
 // do paciente e registrar na auditoria quem mandou mensagem e quando.
@@ -11,16 +13,31 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const modelo = new URL(request.url).searchParams.get("modelo") ?? "livre";
   const patient = await prisma.patient.findFirst({ where: { id, clinicId: user.clinicId } });
-  if (!patient || !isWhatsappTemplate(modelo)) return new NextResponse("Não encontrado.", { status: 404 });
-  if (!patient.whatsappOptIn) {
-    return new NextResponse("O paciente não autorizou receber mensagens pelo WhatsApp.", { status: 403 });
+  if (!patient || !["livre", "contato", "retorno"].includes(modelo)) return new NextResponse("Não encontrado.", { status: 404 });
+  if (!canMessage(patient)) {
+    return new NextResponse("O paciente não autorizou mensagens pelo WhatsApp ou o celular não tem WhatsApp.", { status: 403 });
   }
 
-  const link = patient.phoneWhatsapp && whatsappLink(patient.phone ?? "", modelo, {
-    patient: patient.socialName || patient.name,
-    clinic: user.clinic.name,
-  });
-  if (!link) return new NextResponse("O celular do paciente não tem WhatsApp ou é inválido.", { status: 400 });
+  let text = "";
+  if (modelo !== "livre") {
+    // No aviso de retorno, o profissional é o da última consulta do paciente.
+    const last =
+      modelo === "retorno"
+        ? await prisma.appointment.findFirst({
+            where: { clinicId: user.clinicId, patientId: id, status: { not: "DESMARCADO" }, startsAt: { lte: new Date() } },
+            orderBy: { startsAt: "desc" },
+            select: { professional: { select: { name: true, jobTitle: true, sex: true } } },
+          })
+        : null;
+    const messages = await loadMessages(user.clinicId);
+    text = fillMessage(messages[modelo as "contato" | "retorno"], {
+      paciente: patient.socialName || patient.name,
+      clinica: user.clinic.name,
+      profissional: last ? displayName(last.professional) : "nossa equipe",
+    });
+  }
+  const link = whatsappUrl(patient.phone, text);
+  if (!link) return new NextResponse("Celular inválido.", { status: 400 });
 
   await audit({
     clinicId: user.clinicId,

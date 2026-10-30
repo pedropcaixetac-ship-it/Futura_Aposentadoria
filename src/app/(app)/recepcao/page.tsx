@@ -61,10 +61,13 @@ export default async function ReceptionPage({ searchParams }: { searchParams: Pr
           <h1 className="text-2xl font-semibold">Recepção</h1>
           <p className="text-sm text-slate-500">{formatDayLabel(date)}{date === todayDate ? " (hoje)" : ""}</p>
         </div>
-        <div className="flex overflow-hidden rounded-md border border-slate-300 text-sm">
-          <Link href={`/recepcao?data=${addDays(date, -1)}`} className="bg-white px-3 py-1.5 hover:bg-slate-50" aria-label="Dia anterior">←</Link>
-          <Link href="/recepcao" className="border-x border-slate-300 bg-white px-3 py-1.5 hover:bg-slate-50">Hoje</Link>
-          <Link href={`/recepcao?data=${addDays(date, 1)}`} className="bg-white px-3 py-1.5 hover:bg-slate-50" aria-label="Próximo dia">→</Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link href="/recepcao/mensagens" className="text-sm text-marinho-700 hover:underline">Mensagens do WhatsApp</Link>
+          <div className="flex overflow-hidden rounded-md border border-slate-300 text-sm">
+            <Link href={`/recepcao?data=${addDays(date, -1)}`} className="bg-white px-3 py-1.5 hover:bg-slate-50" aria-label="Dia anterior">←</Link>
+            <Link href="/recepcao" className="border-x border-slate-300 bg-white px-3 py-1.5 hover:bg-slate-50">Hoje</Link>
+            <Link href={`/recepcao?data=${addDays(date, 1)}`} className="bg-white px-3 py-1.5 hover:bg-slate-50" aria-label="Próximo dia">→</Link>
+          </div>
         </div>
       </div>
 
