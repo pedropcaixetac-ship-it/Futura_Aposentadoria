@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { patientNameWhere } from "@/lib/patient";
 import { requireUser } from "@/lib/auth";
 import { age, formatCpf, formatDate, formatDay, formatPhone, parseBrDate } from "@/lib/format";
 import { SearchBox } from "./search-box";
@@ -18,8 +19,7 @@ export default async function PatientsPage({ searchParams }: { searchParams: Pro
       clinicId: user.clinicId,
       ...(term && {
         OR: [
-          { name: { contains: term, mode: "insensitive" } },
-          { socialName: { contains: term, mode: "insensitive" } },
+          patientNameWhere(term),
           { insuranceNumber: { contains: term, mode: "insensitive" } },
           { insurance: { contains: term, mode: "insensitive" } },
           ...(birthDate ? [{ birthDate }] : []),

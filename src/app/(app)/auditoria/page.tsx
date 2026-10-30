@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { patientNameWhere } from "@/lib/patient";
 import { requireUser } from "@/lib/auth";
 import { auditActionLabel } from "@/lib/audit";
 import { formatDateTime, onlyDigits } from "@/lib/format";
@@ -32,8 +33,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
         where: {
           clinicId: user.clinicId,
           OR: [
-            { name: { contains: term, mode: "insensitive" } },
-            { socialName: { contains: term, mode: "insensitive" } },
+            patientNameWhere(term),
             ...(digits.length >= 3 ? [{ cpf: { contains: digits } }] : []),
           ],
         },

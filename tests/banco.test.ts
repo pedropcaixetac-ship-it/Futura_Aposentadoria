@@ -2,6 +2,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { PrismaClient } from "@prisma/client";
+import { patientNameWhere } from "../src/lib/patient";
 
 const prisma = new PrismaClient();
 after(() => prisma.$disconnect());
@@ -88,4 +89,15 @@ test("PDF assinado não pode ser alterado nem excluído", async () => {
   });
   await assert.rejects(prisma.signedPdf.update({ where: { id: signed.id }, data: { signerName: "Outro" } }), /não podem ser alterados/);
   await assert.rejects(prisma.signedPdf.delete({ where: { id: signed.id } }), /não podem ser alterados/);
+});
+
+test("busca de paciente não liga para acentos nem maiúsculas", async () => {
+  const clinic = await testClinic();
+  await prisma.patient.create({ data: { clinicId: clinic.id, name: "José da Conceição Gonçalves", socialName: "Zé Ângelo" } });
+  const find = (term: string) => prisma.patient.count({ where: { clinicId: clinic.id, ...patientNameWhere(term) } });
+  assert.equal(await find("jose"), 1);
+  assert.equal(await find("CONCEICAO GONC"), 1);
+  assert.equal(await find("Gonçalves"), 1);
+  assert.equal(await find("ze angelo"), 1);
+  assert.equal(await find("maria"), 0);
 });

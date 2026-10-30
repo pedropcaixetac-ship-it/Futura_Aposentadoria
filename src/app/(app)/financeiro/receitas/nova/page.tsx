@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { patientNameWhere } from "@/lib/patient";
 import { requireUser } from "@/lib/auth";
 import { canManageCharges } from "@/lib/permissions";
 import { formatCpf, formatDate, formatDateTime } from "@/lib/format";
@@ -34,7 +35,7 @@ export default async function NewChargePage({ searchParams }: {
           where: {
             clinicId,
             OR: [
-              { name: { contains: term, mode: "insensitive" } },
+              patientNameWhere(term),
               ...(digits ? [{ cpf: { contains: digits } }, { phone: { contains: digits } }] : []),
             ],
           },

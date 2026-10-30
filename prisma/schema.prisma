@@ -261,6 +261,9 @@ model Patient {
   // Identificação
   name          String
   socialName    String?
+  // Nome e nome social sem acentos e em minúsculas, para a busca. O banco calcula sozinho
+  // (coluna gerada, ver a migração busca_sem_acento): nunca preencher pelo sistema.
+  searchName    String?
   birthDate     DateTime?
   sex           String?
   cpf           String?

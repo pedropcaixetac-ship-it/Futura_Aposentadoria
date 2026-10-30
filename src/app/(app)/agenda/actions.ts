@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import type { AppointmentStatus, AppointmentType } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { patientNameWhere } from "@/lib/patient";
 import { requireUser } from "@/lib/auth";
 import { hasTab } from "@/lib/tabs";
 import { audit } from "@/lib/audit";
@@ -46,8 +47,7 @@ export async function searchPatients(query: string): Promise<PatientOption[]> {
     where: {
       clinicId: user.clinicId,
       OR: [
-        { name: { contains: term, mode: "insensitive" } },
-        { socialName: { contains: term, mode: "insensitive" } },
+        patientNameWhere(term),
         ...(digits.length >= 3 ? [{ cpf: { contains: digits } }, { phone: { contains: digits } }] : []),
       ],
     },
