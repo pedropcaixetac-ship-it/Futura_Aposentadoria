@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { prisma } from "./db";
+import { sendProblemAlert } from "./alerts";
 
 // Problemas do sistema (ver o modelo ProblemReport): erros que acontecem sozinhos e relatos
 // feitos pelo botão "Relatar problema". A empresa acompanha tudo no Painel do dono.
@@ -68,7 +69,7 @@ export async function recordError(entry: ErrorEntry) {
       });
       return;
     }
-    await prisma.problemReport.create({
+    const created = await prisma.problemReport.create({
       data: {
         kind: "ERRO",
         message,
@@ -79,10 +80,19 @@ export async function recordError(entry: ErrorEntry) {
         clinicId: entry.clinicId ?? null,
         userId: entry.userId ?? null,
       },
+      include: problemNames,
     });
+    await sendProblemAlert(alertOf(created));
   } catch (e) {
     console.error("Não foi possível registrar o erro", e);
   }
+}
+
+// Nome da clínica e de quem estava usando, para o aviso por e-mail.
+export const problemNames = { clinic: { select: { name: true } }, user: { select: { name: true } } } as const;
+
+export function alertOf(problem: { kind: string; message: string; page: string | null; clinic: { name: string } | null; user: { name: string } | null }) {
+  return { kind: problem.kind, message: problem.message, page: problem.page, clinicName: problem.clinic?.name, userName: problem.user?.name };
 }
 
 export type ReportInput = { message: string; page: string | null; digest: string | null };

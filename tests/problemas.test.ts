@@ -2,6 +2,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { prisma } from "../src/lib/db";
+import { alertEmail } from "../src/lib/alerts";
 import { cleanPage, errorFingerprint, pageGroup, parseReport, recordError, validateReport } from "../src/lib/problems";
 
 after(() => prisma.$disconnect());
@@ -51,4 +52,16 @@ test("erro repetido soma na mesma linha em vez de encher a lista", async () => {
   await recordError({ message, page: "/pacientes/cmhd4x9k20001abcdefghij12" });
   assert.equal(await prisma.problemReport.count({ where: { message } }), 2);
   await prisma.problemReport.deleteMany({ where: { message } });
+});
+
+test("e-mail de aviso diz o que, onde e quem", () => {
+  const { subject, text } = alertEmail(
+    { kind: "RELATO", message: "A agenda\nnão abre", page: "/agenda", clinicName: "Clínica X", userName: "Júlia" },
+    "https://exemplo.com/painel/problemas",
+  );
+  assert.equal(subject, "Relato de problema · Clínica X: A agenda não abre");
+  assert.match(text, /Tela: \/agenda/);
+  assert.match(text, /Júlia/);
+  assert.match(text, /https:\/\/exemplo\.com\/painel\/problemas/);
+  assert.match(alertEmail({ kind: "ERRO", message: "x", page: null }, null).subject, /^Erro no sistema: x$/);
 });
