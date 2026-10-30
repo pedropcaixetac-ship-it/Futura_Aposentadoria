@@ -1,5 +1,6 @@
 import type { Role } from "@prisma/client";
 import { isValidCns, isValidCpf, onlyDigits, roleLabel } from "./format";
+import { passwordProblem } from "./password";
 
 // Cadastro de servidores (equipe da clínica): o que vem do formulário e as regras de validação.
 export type StaffInput = {
@@ -181,7 +182,7 @@ export function validateStaff(input: StaffInput, { needsPassword }: { needsPassw
   if (input.rqe && !input.councilNumber) return "Informe o CRM junto com o RQE.";
   if (input.rqe && !/^\d+(, \d+)*$/.test(input.rqe)) return "RQE deve ter só números (se tiver mais de um, separe por vírgula).";
   if (input.systemAccess && needsPassword && !input.password) return "Crie uma senha inicial para a pessoa entrar no sistema.";
-  if (input.password && input.password.length < 8) return "A senha precisa ter pelo menos 8 caracteres.";
+  if (input.password) return passwordProblem(input.password, input);
   return null;
 }
 
@@ -215,11 +216,10 @@ export function stripHonorific(name: string) {
 }
 
 // Troca de senha pela própria pessoa em "Meu cadastro".
-export function validateNewPassword(current: string, next: string, confirm: string) {
-  if (next.length < 8) return "A nova senha precisa ter pelo menos 8 caracteres.";
+export function validateNewPassword(current: string, next: string, confirm: string, person: Parameters<typeof passwordProblem>[1] = {}) {
   if (next !== confirm) return "A confirmação não é igual à nova senha.";
   if (next === current) return "A nova senha precisa ser diferente da atual.";
-  return null;
+  return passwordProblem(next, person);
 }
 
 function normalizeRqe(value: string | null) {

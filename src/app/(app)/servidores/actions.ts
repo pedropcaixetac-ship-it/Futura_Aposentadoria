@@ -11,6 +11,7 @@ import { audit } from "@/lib/audit";
 import { parseDateInput } from "@/lib/finance";
 import { clinicalLoginBlock, parseStaff, staffEditBlock, terminationReasons, validateStaff } from "@/lib/staff";
 import { sanitizeTabs } from "@/lib/tabs";
+import { TWO_FACTOR_OFF } from "@/lib/totp";
 
 export type FormState = { error: string; ok?: string };
 
@@ -63,12 +64,14 @@ export async function saveStaff(id: string | null, _: FormState, formData: FormD
   let staffId = id;
   try {
     if (id) {
-      await prisma.user.update({ where: { id }, data: { ...data, ...(passwordHash && { passwordHash }) } });
+      // Senha que o gerente criou para outra pessoa vale só para o primeiro acesso.
+      const reset = password && id !== admin.id ? { passwordHash, mustChangePassword: true } : passwordHash ? { passwordHash } : {};
+      await prisma.user.update({ where: { id }, data: { ...data, ...reset } });
       // Senha trocada ou acesso retirado: quem estava conectado sai.
       if (passwordHash && id !== admin.id) await prisma.session.deleteMany({ where: { userId: id } });
     } else {
       const created = await prisma.user.create({
-        data: { ...data, clinicId: admin.clinicId, passwordHash: passwordHash! },
+        data: { ...data, clinicId: admin.clinicId, passwordHash: passwordHash!, mustChangePassword: !!password },
       });
       staffId = created.id;
     }
@@ -143,4 +146,18 @@ export async function reactivateStaff(id: string) {
   await prisma.user.update({ where: { id }, data: { active: true, terminatedAt: null, terminationReason: null } });
   await audit({ clinicId: admin.clinicId, userId: admin.id, action: "SERVIDOR_REATIVADO", entity: "User", entityId: id });
   revalidatePath("/servidores");
+}
+
+// Quem perdeu o celular e os códigos de recuperação: só o gerente do sistema desliga a verificação
+// em duas etapas da pessoa, que pode ligar de novo em "Meu cadastro".
+export async function resetTwoFactor(id: string) {
+  const admin = await requireUser("servidores");
+  if (admin.role !== "ADMIN") throw new Error("Só o gerente do sistema desliga a verificação em duas etapas de outra pessoa");
+  await findStaff(admin.clinicId, id);
+  await prisma.$transaction([
+    prisma.user.update({ where: { id }, data: TWO_FACTOR_OFF }),
+    prisma.session.deleteMany({ where: { userId: id } }),
+  ]);
+  await audit({ clinicId: admin.clinicId, userId: admin.id, action: "DUAS_ETAPAS_DESATIVADA", entity: "User", entityId: id, details: { peloGerente: true } });
+  revalidatePath(`/servidores/${id}`);
 }

@@ -87,7 +87,7 @@ function form(values: Record<string, string>) {
 
 test("valida o cadastro de servidor", () => {
   const base = {
-    name: "Maria da Silva", email: "Maria@Clinica.com", role: "RECEPCAO", password: "senha1234", systemAccess: "on",
+    name: "Maria da Silva", email: "Maria@Clinica.com", role: "RECEPCAO", password: "Recepcao#2026", systemAccess: "on",
     birthDate: "1990-05-10", phone: "(62) 99999-0000",
   };
   const ok = parseStaff(form({ ...base, cpf: "529.982.247-25" }));
@@ -156,9 +156,9 @@ test("saúde com acesso restrito: só os próprios atendimentos", () => {
 });
 
 test("troca da própria senha em Meu cadastro", () => {
-  assert.equal(validateNewPassword("antiga123", "novaSenha9", "novaSenha9"), null);
-  assert.match(validateNewPassword("antiga123", "curta", "curta")!, /8 caracteres/);
-  assert.match(validateNewPassword("antiga123", "novaSenha9", "outraSenha")!, /confirmação/);
+  assert.equal(validateNewPassword("antiga123", "novaSenha#9", "novaSenha#9"), null);
+  assert.match(validateNewPassword("antiga123", "Curta#1", "Curta#1")!, /10 caracteres/);
+  assert.match(validateNewPassword("antiga123", "novaSenha#9", "outraSenha")!, /confirmação/);
   assert.match(validateNewPassword("antiga123", "antiga123", "antiga123")!, /diferente/);
 });
 
