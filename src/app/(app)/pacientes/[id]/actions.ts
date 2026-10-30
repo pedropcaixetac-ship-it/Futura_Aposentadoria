@@ -102,15 +102,15 @@ export async function autosaveEncounter(encounterId: string, formData: FormData)
   return new Date().toISOString();
 }
 
-export async function finalizeEncounter(encounterId: string, formData: FormData) {
+// Finaliza a partir da tela de revisão, com o que já está salvo no rascunho.
+export async function finalizeEncounter(encounterId: string) {
   const { user, encounter } = await loadEditable(encounterId);
-  const { vitals, ...data } = readForm(encounter.fields as TemplateField[], formData);
   const finalizedAt = new Date();
-  const contentHash = encounterHash({ ...encounter, ...data, vitals, finalizedAt });
+  const contentHash = encounterHash({ ...encounter, finalizedAt });
 
   await prisma.encounter.update({
     where: { id: encounter.id },
-    data: { ...data, vitals: vitals ?? Prisma.DbNull, status: "FINALIZADO", finalizedAt, contentHash },
+    data: { status: "FINALIZADO", finalizedAt, contentHash },
   });
   await audit({
     clinicId: user.clinicId,
@@ -123,7 +123,7 @@ export async function finalizeEncounter(encounterId: string, formData: FormData)
   });
   // Se o atendimento veio da agenda, a consulta passa para "Atendido".
   await prisma.appointment.updateMany({ where: { encounterId: encounter.id }, data: { status: "ATENDIDO" } });
-  redirect(`/pacientes/${encounter.patientId}/atendimentos/${encounter.id}`);
+  redirect(`/pacientes/${encounter.patientId}/atendimentos/${encounter.id}?finalizado=1`);
 }
 
 export async function addAddendum(encounterId: string, formData: FormData) {
