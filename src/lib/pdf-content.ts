@@ -3,6 +3,7 @@ import { age, formatCpf, formatDate, formatDateTime } from "./format";
 import { documentTypeLabel } from "./documents";
 import type { Diagnosis, TemplateField } from "./record";
 import type { PdfInput } from "./pdf";
+import { vitalsSummary, type Vitals } from "./vitals";
 
 function council(user: User) {
   return user.councilNumber ? `${user.councilType} ${user.councilNumber}/${user.councilUf}` : null;
@@ -30,6 +31,8 @@ export function encounterPdfInput(
   const diagnoses = encounter.diagnoses as Diagnosis[];
 
   const sections = fields.map((f) => ({ title: f.label, text: content[f.key] ?? "" }));
+  const vitals = vitalsSummary(encounter.vitals as Vitals | null);
+  if (vitals) sections.unshift({ title: "Sinais vitais", text: vitals });
   if (diagnoses.length) {
     sections.push({ title: "Diagnósticos (CID-10)", text: diagnoses.map((d) => `${d.code} ${d.description}`).join("\n") });
   }
