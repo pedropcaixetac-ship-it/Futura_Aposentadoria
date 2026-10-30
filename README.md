@@ -65,6 +65,9 @@ Este é o primeiro módulo: **Prontuário**.
 - Faturamento: guia de consulta no padrão TISS gerada a partir do atendimento finalizado de paciente com convênio,
   com valor da tabela do convênio, numeração própria da clínica, impressão e cancelamento. Avisa o que falta no
   cadastro (registro ANS, CNES, conselho do profissional) antes de gerar. Atendimento com guia não aparece para cobrança particular
+- Lotes de guias: as guias de cada convênio são fechadas num lote (até 100) e o sistema gera o arquivo XML no padrão
+  TISS 4.03.00 da ANS, com o código de segurança (hash) que o portal do convênio confere. O arquivo é validado nos testes
+  contra os schemas oficiais da ANS (tests/fixtures/tiss-4.03.00). Guia em lote não pode ser cancelada; o lote pode ser desfeito
 - Repasse por profissional (porcentagem do valor recebido), que pode ser lançado como despesa
 - Recibo numerado, com valor por extenso, para imprimir ou salvar em PDF
 - O administrador vê tudo; a recepção lança cobranças e recebe pagamentos; cada profissional vê só o próprio repasse

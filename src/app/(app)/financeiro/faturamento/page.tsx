@@ -9,6 +9,7 @@ import { monthRange } from "@/lib/finance";
 import { displayName } from "@/lib/staff";
 import { claimNumberLabel } from "@/lib/tiss";
 import { MonthNav } from "../ui";
+import { closeBatch } from "./actions";
 
 export default async function BillingPage({ searchParams }: { searchParams: Promise<{ mes?: string }> }) {
   const user = await requireUser("financeiro");
@@ -17,10 +18,15 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   const clinicId = user.clinicId;
   const ninetyDaysAgo = new Date(Date.now() - 90 * 86400000);
 
-  const [claims, toBill] = await Promise.all([
+  const [claims, toBill, toSend, batches] = await Promise.all([
     prisma.insuranceClaim.findMany({
       where: { clinicId, serviceDate: { gte: range.start, lt: range.end } },
-      include: { patient: { select: { name: true } }, healthPlan: { select: { name: true } }, professional: { select: { name: true, jobTitle: true, sex: true } } },
+      include: {
+        patient: { select: { name: true } },
+        healthPlan: { select: { name: true } },
+        professional: { select: { name: true, jobTitle: true, sex: true } },
+        batch: { select: { id: true, number: true } },
+      },
       orderBy: [{ serviceDate: "asc" }, { number: "asc" }],
     }),
     prisma.encounter.findMany({
@@ -41,7 +47,24 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
       orderBy: { finalizedAt: "desc" },
       take: 30,
     }),
+    // Guias de qualquer mês que ainda não entraram em lote, somadas por convênio.
+    prisma.insuranceClaim.groupBy({
+      by: ["healthPlanId"],
+      where: { clinicId, status: "ABERTA", batchId: null },
+      _count: true,
+      _sum: { amountCents: true },
+    }),
+    prisma.claimBatch.findMany({
+      where: { clinicId },
+      include: { healthPlan: { select: { name: true } }, _count: { select: { claims: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+    }),
   ]);
+  const planNames = new Map(
+    (await prisma.healthPlan.findMany({ where: { clinicId, id: { in: toSend.map((t) => t.healthPlanId) } }, select: { id: true, name: true } }))
+      .map((p) => [p.id, p.name]),
+  );
 
   const openClaims = claims.filter((c) => c.status === "ABERTA");
   const total = openClaims.reduce((t, c) => t + c.amountCents, 0);
@@ -66,6 +89,42 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
                 <Link href={`/financeiro/faturamento/nova?atendimento=${e.id}`} className="btn-primary px-3! py-1! text-xs!">
                   Gerar guia
                 </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {toSend.length > 0 && (
+        <div className="card space-y-3">
+          <h3 className="font-semibold">Guias a enviar</h3>
+          <p className="text-sm text-slate-500">Feche um lote por convênio para gerar o arquivo XML que vai no portal do convênio (até 100 guias por lote).</p>
+          <ul className="divide-y divide-slate-100 text-sm">
+            {toSend.map((t) => (
+              <li key={t.healthPlanId} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <span>
+                  <span className="font-medium">{planNames.get(t.healthPlanId)}</span>
+                  <span className="text-slate-500"> · {t._count} guia(s) · {formatMoney(t._sum.amountCents ?? 0)}</span>
+                </span>
+                <form action={closeBatch.bind(null, t.healthPlanId)}>
+                  <button className="btn-primary px-3! py-1! text-xs!">Fechar lote</button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {batches.length > 0 && (
+        <div className="card space-y-2">
+          <h3 className="font-semibold">Lotes recentes</h3>
+          <ul className="divide-y divide-slate-100 text-sm">
+            {batches.map((b) => (
+              <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <Link href={`/financeiro/faturamento/lotes/${b.id}`} className="text-marinho-700 hover:underline">
+                  Lote nº {b.number} · {b.healthPlan.name}
+                </Link>
+                <span className="text-slate-500">{b._count.claims} guia(s) · {formatDateTime(b.createdAt)}</span>
               </li>
             ))}
           </ul>
@@ -104,7 +163,11 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
                 <td className="px-4 py-2">{displayName(c.professional)}</td>
                 <td className="px-4 py-2 text-right">{formatMoney(c.amountCents)}</td>
                 <td className="px-4 py-2">
-                  {c.status === "ABERTA" ? (
+                  {c.batch ? (
+                    <Link href={`/financeiro/faturamento/lotes/${c.batch.id}`} className="rounded bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">
+                      Lote nº {c.batch.number}
+                    </Link>
+                  ) : c.status === "ABERTA" ? (
                     <span className="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800">A enviar</span>
                   ) : (
                     <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500">Cancelada</span>

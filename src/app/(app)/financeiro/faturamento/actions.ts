@@ -9,7 +9,8 @@ import { canManageFinance } from "@/lib/permissions";
 import { parseMoney } from "@/lib/money";
 import { parseDateInput } from "@/lib/finance";
 import { normalizeTussCode } from "@/lib/convenios";
-import { accidentIndications, consultationTypes, missingForClaim, normalizeCbo } from "@/lib/tiss";
+import { accidentIndications, careRegime, consultationTypes, missingForClaim, normalizeCbo } from "@/lib/tiss";
+import { MAX_CLAIMS_PER_BATCH, TISS_VERSION } from "@/lib/tiss-xml";
 import type { FormState } from "../actions";
 
 function text(formData: FormData, key: string) {
@@ -28,7 +29,7 @@ export async function createClaim(encounterId: string, _: FormState, formData: F
   const user = await requireAdmin();
   const encounter = await prisma.encounter.findFirst({
     where: { id: encounterId, clinicId: user.clinicId, status: "FINALIZADO" },
-    include: { patient: { include: { healthPlan: true } }, professional: true, clinic: true },
+    include: { patient: { include: { healthPlan: true } }, professional: true, clinic: true, teleconsultation: { select: { id: true } } },
   });
   if (!encounter) return { error: "Atendimento não encontrado ou ainda não finalizado." };
   const plan = encounter.patient.healthPlan;
@@ -37,7 +38,7 @@ export async function createClaim(encounterId: string, _: FormState, formData: F
   const missing = missingForClaim({ clinic: encounter.clinic, plan, professional: encounter.professional });
   if (missing.length > 0) return { error: `Falta no cadastro: ${missing.join("; ")}.` };
 
-  const open = await prisma.insuranceClaim.findFirst({ where: { encounterId, status: "ABERTA" } });
+  const open = await prisma.insuranceClaim.findFirst({ where: { clinicId: user.clinicId, encounterId, status: "ABERTA" } });
   if (open) return { error: "Este atendimento já tem guia. Cancele a anterior para gerar outra." };
 
   const cardNumber = text(formData, "cardNumber")?.replace(/\s/g, "");
@@ -76,6 +77,7 @@ export async function createClaim(encounterId: string, _: FormState, formData: F
         serviceDate,
         consultationType,
         accidentIndication,
+        careRegime: careRegime(!!encounter.teleconsultation),
         cbo,
         tussCode,
         description: price.description,
@@ -109,10 +111,64 @@ export async function createClaim(encounterId: string, _: FormState, formData: F
 export async function cancelClaim(claimId: string) {
   const user = await requireAdmin();
   const { count } = await prisma.insuranceClaim.updateMany({
-    where: { id: claimId, clinicId: user.clinicId, status: "ABERTA" },
+    where: { id: claimId, clinicId: user.clinicId, status: "ABERTA", batchId: null },
     data: { status: "CANCELADA", canceledAt: new Date() },
   });
-  if (count === 0) throw new Error("Guia não encontrada ou já cancelada");
+  if (count === 0) throw new Error("Guia não encontrada, já cancelada ou já enviada em lote");
   await audit({ clinicId: user.clinicId, userId: user.id, action: "GUIA_CANCELADA", entity: "InsuranceClaim", entityId: claimId });
   revalidatePath("/financeiro", "layout");
+}
+
+// Fecha um lote com as guias de um convênio que ainda não foram enviadas (as mais antigas primeiro).
+export async function closeBatch(healthPlanId: string) {
+  const user = await requireAdmin();
+  const plan = await prisma.healthPlan.findFirst({ where: { id: healthPlanId, clinicId: user.clinicId } });
+  if (!plan) throw new Error("Convênio não encontrado");
+  const clinic = await prisma.clinic.findUniqueOrThrow({ where: { id: user.clinicId } });
+  if (!plan.ansCode || !clinic.cnes || (!plan.providerCode && !clinic.cnpj)) throw new Error("Cadastro do convênio ou da clínica incompleto");
+
+  const batch = await prisma.$transaction(async (tx) => {
+    const claims = await tx.insuranceClaim.findMany({
+      where: { clinicId: user.clinicId, healthPlanId, status: "ABERTA", batchId: null },
+      orderBy: { number: "asc" },
+      take: MAX_CLAIMS_PER_BATCH,
+      select: { id: true },
+    });
+    if (claims.length === 0) throw new Error("Não há guias a enviar para este convênio");
+    const { lastBatchNumber } = await tx.clinic.update({ where: { id: user.clinicId }, data: { lastBatchNumber: { increment: 1 } } });
+    const created = await tx.claimBatch.create({
+      data: { clinicId: user.clinicId, healthPlanId, number: lastBatchNumber, tissVersion: TISS_VERSION },
+    });
+    const { count } = await tx.insuranceClaim.updateMany({
+      where: { clinicId: user.clinicId, id: { in: claims.map((c) => c.id) }, status: "ABERTA", batchId: null },
+      data: { batchId: created.id },
+    });
+    if (count !== claims.length) throw new Error("Outra pessoa mexeu nas guias ao mesmo tempo. Tente de novo.");
+    return { ...created, size: count };
+  });
+
+  await audit({
+    clinicId: user.clinicId,
+    userId: user.id,
+    action: "LOTE_FECHADO",
+    entity: "ClaimBatch",
+    entityId: batch.id,
+    details: { number: batch.number, healthPlan: plan.name, guias: batch.size },
+  });
+  revalidatePath("/financeiro", "layout");
+  redirect(`/financeiro/faturamento/lotes/${batch.id}`);
+}
+
+// Desfaz o lote (por exemplo, se o portal do convênio recusou o arquivo): as guias voltam a ficar a enviar.
+export async function undoBatch(batchId: string) {
+  const user = await requireAdmin();
+  const batch = await prisma.claimBatch.findFirst({ where: { id: batchId, clinicId: user.clinicId } });
+  if (!batch) throw new Error("Lote não encontrado");
+  await prisma.$transaction([
+    prisma.insuranceClaim.updateMany({ where: { clinicId: user.clinicId, batchId }, data: { batchId: null } }),
+    prisma.claimBatch.delete({ where: { id: batchId } }),
+  ]);
+  await audit({ clinicId: user.clinicId, userId: user.id, action: "LOTE_DESFEITO", entity: "ClaimBatch", entityId: batchId, details: { number: batch.number } });
+  revalidatePath("/financeiro", "layout");
+  redirect("/financeiro/faturamento");
 }

@@ -97,6 +97,8 @@ model Clinic {
   cnes              String?
   // Último número de guia de convênio emitido (as guias seguem uma sequência por clínica).
   lastClaimNumber   Int      @default(0)
+  // Último número de lote de guias enviado aos convênios.
+  lastBatchNumber   Int      @default(0)
   // Controle da empresa dona do sistema (Painel do dono). Clínica suspensa não consegue entrar.
   active            Boolean   @default(true)
   suspendedAt       DateTime?
@@ -129,6 +131,7 @@ model Clinic {
   whatsappMessages WhatsappMessage[]
   healthPlans    HealthPlan[]
   claims         InsuranceClaim[]
+  claimBatches   ClaimBatch[]
 }
 
 model User {
@@ -869,6 +872,7 @@ model HealthPlan {
   prices   HealthPlanPrice[]
   patients Patient[]
   claims   InsuranceClaim[]
+  batches  ClaimBatch[]
 
   @@unique([clinicId, name])
 }
@@ -919,6 +923,8 @@ model InsuranceClaim {
   consultationType   Int
   // Tabela 36 da TISS (9 = não foi acidente).
   accidentIndication Int         @default(9)
+  // Regime de atendimento da TISS: 01 ambulatorial, 05 telessaúde.
+  careRegime         String      @default("01")
   // CBO do profissional que atendeu.
   cbo                String
   tussCode           String
@@ -927,6 +933,9 @@ model InsuranceClaim {
   notes              String?
   status             ClaimStatus @default(ABERTA)
   canceledAt         DateTime?
+  // Lote em que a guia foi enviada ao convênio. Guia em lote não pode ser cancelada.
+  batchId            String?
+  batch              ClaimBatch? @relation(fields: [batchId], references: [id])
   createdAt          DateTime    @default(now())
 
   @@unique([clinicId, number])
@@ -969,4 +978,20 @@ model PlatformAuditLog {
   createdAt DateTime      @default(now())
 
   @@index([createdAt])
+}
+
+// Lote de guias enviado a um convênio: um arquivo XML no padrão TISS.
+model ClaimBatch {
+  id           String           @id @default(cuid())
+  clinicId     String
+  clinic       Clinic           @relation(fields: [clinicId], references: [id])
+  healthPlanId String
+  healthPlan   HealthPlan       @relation(fields: [healthPlanId], references: [id])
+  number       Int
+  tissVersion  String
+  createdAt    DateTime         @default(now())
+
+  claims InsuranceClaim[]
+
+  @@unique([clinicId, number])
 }

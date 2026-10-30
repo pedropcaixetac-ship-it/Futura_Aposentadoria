@@ -43,7 +43,10 @@ export default async function ClaimPage({ params }: { params: Promise<{ id: stri
       <div className="no-print flex flex-wrap items-center justify-between gap-3">
         <Link href="/financeiro/faturamento" className="text-sm text-marinho-700 hover:underline">‹ Faturamento</Link>
         <div className="flex items-center gap-3">
-          {!canceled && (
+          {claim.batchId && (
+            <Link href={`/financeiro/faturamento/lotes/${claim.batchId}`} className="text-sm text-marinho-700 hover:underline">Ver lote</Link>
+          )}
+          {!canceled && !claim.batchId && (
             <form action={cancelClaim.bind(null, claim.id)}>
               <button className="btn-secondary text-red-700!">Cancelar guia</button>
             </form>
