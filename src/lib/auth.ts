@@ -42,6 +42,8 @@ export async function getCurrentUser() {
     include: { user: { include: { clinic: true }, omit: { photo: true } } },
   });
   if (!session || session.expiresAt < new Date() || !session.user.active || !session.user.systemAccess) return null;
+  // Clínica suspensa no Painel do dono: ninguém dela continua conectado.
+  if (!session.user.clinic.active) return null;
   return session.user;
 }
 

@@ -431,6 +431,16 @@ async function seedAccountingDemo() {
   console.log("Exemplos da contabilidade criados");
 }
 
+// Primeiro acesso ao Painel do dono do sistema. Em produção, defina PAINEL_EMAIL e PAINEL_SENHA
+// antes de publicar; sem elas, fica o acesso de demonstração (dono@futura.com / senha123).
+async function seedPlatformOwner() {
+  if ((await prisma.platformUser.count()) > 0) return;
+  const email = (process.env.PAINEL_EMAIL ?? "dono@futura.com").toLowerCase();
+  const passwordHash = await bcrypt.hash(process.env.PAINEL_SENHA ?? "senha123", 10);
+  await prisma.platformUser.create({ data: { name: process.env.PAINEL_NOME ?? "Dono do sistema", email, passwordHash } });
+  console.log(`Painel do dono: acesso criado para ${email}`);
+}
+
 async function main() {
   await seedCid10();
   await seedDemo();
@@ -440,6 +450,7 @@ async function main() {
   await seedLoginDemo();
   await seedStaffDemo();
   await seedAccountingDemo();
+  await seedPlatformOwner();
 }
 
 main().finally(() => prisma.$disconnect());

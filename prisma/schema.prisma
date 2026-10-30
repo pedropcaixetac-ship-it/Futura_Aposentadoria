@@ -95,6 +95,14 @@ model Clinic {
   accountantPhone   String?
   // CNES: registro do estabelecimento no Ministério da Saúde, exigido nas guias dos convênios.
   cnes              String?
+  // Controle da empresa dona do sistema (Painel do dono). Clínica suspensa não consegue entrar.
+  active            Boolean   @default(true)
+  suspendedAt       DateTime?
+  suspendedReason   String?
+  // Responsável pela clínica no contrato com a empresa (contato do suporte e da cobrança).
+  contactName       String?
+  contactEmail      String?
+  contactPhone      String?
 
   users          User[]
   patients       Patient[]
@@ -858,4 +866,41 @@ model HealthPlanPrice {
   updatedAt    DateTime   @updatedAt
 
   @@unique([healthPlanId, tussCode])
+}
+
+// ---- Painel do dono do sistema ----
+// Equipe da empresa que vende o sistema. Fica separada dos usuários das clínicas:
+// cadastra e suspende clínicas, mas não tem acesso a pacientes nem ao prontuário (LGPD).
+model PlatformUser {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  sessions  PlatformSession[]
+  auditLogs PlatformAuditLog[]
+}
+
+model PlatformSession {
+  id        String       @id
+  userId    String
+  user      PlatformUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime     @default(now())
+}
+
+// O que a equipe da empresa fez no painel. Como a auditoria das clínicas, não pode ser apagado.
+model PlatformAuditLog {
+  id        String        @id @default(cuid())
+  userId    String?
+  user      PlatformUser? @relation(fields: [userId], references: [id])
+  action    String
+  clinicId  String?
+  details   Json?
+  ip        String?
+  createdAt DateTime      @default(now())
+
+  @@index([createdAt])
 }
