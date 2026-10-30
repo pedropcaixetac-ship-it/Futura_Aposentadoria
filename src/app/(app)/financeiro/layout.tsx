@@ -11,6 +11,7 @@ export default async function FinanceLayout({ children }: { children: React.Reac
     ...(admin ? [{ href: "/financeiro/despesas", label: "Despesas" }] : []),
     ...(admin ? [{ href: "/financeiro/compras", label: "Compras" }] : []),
     ...(admin ? [{ href: "/financeiro/repasse", label: "Repasse" }] : []),
+    ...(admin ? [{ href: "/financeiro/convenios", label: "Convênios" }] : []),
     ...(admin ? [{ href: "/financeiro/precos", label: "Preços e recibo" }] : []),
   ];
   return (

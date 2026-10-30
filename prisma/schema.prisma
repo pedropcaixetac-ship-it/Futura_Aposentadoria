@@ -93,6 +93,8 @@ model Clinic {
   accountantName    String?
   accountantEmail   String?
   accountantPhone   String?
+  // CNES: registro do estabelecimento no Ministério da Saúde, exigido nas guias dos convênios.
+  cnes              String?
 
   users          User[]
   patients       Patient[]
@@ -115,6 +117,7 @@ model Clinic {
   obligationDone ObligationEntry[]
   teleconsultations Teleconsultation[]
   whatsappMessages WhatsappMessage[]
+  healthPlans    HealthPlan[]
 }
 
 model User {
@@ -794,4 +797,43 @@ model WhatsappMessage {
   updatedAt   DateTime @updatedAt
 
   @@unique([clinicId, key])
+}
+
+// Convênio (operadora de plano de saúde) com que a clínica trabalha, para o faturamento no padrão TISS da ANS.
+model HealthPlan {
+  id           String   @id @default(cuid())
+  clinicId     String
+  clinic       Clinic   @relation(fields: [clinicId], references: [id])
+  name         String
+  // Registro da operadora na ANS (6 números), que vai em toda guia.
+  ansCode      String?
+  // Código que a operadora deu à clínica ("código do prestador na operadora").
+  providerCode String?
+  // Dias que a operadora leva para pagar depois do envio do lote.
+  paymentDays  Int?
+  // Dias em que a volta do paciente conta como retorno, sem nova cobrança.
+  returnDays   Int?
+  notes        String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  prices HealthPlanPrice[]
+
+  @@unique([clinicId, name])
+}
+
+// Preço combinado com o convênio para cada procedimento, pelo código da tabela TUSS (8 números).
+model HealthPlanPrice {
+  id           String     @id @default(cuid())
+  healthPlanId String
+  healthPlan   HealthPlan @relation(fields: [healthPlanId], references: [id])
+  tussCode     String
+  description  String
+  priceCents   Int
+  active       Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([healthPlanId, tussCode])
 }
