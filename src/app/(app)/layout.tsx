@@ -8,20 +8,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await requireUser();
   return (
     <div className="min-h-screen">
-      <header className="no-print border-b border-slate-200 bg-white">
+      <header className="no-print border-b-2 border-dourado-500 bg-marinho-900 text-white">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
-          <Link href="/pacientes" className="font-semibold text-teal-800">{user.clinic.name}</Link>
-          <nav className="flex gap-4 text-sm text-slate-600">
-            <Link href="/pacientes" className="hover:text-teal-700">Pacientes</Link>
-            {canManageTemplates(user) && <Link href="/modelos" className="hover:text-teal-700">Modelos de atendimento</Link>}
-            {canViewAudit(user) && <Link href="/auditoria" className="hover:text-teal-700">Auditoria</Link>}
+          <Link href="/pacientes" className="font-semibold text-dourado-400">{user.clinic.name}</Link>
+          <nav className="flex gap-4 text-sm text-marinho-100">
+            <Link href="/pacientes" className="hover:text-dourado-300">Pacientes</Link>
+            {canManageTemplates(user) && <Link href="/modelos" className="hover:text-dourado-300">Modelos de atendimento</Link>}
+            {canViewAudit(user) && <Link href="/auditoria" className="hover:text-dourado-300">Auditoria</Link>}
           </nav>
           <div className="ml-auto flex items-center gap-3 text-sm">
-            <span className="text-slate-600">
-              {user.name} <span className="text-slate-400">· {roleLabel[user.role]}</span>
+            <span className="text-marinho-100">
+              {user.name} <span className="text-marinho-400">· {roleLabel[user.role]}</span>
             </span>
             <form action={logout}>
-              <button className="text-slate-500 hover:text-red-600">Sair</button>
+              <button className="text-marinho-100 hover:text-dourado-300">Sair</button>
             </form>
           </div>
         </div>

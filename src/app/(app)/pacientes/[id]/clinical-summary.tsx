@@ -36,7 +36,7 @@ export function ClinicalSummary({
       <div className="card">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-semibold">Resumo clínico</h2>
-          <button onClick={() => setEditing(true)} className="no-print text-sm text-teal-700 hover:underline">Editar</button>
+          <button onClick={() => setEditing(true)} className="no-print text-sm text-marinho-700 hover:underline">Editar</button>
         </div>
         <dl className="grid gap-3 sm:grid-cols-2">
           {items.map(({ key, label }) => (

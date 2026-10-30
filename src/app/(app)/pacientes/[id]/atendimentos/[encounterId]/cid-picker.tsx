@@ -38,9 +38,9 @@ export function CidPicker({ value, onChange }: { value: Diagnosis[]; onChange: (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2">
         {value.map((d) => (
-          <span key={d.code} className="inline-flex items-center gap-2 rounded-full bg-teal-50 px-3 py-1 text-sm text-teal-900">
+          <span key={d.code} className="inline-flex items-center gap-2 rounded-full bg-marinho-50 px-3 py-1 text-sm text-marinho-900">
             <strong>{d.code}</strong> {d.description}
-            <button type="button" aria-label={`Remover ${d.code}`} onClick={() => onChange(value.filter((v) => v.code !== d.code))} className="text-teal-700 hover:text-red-600">
+            <button type="button" aria-label={`Remover ${d.code}`} onClick={() => onChange(value.filter((v) => v.code !== d.code))} className="text-marinho-700 hover:text-red-600">
               ×
             </button>
           </span>
@@ -57,7 +57,7 @@ export function CidPicker({ value, onChange }: { value: Diagnosis[]; onChange: (
           <ul className="absolute z-10 mt-1 max-h-64 w-full overflow-auto rounded-md border border-slate-200 bg-white shadow-lg">
             {results.map((r) => (
               <li key={r.code}>
-                <button type="button" onClick={() => add(r)} className="w-full px-3 py-2 text-left text-sm hover:bg-teal-50">
+                <button type="button" onClick={() => add(r)} className="w-full px-3 py-2 text-left text-sm hover:bg-marinho-50">
                   <strong>{r.code}</strong> {r.description}
                 </button>
               </li>

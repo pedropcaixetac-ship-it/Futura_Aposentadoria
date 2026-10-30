@@ -47,7 +47,7 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <div className="no-print flex items-center justify-between">
-        <Link href={`/pacientes/${id}`} className="text-sm text-teal-700 hover:underline">← Voltar ao prontuário</Link>
+        <Link href={`/pacientes/${id}`} className="text-sm text-marinho-700 hover:underline">← Voltar ao prontuário</Link>
         {encounter.status === "FINALIZADO" && <PrintButton />}
       </div>
 
@@ -115,7 +115,7 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
         <div className="card space-y-3">
           <h2 className="font-semibold">Adendos</h2>
           {encounter.addenda.map((a) => (
-            <div key={a.id} className="border-l-2 border-teal-600 pl-3">
+            <div key={a.id} className="border-l-2 border-dourado-500 pl-3">
               <p className="text-xs text-slate-500">
                 {formatDateTime(a.createdAt)} · {a.author.name}
                 {a.author.councilNumber && ` · ${a.author.councilType} ${a.author.councilNumber}/${a.author.councilUf}`}

@@ -47,9 +47,9 @@ export default async function PatientsPage({ searchParams }: { searchParams: Pro
           </thead>
           <tbody>
             {patients.map((p) => (
-              <tr key={p.id} className="border-t border-slate-100 hover:bg-teal-50/40">
+              <tr key={p.id} className="border-t border-slate-100 hover:bg-marinho-50/40">
                 <td className="px-4 py-2">
-                  <Link href={`/pacientes/${p.id}`} className="font-medium text-teal-800 hover:underline">
+                  <Link href={`/pacientes/${p.id}`} className="font-medium text-marinho-800 hover:underline">
                     {p.socialName || p.name}
                   </Link>
                 </td>

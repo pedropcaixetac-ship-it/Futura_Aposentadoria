@@ -95,7 +95,7 @@ export default async function PatientRecordPage({ params }: { params: Promise<{ 
                   <li key={e.id}>
                     <Link
                       href={`/pacientes/${id}/atendimentos/${e.id}`}
-                      className="block rounded-md border border-slate-200 p-4 hover:border-teal-400 hover:bg-teal-50/30"
+                      className="block rounded-md border border-slate-200 p-4 hover:border-marinho-400 hover:bg-marinho-50/30"
                     >
                       <div className="flex flex-wrap items-center gap-2 text-sm">
                         <span className="font-medium">{formatDateTime(e.startedAt)}</span>

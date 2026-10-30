@@ -23,7 +23,7 @@ export function TemplateList({ templates }: { templates: Template[] }) {
                 {t.specialty && <p className="text-sm text-slate-500">{t.specialty}</p>}
                 <p className="mt-1 text-sm text-slate-600">{t.fields.map((f) => f.label).join(" · ")}</p>
               </div>
-              <button onClick={() => setEditing(t.id)} className="text-sm text-teal-700 hover:underline">Editar</button>
+              <button onClick={() => setEditing(t.id)} className="text-sm text-marinho-700 hover:underline">Editar</button>
             </div>
           )}
         </li>

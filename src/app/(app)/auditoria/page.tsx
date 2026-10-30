@@ -28,7 +28,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
         <p className="text-sm text-slate-500">
           Quem acessou ou alterou informações, e quando. Estes registros não podem ser apagados.
           {paciente && (
-            <> Filtrando por {patientName.get(paciente) ?? "paciente"}. <Link href="/auditoria" className="text-teal-700 hover:underline">Ver tudo</Link></>
+            <> Filtrando por {patientName.get(paciente) ?? "paciente"}. <Link href="/auditoria" className="text-marinho-700 hover:underline">Ver tudo</Link></>
           )}
         </p>
       </div>
@@ -51,7 +51,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
                 <td className="px-4 py-2">{auditActionLabel[l.action] ?? l.action}</td>
                 <td className="px-4 py-2">
                   {l.patientId && (
-                    <Link href={`/auditoria?paciente=${l.patientId}`} className="text-teal-700 hover:underline">
+                    <Link href={`/auditoria?paciente=${l.patientId}`} className="text-marinho-700 hover:underline">
                       {patientName.get(l.patientId)}
                     </Link>
                   )}
