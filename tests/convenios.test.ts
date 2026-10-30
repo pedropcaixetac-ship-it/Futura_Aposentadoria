@@ -71,3 +71,30 @@ test("guia TISS: códigos de conselho, UF e o que falta no cadastro", () => {
   assert.match(faltando.join(" "), /CNES/);
   assert.equal(missingForClaim({ ...ok, professional: { councilType: "CRM", councilNumber: "1", councilUf: null } }).length, 1);
 });
+
+test("conferência do pagamento: valor pago e motivo da glosa", async () => {
+  const { parseMoney } = await import("../src/lib/money");
+  const { parseClaimPayments } = await import("../src/lib/tiss");
+  const claims = [
+    { id: "a", number: 1, amountCents: 15000 },
+    { id: "b", number: 2, amountCents: 15000 },
+  ];
+  const form = (values: Record<string, string>) => (key: string) => values[key] ?? null;
+  const ok = parseClaimPayments(form({ pago_a: "150,00", pago_b: "100", glosa_b: "Valor acima da tabela" }), claims, parseMoney);
+  assert.deepEqual(ok, {
+    payments: [
+      { id: "a", paidCents: 15000, glossReason: null },
+      { id: "b", paidCents: 10000, glossReason: "Valor acima da tabela" },
+    ],
+  });
+  const total = parseClaimPayments(form({ pago_a: "0", glosa_a: "Carteirinha vencida", pago_b: "150,00", glosa_b: "ignorado" }), claims, parseMoney);
+  assert.deepEqual(total, {
+    payments: [
+      { id: "a", paidCents: 0, glossReason: "Carteirinha vencida" },
+      { id: "b", paidCents: 15000, glossReason: null },
+    ],
+  });
+  assert.match(JSON.stringify(parseClaimPayments(form({ pago_a: "100", pago_b: "150" }), claims, parseMoney)), /motivo da glosa/);
+  assert.match(JSON.stringify(parseClaimPayments(form({ pago_a: "200", pago_b: "150" }), claims, parseMoney)), /maior que o valor/);
+  assert.match(JSON.stringify(parseClaimPayments(form({ pago_a: "abc", pago_b: "150" }), claims, parseMoney)), /inválido/);
+});

@@ -9,7 +9,7 @@ import { canManageFinance } from "@/lib/permissions";
 import { parseMoney } from "@/lib/money";
 import { parseDateInput } from "@/lib/finance";
 import { normalizeTussCode } from "@/lib/convenios";
-import { accidentIndications, careRegime, consultationTypes, missingForClaim, normalizeCbo } from "@/lib/tiss";
+import { accidentIndications, careRegime, claimNumberLabel, consultationTypes, missingForClaim, normalizeCbo, parseClaimPayments } from "@/lib/tiss";
 import { MAX_CLAIMS_PER_BATCH, TISS_VERSION } from "@/lib/tiss-xml";
 import type { FormState } from "../actions";
 
@@ -164,6 +164,7 @@ export async function undoBatch(batchId: string) {
   const user = await requireAdmin();
   const batch = await prisma.claimBatch.findFirst({ where: { id: batchId, clinicId: user.clinicId } });
   if (!batch) throw new Error("Lote não encontrado");
+  if (batch.paidAt) throw new Error("Lote já pago não pode ser desfeito");
   await prisma.$transaction([
     prisma.insuranceClaim.updateMany({ where: { clinicId: user.clinicId, batchId }, data: { batchId: null } }),
     prisma.claimBatch.delete({ where: { id: batchId } }),
@@ -171,4 +172,73 @@ export async function undoBatch(batchId: string) {
   await audit({ clinicId: user.clinicId, userId: user.id, action: "LOTE_DESFEITO", entity: "ClaimBatch", entityId: batchId, details: { number: batch.number } });
   revalidatePath("/financeiro", "layout");
   redirect("/financeiro/faturamento");
+}
+
+// Número de protocolo que o portal do convênio deu ao receber o arquivo.
+export async function saveBatchProtocol(batchId: string, _: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireAdmin();
+  const protocol = text(formData, "protocol")?.slice(0, 40) ?? null;
+  const { count } = await prisma.claimBatch.updateMany({ where: { id: batchId, clinicId: user.clinicId }, data: { protocol } });
+  if (count === 0) return { error: "Lote não encontrado." };
+  await audit({ clinicId: user.clinicId, userId: user.id, action: "LOTE_PROTOCOLO", entity: "ClaimBatch", entityId: batchId, details: { protocol } });
+  revalidatePath("/financeiro", "layout");
+  return { error: "", ok: "Protocolo salvo." };
+}
+
+// Conferência do pagamento do lote: o que o convênio pagou em cada guia vira receita paga no Financeiro
+// (forma de pagamento Convênio), e o que não pagou fica registrado como glosa, com o motivo.
+export async function registerBatchPayment(batchId: string, _: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireAdmin();
+  const batch = await prisma.claimBatch.findFirst({
+    where: { id: batchId, clinicId: user.clinicId },
+    include: { healthPlan: true, claims: { orderBy: { number: "asc" } } },
+  });
+  if (!batch) return { error: "Lote não encontrado." };
+  if (batch.paidAt) return { error: "O pagamento deste lote já foi registrado." };
+  const paidAt = parseDateInput(text(formData, "paidAt") ?? "");
+  if (!paidAt) return { error: "Informe a data do pagamento." };
+  const parsed = parseClaimPayments((key) => text(formData, key), batch.claims, parseMoney);
+  if ("error" in parsed) return parsed;
+
+  const byId = new Map(batch.claims.map((c) => [c.id, c]));
+  await prisma.$transaction(async (tx) => {
+    const { count } = await tx.claimBatch.updateMany({ where: { id: batch.id, clinicId: user.clinicId, paidAt: null }, data: { paidAt } });
+    if (count === 0) throw new Error("O pagamento deste lote já foi registrado.");
+    for (const payment of parsed.payments) {
+      const claim = byId.get(payment.id)!;
+      const charge = payment.paidCents > 0
+        ? await tx.charge.create({
+            data: {
+              clinicId: user.clinicId,
+              patientId: claim.patientId,
+              professionalId: claim.professionalId,
+              encounterId: claim.encounterId,
+              description: `${batch.healthPlan.name} · guia ${claimNumberLabel(claim.number)}`,
+              amountCents: payment.paidCents,
+              dueDate: paidAt,
+              status: "PAGO",
+              paymentMethod: "CONVENIO",
+              paidAt,
+            },
+          })
+        : null;
+      await tx.insuranceClaim.updateMany({
+        where: { id: claim.id, clinicId: user.clinicId },
+        data: { paidCents: payment.paidCents, glossReason: payment.glossReason, chargeId: charge?.id ?? null },
+      });
+    }
+  });
+
+  const paid = parsed.payments.reduce((t, p) => t + p.paidCents, 0);
+  const total = batch.claims.reduce((t, c) => t + c.amountCents, 0);
+  await audit({
+    clinicId: user.clinicId,
+    userId: user.id,
+    action: "LOTE_PAGO",
+    entity: "ClaimBatch",
+    entityId: batch.id,
+    details: { number: batch.number, paidCents: paid, glossCents: total - paid },
+  });
+  revalidatePath("/financeiro", "layout");
+  return { error: "", ok: "Pagamento registrado. O valor recebido já aparece nas Receitas." };
 }

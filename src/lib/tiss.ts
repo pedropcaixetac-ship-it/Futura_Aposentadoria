@@ -104,3 +104,26 @@ export function missingForClaim({ clinic, plan, professional }: ClaimContext): s
 export function claimNumberLabel(number: number) {
   return String(number).padStart(8, "0");
 }
+
+export type ClaimPayment = { id: string; paidCents: number; glossReason: string | null };
+
+// Lê o que o convênio pagou em cada guia do lote (campos pago_<id> e glosa_<id>).
+// Pagar menos que o valor da guia é glosa e precisa do motivo, que serve para recorrer depois.
+export function parseClaimPayments(
+  get: (key: string) => string | null,
+  claims: { id: string; number: number; amountCents: number }[],
+  parseMoney: (value: string) => number | null,
+): { payments: ClaimPayment[] } | { error: string } {
+  const payments: ClaimPayment[] = [];
+  for (const claim of claims) {
+    const raw = (get(`pago_${claim.id}`) ?? "").trim();
+    const paidCents = raw === "" || /^0+(,0+)?$/.test(raw) ? 0 : parseMoney(raw);
+    const label = `Guia ${claimNumberLabel(claim.number)}`;
+    if (paidCents === null) return { error: `${label}: valor pago inválido (ex.: 150,00).` };
+    if (paidCents > claim.amountCents) return { error: `${label}: o valor pago é maior que o valor da guia.` };
+    const glossReason = (get(`glosa_${claim.id}`) ?? "").trim().slice(0, 300) || null;
+    if (paidCents < claim.amountCents && !glossReason) return { error: `${label}: informe o motivo da glosa (o que o convênio não pagou).` };
+    payments.push({ id: claim.id, paidCents, glossReason: paidCents < claim.amountCents ? glossReason : null });
+  }
+  return { payments };
+}
