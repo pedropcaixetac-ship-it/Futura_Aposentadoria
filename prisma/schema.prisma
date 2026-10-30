@@ -214,6 +214,8 @@ model Encounter {
   fields         Json
   content        Json            @default("{}")
   diagnoses      Json            @default("[]")
+  // Sinais vitais (PA, FC, peso, altura...). Vazio em atendimentos antigos.
+  vitals         Json?
   status         EncounterStatus @default(RASCUNHO)
   startedAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
