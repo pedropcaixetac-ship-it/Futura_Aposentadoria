@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export type NavItem = { href: string; label: string; soon?: boolean };
+// alsoActive: outras páginas (expressão regular) em que o item aparece marcado no lugar do item dono do endereço.
+export type NavItem = { href: string; label: string; soon?: boolean; alsoActive?: string };
 
 export function SidebarNav({ items }: { items: NavItem[] }) {
   const pathname = usePathname();
+  const claimed = items.find((i) => i.alsoActive && new RegExp(i.alsoActive).test(pathname));
   return (
     <nav className="flex flex-col gap-1 text-sm">
       {items.map((item) => {
@@ -18,7 +20,7 @@ export function SidebarNav({ items }: { items: NavItem[] }) {
             </span>
           );
         }
-        const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+        const active = claimed ? claimed === item : pathname === item.href || pathname.startsWith(`${item.href}/`);
         return (
           <Link
             key={item.href}

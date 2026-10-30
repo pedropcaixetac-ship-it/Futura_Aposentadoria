@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { hasTab } from "@/lib/tabs";
 import { audit } from "@/lib/audit";
 import { canAddAddendum, canEditEncounter, canOpenEncounter, canViewClinical, canWorkClinical } from "@/lib/permissions";
 import { age, formatDate, formatDateTime } from "@/lib/format";
@@ -46,6 +47,7 @@ export default async function EncounterPage({
       professional: true,
       template: true,
       teleconsultation: true,
+      appointment: { select: { id: true } },
       addenda: { include: { author: true }, orderBy: { createdAt: "asc" } },
       signedPdf: { select: { id: true, signerName: true, signedAt: true, provider: true } },
       documents: { include: { author: true, signedPdf: { select: { id: true, signerName: true, signedAt: true, provider: true } } }, orderBy: { createdAt: "asc" } },
@@ -116,7 +118,12 @@ export default async function EncounterPage({
   return (
     <div className={editable ? "space-y-4" : "mx-auto max-w-3xl space-y-4"}>
       <div className="no-print flex items-center justify-between">
-        <Link href={`/pacientes/${id}`} className="text-sm text-marinho-700 hover:underline">← Voltar ao prontuário</Link>
+        {/* Atendimento aberto pela aba Atender volta para ela; os demais, para o prontuário. */}
+        {encounter.appointment && encounter.professionalId === user.id && hasTab(user, "atender") ? (
+          <Link href="/atender" className="text-sm text-marinho-700 hover:underline">← Voltar para Atender</Link>
+        ) : (
+          <Link href={`/pacientes/${id}`} className="text-sm text-marinho-700 hover:underline">← Voltar ao prontuário</Link>
+        )}
         {encounter.status === "FINALIZADO" && (
           <div className="flex flex-wrap justify-end gap-2">
             <SignBox
