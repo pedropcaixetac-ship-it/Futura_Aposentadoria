@@ -60,6 +60,14 @@ export function formatTime(instant: Date) {
   return formatMinutes(clinicParts(instant).minutes);
 }
 
+// Tempo de espera na sala: "25 min", "1 h" ou "2 h 05 min".
+export function formatWait(ms: number) {
+  const total = Math.max(0, Math.round(ms / 60_000));
+  if (total < 60) return `${total} min`;
+  const minutes = total % 60;
+  return minutes ? `${Math.floor(total / 60)} h ${String(minutes).padStart(2, "0")} min` : `${total / 60} h`;
+}
+
 const weekdayNames = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 const monthNames = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 

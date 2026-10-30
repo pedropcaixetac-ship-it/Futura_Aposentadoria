@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  formatWait,
   addDays,
   clinicParts,
   clinicTime,
@@ -21,6 +22,13 @@ test("horário de Brasília é convertido corretamente", () => {
   assert.deepEqual(clinicParts(instant), { date: "2026-10-30", minutes: 510, weekday: 5 });
   // 22h em Brasília já é o dia seguinte em UTC, mas continua sendo o mesmo dia na clínica.
   assert.equal(clinicParts(clinicTime("2026-10-30", 22 * 60)).date, "2026-10-30");
+});
+
+test("tempo de espera em horas e minutos", () => {
+  assert.equal(formatWait(25 * 60_000), "25 min");
+  assert.equal(formatWait(120 * 60_000), "2 h");
+  assert.equal(formatWait(454 * 60_000), "7 h 34 min");
+  assert.equal(formatWait(-5), "0 min");
 });
 
 test("contas de datas", () => {

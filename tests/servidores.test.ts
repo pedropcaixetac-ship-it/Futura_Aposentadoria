@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { hasTab, sanitizeTabs, userTabs } from "../src/lib/tabs";
-import { councilLabel, displayName, parseStaff, staffEditBlock, staffFunction, validateNewPassword, validateStaff } from "../src/lib/staff";
+import { clinicalLoginBlock, councilLabel, displayName, parseStaff, staffEditBlock, staffFunction, validateNewPassword, validateStaff } from "../src/lib/staff";
 import { canOpenEncounter, canSeeAllAgendas, canViewClinical, canWorkClinical } from "../src/lib/permissions";
 
 const padrao = { customTabs: false, allowedTabs: [] as string[] };
@@ -58,6 +58,21 @@ test("quem não é gerente do sistema não mexe em gerentes nem no próprio cada
   assert.match(staffEditBlock(administrativo, admin)!, /gerente/);
   assert.match(staffEditBlock(administrativo, administrativo)!, /próprio/);
   assert.equal(staffEditBlock(admin, admin, "ADMIN"), null);
+});
+
+test("só o gerente cria ou altera o login de profissional de saúde", () => {
+  const login = { role: "PROFISSIONAL" as const, systemAccess: true, email: "ana@x.com", cpf: "52998224725", councilType: "CRM", councilNumber: "123", councilUf: "SP" };
+  const semMudar = { ...login, password: null };
+  // Administração não cria login clínico nem troca a senha ou o e-mail de quem tem.
+  assert.match(clinicalLoginBlock(administrativo, null, semMudar)!, /gerente/);
+  assert.match(clinicalLoginBlock(administrativo, login, { ...semMudar, password: "Nova@Senha1" })!, /gerente/);
+  assert.match(clinicalLoginBlock(administrativo, login, { ...semMudar, email: "eu@x.com" })!, /gerente/);
+  assert.match(clinicalLoginBlock(administrativo, { ...login, role: "RECEPCAO" }, semMudar)!, /gerente/);
+  // Pode cadastrar sem login, mexer nos outros dados e tirar o acesso.
+  assert.equal(clinicalLoginBlock(administrativo, null, { ...semMudar, systemAccess: false }), null);
+  assert.equal(clinicalLoginBlock(administrativo, login, semMudar), null);
+  assert.equal(clinicalLoginBlock(administrativo, login, { ...semMudar, systemAccess: false }), null);
+  assert.equal(clinicalLoginBlock(admin, null, semMudar), null);
 });
 
 test("administrador continua com todas as abas mesmo com lista vazia", () => {

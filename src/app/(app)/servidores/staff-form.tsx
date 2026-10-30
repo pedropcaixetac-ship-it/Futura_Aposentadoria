@@ -4,14 +4,14 @@ import { useActionState, useRef, useState, useTransition } from "react";
 import type { Role, User } from "@prisma/client";
 import { formatCep, formatCpf, formatPhone, masks, onlyDigits, roleLabel } from "@/lib/format";
 import { MARITAL_STATUS, UFS } from "@/lib/patient";
-import { JOB_TITLES, ROLE_HELP, SECTORS, SPECIALTIES, councilTypes, displayName, jobTitleInfo, stripHonorific } from "@/lib/staff";
+import { CLINICAL_ROLES, JOB_TITLES, ROLE_HELP, SECTORS, SPECIALTIES, councilTypes, displayName, hasClinicalLogin, jobTitleInfo, stripHonorific } from "@/lib/staff";
 import type { FormState } from "./actions";
 
 type Props = {
   action: (state: FormState, formData: FormData) => Promise<FormState>;
   staff?: Omit<User, "passwordHash">;
   isSelf?: boolean;
-  // Só o gerente do sistema dá o perfil de gerente.
+  // Só o gerente do sistema dá o perfil de gerente e cria ou altera o login de profissionais de saúde.
   canGrantAdmin?: boolean;
 };
 
@@ -126,6 +126,8 @@ const jobGroups = [...new Set(JOB_TITLES.map((j) => j.group))].map((group) => ({
 
 export function StaffForm({ action, staff, isSelf, canGrantAdmin = false }: Props) {
   const s = staff;
+  // Quem não é gerente vê o login de um profissional de saúde, mas não muda (ver clinicalLoginBlock).
+  const lockLogin = !canGrantAdmin && !!s && hasClinicalLogin(s);
   const [state, formAction] = useActionState(action, { error: "" });
   const [pending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
@@ -136,7 +138,7 @@ export function StaffForm({ action, staff, isSelf, canGrantAdmin = false }: Prop
   const [jobTitle, setJobTitle] = useState(s?.jobTitle ?? "");
   const [specialty, setSpecialty] = useState(s?.specialty ?? "");
   const [sector, setSector] = useState(s?.sector ?? "");
-  const [role, setRole] = useState<Role>(s?.role ?? "PROFISSIONAL");
+  const [role, setRole] = useState<Role>(s?.role ?? (canGrantAdmin ? "PROFISSIONAL" : "RECEPCAO"));
   const [access, setAccess] = useState(s?.systemAccess ?? true);
   const [councilType, setCouncilType] = useState(s?.councilType ?? "");
   // Quem passa a ter acesso agora precisa de uma senha.
@@ -154,8 +156,11 @@ export function StaffForm({ action, staff, isSelf, canGrantAdmin = false }: Prop
     if (!next) return;
     if (next.specialties !== info?.specialties) setSpecialty("");
     if (next.council) setCouncilType(next.council);
-    if (isSelf) return;
-    if (next.role) {
+    if (isSelf || lockLogin) return;
+    // Sem ser gerente, o profissional de saúde fica cadastrado sem login; o gerente libera o acesso depois.
+    if (next.role && !canGrantAdmin && CLINICAL_ROLES.includes(next.role)) {
+      setAccess(false);
+    } else if (next.role) {
       setRole(next.role === "ADMIN" && !canGrantAdmin ? "ADMINISTRATIVO" : next.role);
       setAccess(true);
     } else {
@@ -237,7 +242,7 @@ export function StaffForm({ action, staff, isSelf, canGrantAdmin = false }: Prop
             <option value="O">Outro</option>
           </select>
         </div>
-        <Field label="CPF" name="cpf" required inputMode="numeric" defaultValue={formatCpf(s?.cpf)} {...mask(masks.cpf)} hint="Também serve para entrar no sistema." />
+        <Field label="CPF" name="cpf" required inputMode="numeric" defaultValue={formatCpf(s?.cpf)} {...mask(masks.cpf)} readOnly={lockLogin} hint="Também serve para entrar no sistema." />
         <Field label="RG" name="rg" defaultValue={s?.rg ?? ""} />
         <Field label="Cartão SUS (CNS)" name="cns" inputMode="numeric" defaultValue={masks.cns(s?.cns ?? "")} {...mask(masks.cns)} />
         <Select label="Estado civil" name="maritalStatus" options={MARITAL_STATUS} defaultValue={s?.maritalStatus} />
@@ -247,7 +252,7 @@ export function StaffForm({ action, staff, isSelf, canGrantAdmin = false }: Prop
       <Section title="Contato">
         <Field label="Celular" name="phone" required inputMode="numeric" placeholder="(62) 99999-9999" defaultValue={formatPhone(s?.phone)} {...mask(masks.phone)} />
         <Field label="Telefone fixo" name="landline" inputMode="numeric" defaultValue={formatPhone(s?.landline)} {...mask(masks.phone)} />
-        <Field label="E-mail" name="email" type="email" required={access} defaultValue={s?.email ?? ""} hint={access ? "Usado para entrar no sistema." : undefined} />
+        <Field label="E-mail" name="email" type="email" required={access} defaultValue={s?.email ?? ""} readOnly={lockLogin} hint={access ? "Usado para entrar no sistema." : undefined} />
         <Field label="Contato de emergência (nome)" name="emergencyContactName" defaultValue={s?.emergencyContactName ?? ""} />
         <Field label="Telefone do contato de emergência" name="emergencyContactPhone" inputMode="numeric" defaultValue={formatPhone(s?.emergencyContactPhone)} {...mask(masks.phone)} />
       </Section>
@@ -296,13 +301,16 @@ export function StaffForm({ action, staff, isSelf, canGrantAdmin = false }: Prop
         {access && (
           <div className="sm:col-span-2 lg:col-span-3">
             <label className="label" htmlFor="role">Perfil de acesso <span className="text-red-600">*</span></label>
-            <select className="input max-w-md" id="role" name="role" value={role} onChange={(e) => setRole(e.target.value as Role)} disabled={isSelf}>
-              {(Object.keys(roleLabel) as Role[]).filter((value) => canGrantAdmin || value !== "ADMIN").map((value) => (
+            <select className="input max-w-md" id="role" name="role" value={role} onChange={(e) => setRole(e.target.value as Role)} disabled={isSelf || lockLogin}>
+              {(Object.keys(roleLabel) as Role[]).filter((value) => canGrantAdmin || lockLogin || (value !== "ADMIN" && !CLINICAL_ROLES.includes(value))).map((value) => (
                 <option key={value} value={value}>{roleLabel[value]}</option>
               ))}
             </select>
             {/* Campo desabilitado não vai no formulário; o próprio gerente continua gerente. */}
-            {isSelf && <input type="hidden" name="role" value={role} />}
+            {(isSelf || lockLogin) && <input type="hidden" name="role" value={role} />}
+            {!canGrantAdmin && (
+              <p className="mt-1 text-xs text-slate-500">Perfis de profissional de saúde só o gerente do sistema dá, porque abrem o prontuário.</p>
+            )}
             <p className={`mt-2 rounded-md px-3 py-2 text-sm ${role === "TECNICO" ? "bg-dourado-100 text-dourado-700" : "bg-marinho-50 text-marinho-800"}`}>
               {ROLE_HELP[role]}
             </p>
@@ -314,13 +322,18 @@ export function StaffForm({ action, staff, isSelf, canGrantAdmin = false }: Prop
       <Section title="Registro no conselho" hint="Para profissionais de saúde. Sem ele a pessoa não vê o conteúdo clínico do prontuário. Também serve para entrar no sistema.">
         <div>
           <label className="label" htmlFor="councilType">Conselho</label>
-          <select className="input" id="councilType" name="councilType" value={councilType} onChange={(e) => setCouncilType(e.target.value)}>
+          <select className="input" id="councilType" name="councilType" value={councilType} onChange={(e) => setCouncilType(e.target.value)} disabled={lockLogin}>
             <option value="">Não tem</option>
             {councilTypes.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
-        <Field label="Número" name="councilNumber" defaultValue={s?.councilNumber ?? ""} />
-        <Select label="UF do registro" name="councilUf" options={UFS} defaultValue={s?.councilUf} />
+        {lockLogin && <input type="hidden" name="councilType" value={councilType} />}
+        <Field label="Número" name="councilNumber" defaultValue={s?.councilNumber ?? ""} readOnly={lockLogin} />
+        {lockLogin ? (
+          <Field label="UF do registro" name="councilUf" defaultValue={s?.councilUf ?? ""} readOnly />
+        ) : (
+          <Select label="UF do registro" name="councilUf" options={UFS} defaultValue={s?.councilUf} />
+        )}
         {councilType === "CRM" && (
           <Field
             label="RQE (especialista)"
@@ -333,7 +346,12 @@ export function StaffForm({ action, staff, isSelf, canGrantAdmin = false }: Prop
         )}
       </Section>
 
-      {access && (
+      {lockLogin && (
+        <p className="rounded-md bg-dourado-100 px-3 py-2 text-sm text-dourado-700">
+          Senha, e-mail, CPF, conselho e perfil de profissionais de saúde só o gerente do sistema altera, porque dão acesso ao prontuário.
+        </p>
+      )}
+      {access && !lockLogin && (
         <Section title={needsPassword ? "Senha inicial" : "Trocar senha"}>
           <Field
             label="Senha"

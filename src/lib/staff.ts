@@ -239,6 +239,26 @@ export function councilLabel(u: CouncilUser) {
 
 // Quem não é gerente do sistema mas tem a aba Cadastro de servidores não mexe no cadastro de um gerente
 // nem no próprio, e não cria gerentes. Devolve o motivo do bloqueio.
+// Quem entra como profissional de saúde lê prontuários. Para ninguém da administração conseguir "virar"
+// um profissional (criando um login ou trocando a senha de um), só o gerente do sistema cria esse acesso
+// ou mexe na senha, no e-mail, no CPF, no conselho e no perfil de quem o tem.
+export const CLINICAL_ROLES: Role[] = ["PROFISSIONAL", "TECNICO"];
+
+type StaffLogin = Pick<StaffInput, "role" | "systemAccess" | "email" | "cpf" | "councilType" | "councilNumber" | "councilUf">;
+const LOGIN_FIELDS = ["role", "email", "cpf", "councilType", "councilNumber", "councilUf"] as const;
+
+export function hasClinicalLogin(user: { role: Role; systemAccess: boolean }) {
+  return user.systemAccess && CLINICAL_ROLES.includes(user.role);
+}
+
+export function clinicalLoginBlock(actor: { role: Role }, current: StaffLogin | null, input: StaffLogin & { password: string | null }) {
+  if (actor.role === "ADMIN" || !hasClinicalLogin(input)) return null;
+  if (!current) return "Só o gerente do sistema cadastra profissionais de saúde com acesso ao sistema.";
+  const changed = !current.systemAccess || LOGIN_FIELDS.some((f) => (current[f] ?? null) !== (input[f] ?? null));
+  if (changed || input.password) return "Só o gerente do sistema altera a senha, o e-mail, o CPF, o conselho e o perfil de profissionais de saúde.";
+  return null;
+}
+
 export function staffEditBlock(actor: { id: string; role: Role }, target: { id: string; role: Role } | null, newRole?: Role | null) {
   if (actor.role === "ADMIN") return null;
   if (target?.id === actor.id) return "O seu próprio cadastro só outra pessoa da administração altera. Para trocar a senha, use Meu cadastro.";

@@ -57,7 +57,8 @@ export const TABS: Tab[] = [
     label: "Agenda",
     href: "/agenda",
     description: "Quem tem a aba Recepção vê a agenda de todos; o profissional, só a própria.",
-    defaultRoles: allRoles,
+    // O técnico não tem agenda própria (só profissionais com conselho têm). Pode receber a aba junto com a Recepção.
+    defaultRoles: ["ADMIN", "PROFISSIONAL", "RECEPCAO", "ADMINISTRATIVO"],
   },
   {
     key: "pacientes",

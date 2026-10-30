@@ -207,7 +207,7 @@ export default async function PatientRecordPage({
                   )}
                 </select>
                 <button className="btn-primary">+ Novo atendimento</button>
-                <button formAction={startTeleconsultation.bind(null, id)} className="btn-secondary">+ Teleconsulta</button>
+                {full && <button formAction={startTeleconsultation.bind(null, id)} className="btn-secondary">+ Teleconsulta</button>}
               </form>
             </div>
 
