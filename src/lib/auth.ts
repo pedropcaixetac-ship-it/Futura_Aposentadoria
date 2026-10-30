@@ -6,6 +6,8 @@ import { hasTab, type TabKey } from "./tabs";
 
 const COOKIE = "sessao";
 const SESSION_HOURS = 12;
+// Computador esquecido aberto: depois deste tempo sem uso, pede o login de novo.
+const IDLE_MINUTES = 30;
 
 function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
@@ -26,6 +28,12 @@ export async function createSession(userId: string) {
   });
 }
 
+// Senha trocada: quem estava conectado em outro aparelho sai (menos a sessão atual, se houver).
+export async function endOtherSessions(userId: string) {
+  const token = (await cookies()).get(COOKIE)?.value;
+  await prisma.session.deleteMany({ where: { userId, ...(token && { id: { not: hashToken(token) } }) } });
+}
+
 export async function destroySession() {
   const jar = await cookies();
   const token = jar.get(COOKIE)?.value;
@@ -39,11 +47,20 @@ export async function getCurrentUser() {
   if (!token) return null;
   const session = await prisma.session.findUnique({
     where: { id: hashToken(token) },
-    include: { user: { include: { clinic: true }, omit: { photo: true } } },
+    include: { user: { include: { clinic: true }, omit: { photo: true, passwordHash: true, totpSecret: true, totpRecoveryCodes: true } } },
   });
   if (!session || session.expiresAt < new Date() || !session.user.active || !session.user.systemAccess) return null;
   // Clínica suspensa no Painel do dono: ninguém dela continua conectado.
   if (!session.user.clinic.active) return null;
+  const now = Date.now();
+  if (now - session.lastSeenAt.getTime() > IDLE_MINUTES * 60_000) {
+    await prisma.session.deleteMany({ where: { id: session.id } });
+    return null;
+  }
+  // Grava o último uso no máximo uma vez por minuto, para não escrever no banco a cada clique.
+  if (now - session.lastSeenAt.getTime() > 60_000) {
+    await prisma.session.update({ where: { id: session.id }, data: { lastSeenAt: new Date(now) } });
+  }
   return session.user;
 }
 
@@ -54,6 +71,8 @@ export type CurrentUser = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>
 export async function requireUser(tab?: TabKey) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  // Senha criada pelo gerente: antes de qualquer tela, a pessoa cria a própria.
+  if (user.mustChangePassword) redirect("/nova-senha");
   if (tab && !hasTab(user, tab)) redirect("/");
   return user;
 }

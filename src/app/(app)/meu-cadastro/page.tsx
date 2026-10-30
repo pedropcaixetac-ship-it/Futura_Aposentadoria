@@ -6,7 +6,12 @@ import { displayName, ROLE_HELP, staffFunction, councilLabel } from "@/lib/staff
 import { hasTab, userTabs } from "@/lib/tabs";
 import { availableProviders, isProviderId, providerLabel } from "@/lib/signature/providers";
 import { ActionForm } from "../financeiro/action-form";
-import { changeOwnPassword, endSession } from "./actions";
+import QRCode from "qrcode";
+import { open } from "@/lib/signature/secret-box";
+import { totpUri } from "@/lib/totp";
+import { cancelTwoFactor, changeOwnPassword, disableTwoFactor, endSession, startTwoFactor } from "./actions";
+import { TwoFactorConfirm } from "./two-factor-confirm";
+import { PasswordFields } from "./password-fields";
 
 const sexLabel: Record<string, string> = { F: "Feminino", M: "Masculino", O: "Outro" };
 
@@ -32,13 +37,16 @@ const grid = "grid gap-4 sm:grid-cols-2 lg:grid-cols-3";
 
 export default async function MyProfilePage() {
   const user = await requireUser();
-  const me = await prisma.user.findUniqueOrThrow({ where: { id: user.id }, omit: { passwordHash: true } });
+  const me = await prisma.user.findUniqueOrThrow({ where: { id: user.id }, omit: { totpSecret: false, totpRecoveryCodes: false } });
   const canSign = hasTab(user, "assinatura");
   const providers = canSign ? availableProviders() : [];
   const sessions = canSign
     ? await prisma.signatureSession.findMany({ where: { userId: user.id, expiresAt: { gt: new Date() } }, select: { provider: true, expiresAt: true } })
     : [];
   const council = councilLabel(me);
+  // QR code só enquanto a pessoa está ativando (segredo gerado, ainda desligado).
+  const setupSecret = me.totpSecret && !me.totpEnabledAt ? open(me.totpSecret) : null;
+  const qr = setupSecret ? await QRCode.toDataURL(totpUri(setupSecret, me.email ?? me.name, user.clinic.name), { margin: 1, width: 200 }) : null;
   const address = [me.street, me.number, me.complement, me.district].filter(Boolean).join(", ");
   const cityState = [me.city, me.state].filter(Boolean).join(" / ");
 
@@ -107,22 +115,47 @@ export default async function MyProfilePage() {
 
       <Section title="Trocar senha">
         <ActionForm action={changeOwnPassword} submitLabel="Trocar senha" className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div>
-              <label className="label" htmlFor="current">Senha atual</label>
-              <input className="input" id="current" name="current" type="password" autoComplete="current-password" required />
-            </div>
-            <div>
-              <label className="label" htmlFor="password">Nova senha</label>
-              <input className="input" id="password" name="password" type="password" autoComplete="new-password" minLength={8} required />
-              <p className="mt-1 text-xs text-slate-500">Pelo menos 8 caracteres.</p>
-            </div>
-            <div>
-              <label className="label" htmlFor="confirm">Repita a nova senha</label>
-              <input className="input" id="confirm" name="confirm" type="password" autoComplete="new-password" minLength={8} required />
-            </div>
-          </div>
+          <PasswordFields />
         </ActionForm>
+      </Section>
+
+      <Section title="Verificação em duas etapas" id="duas-etapas">
+        <p className="text-sm text-slate-700">
+          Opcional e recomendada. Além da senha, o sistema pede um código de 6 números que muda a cada 30 segundos no app
+          do seu celular (Google Authenticator, Microsoft Authenticator ou similar). Assim, mesmo quem descobrir a sua senha não entra.
+        </p>
+        {me.totpEnabledAt ? (
+          <>
+            <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+              Ligada desde {formatDateTime(me.totpEnabledAt)}. Códigos de recuperação sem usar: {me.totpRecoveryCodes.length}.
+            </p>
+            <ActionForm action={disableTwoFactor} submitLabel="Desligar verificação em duas etapas" className="flex flex-wrap items-end gap-3">
+              <div>
+                <label className="label" htmlFor="disable-current">Sua senha</label>
+                <input className="input" id="disable-current" name="current" type="password" autoComplete="current-password" required />
+              </div>
+            </ActionForm>
+          </>
+        ) : qr ? (
+          <div className="space-y-4">
+            <ol className="list-decimal space-y-1 pl-5 text-sm text-slate-700">
+              <li>Instale no celular o Google Authenticator (ou outro app de códigos).</li>
+              <li>No app, toque em &quot;+&quot; e depois em &quot;Ler código QR&quot;, e aponte para a imagem abaixo.</li>
+              <li>Digite o código de 6 números que aparecer no app.</li>
+            </ol>
+            <div className="flex flex-wrap items-center gap-6">
+              {/* eslint-disable-next-line @next/next/no-img-element -- QR gerado na hora como data URL */}
+              <img src={qr} alt="QR code para o app de códigos" width={200} height={200} className="rounded border border-slate-200" />
+              <p className="max-w-xs text-xs text-slate-500">
+                Não consegue ler o QR? No app, escolha &quot;Inserir chave&quot; e digite: <span className="break-all font-mono text-slate-700">{setupSecret}</span>
+              </p>
+            </div>
+            <TwoFactorConfirm />
+            <form action={cancelTwoFactor}><button className="text-sm text-marinho-700 hover:underline">Cancelar</button></form>
+          </div>
+        ) : (
+          <form action={startTwoFactor}><button className="btn-primary">Ativar verificação em duas etapas</button></form>
+        )}
       </Section>
 
       {canSign && (

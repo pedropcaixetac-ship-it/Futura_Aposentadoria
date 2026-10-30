@@ -158,6 +158,14 @@ model User {
   city                  String?
   state                 String?
   passwordHash      String
+  // Senha criada ou trocada pelo gerente: a pessoa cria a própria no próximo acesso.
+  mustChangePassword Boolean  @default(false)
+  // Verificação em duas etapas (Google Authenticator e similares). O segredo fica cifrado;
+  // dos códigos de recuperação, só a impressão digital. totpLastStep impede usar o mesmo código duas vezes.
+  totpSecret        String?
+  totpEnabledAt     DateTime?
+  totpLastStep      Int?
+  totpRecoveryCodes String[]  @default([])
   role              Role
   // Registro no conselho profissional (CRM, CRP, CRN, CRO...), exigido no prontuário.
   councilType       String?
@@ -214,6 +222,8 @@ model Session {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
+  // Último uso: depois de 30 minutos parado, a pessoa precisa entrar de novo.
+  lastSeenAt DateTime @default(now())
 }
 
 // Sessão do paciente no aplicativo (separada da sessão da equipe).

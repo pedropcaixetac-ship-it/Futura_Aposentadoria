@@ -34,6 +34,8 @@ export async function createClinic(_: FormState, formData: FormData): Promise<Fo
           email: manager.email,
           cpf: manager.cpf,
           passwordHash: await bcrypt.hash(manager.password, 10),
+          // Senha criada pelo dono do sistema: o gerente cria a própria no primeiro acesso.
+          mustChangePassword: true,
           role: "ADMIN",
           jobTitle: "Gerente do sistema",
           sector: "Administração",
