@@ -5,7 +5,8 @@ Este é o primeiro módulo: **Prontuário**.
 
 ## O que já funciona
 
-- Login por clínica, com perfis de administrador, profissional de saúde e recepção
+- Login por clínica, com perfis de administrador, profissional de saúde e recepção. No campo de login vale
+  o e-mail, o CPF ou o número do conselho (CRM, CRP...), como "123456" ou "CRM 123456/SP"
 - Cadastro de pacientes completo, em blocos: identificação (com foto, RG, Cartão SUS), contato, endereço
   (o CEP preenche rua, bairro e cidade), convênio, responsável legal e consentimento LGPD.
   Obrigatórios: nome completo, CPF, celular (WhatsApp) e data de nascimento
@@ -25,6 +26,12 @@ Este é o primeiro módulo: **Prontuário**.
   Depois de emitidos não podem ser alterados nem apagados. É sobre esses PDFs que entrará a assinatura digital ICP-Brasil
 - Barra lateral com a clínica, o usuário, o setor e o menu de cada perfil
 - "Usar modelo" ao lado de cada campo do atendimento, com os textos prontos de cada profissional
+- Agenda por dia (uma coluna por profissional) e por semana, com horários de atendimento, bloqueios
+  (almoço, férias), cadastro rápido de paciente, aviso de horário ocupado com opção de encaixe,
+  situação da consulta em cores e sala de espera. O profissional inicia o atendimento direto da agenda,
+  e a consulta vira "Atendido" quando o atendimento é finalizado
+- Recepção: lista das consultas do dia, onde a recepcionista marca quem confirmou, chegou ou faltou,
+  e a sala de espera com o tempo de espera de cada paciente
 - WhatsApp (primeira etapa): botão "Enviar no WhatsApp" na ficha do paciente, que abre o WhatsApp da recepção com o
   texto pronto (contato ou aviso de retorno). Só aparece se o paciente autorizou no cadastro (LGPD), e cada envio fica na auditoria
 
@@ -43,14 +50,14 @@ Este é o primeiro módulo: **Prontuário**.
 
 ## Usuários de demonstração
 
-Código da clínica: `demo`. Senha de todos: `senha123`.
+Código da clínica: `demo`. Senha de todos: `senha123`. Dá para entrar pelo e-mail, pelo CPF ou pelo conselho.
 
-| E-mail | Perfil |
-| --- | --- |
-| ana@demo.com | Médica (CRM) |
-| carlos@demo.com | Psicólogo (CRP) |
-| recepcao@demo.com | Recepção |
-| admin@demo.com | Administrador |
+| E-mail | CPF (fictício) | Conselho | Perfil |
+| --- | --- | --- | --- |
+| ana@demo.com | 529.982.247-25 | CRM 123456/SP | Médica |
+| carlos@demo.com | 390.533.447-05 | CRP 06/98765 | Psicólogo |
+| recepcao@demo.com | 111.444.777-35 | | Recepção |
+| admin@demo.com | 123.456.789-09 | | Administrador |
 
 ## Para quem for rodar o código
 

@@ -8,11 +8,10 @@ import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { canAddAddendum, canEditEncounter, canViewClinical } from "@/lib/permissions";
+import { createEncounter } from "@/lib/encounter";
 import { documentTypes } from "@/lib/documents";
 import { documentHash, encounterHash, parseDiagnoses, sanitizeContent, type TemplateField } from "@/lib/record";
 import { parseVitals } from "@/lib/vitals";
-
-const freeTextFields: TemplateField[] = [{ key: "evolucao", label: "Evolução", type: "textarea" }];
 
 export async function startEncounter(patientId: string, formData: FormData) {
   const user = await requireUser();
@@ -21,28 +20,7 @@ export async function startEncounter(patientId: string, formData: FormData) {
   const patient = await prisma.patient.findFirst({ where: { id: patientId, clinicId: user.clinicId } });
   if (!patient) throw new Error("Paciente não encontrado");
 
-  const templateId = String(formData.get("templateId") ?? "") || null;
-  const template = templateId
-    ? await prisma.recordTemplate.findFirst({ where: { id: templateId, clinicId: user.clinicId } })
-    : null;
-
-  const encounter = await prisma.encounter.create({
-    data: {
-      clinicId: user.clinicId,
-      patientId,
-      professionalId: user.id,
-      templateId: template?.id,
-      fields: (template?.fields as TemplateField[] | undefined) ?? freeTextFields,
-    },
-  });
-  await audit({
-    clinicId: user.clinicId,
-    userId: user.id,
-    action: "ATENDIMENTO_INICIADO",
-    entity: "Encounter",
-    entityId: encounter.id,
-    patientId,
-  });
+  const encounter = await createEncounter(user, patientId, String(formData.get("templateId") ?? "") || null);
   redirect(`/pacientes/${patientId}/atendimentos/${encounter.id}`);
 }
 
@@ -112,6 +90,8 @@ export async function finalizeEncounter(encounterId: string, formData: FormData)
     patientId: encounter.patientId,
     details: { contentHash },
   });
+  // Se o atendimento veio da agenda, a consulta passa para "Atendido".
+  await prisma.appointment.updateMany({ where: { encounterId: encounter.id }, data: { status: "ATENDIDO" } });
   redirect(`/pacientes/${encounter.patientId}/atendimentos/${encounter.id}`);
 }
 
