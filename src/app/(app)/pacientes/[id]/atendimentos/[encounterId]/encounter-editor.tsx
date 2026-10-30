@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Diagnosis, TemplateField } from "@/lib/record";
 import type { Vitals } from "@/lib/vitals";
 import type { Snippet } from "@/app/(app)/textos-prontos/actions";
@@ -10,7 +11,7 @@ import { DictationButton } from "./dictation-button";
 import { SnippetMenu } from "./snippet-menu";
 import { VitalsInput } from "./vitals-input";
 
-const AUTOSAVE_DELAY_MS = 3000;
+const AUTOSAVE_DELAY_MS = 1000;
 
 type SaveState = { kind: "idle" } | { kind: "dirty" } | { kind: "saving" } | { kind: "saved"; at: string } | { kind: "error" };
 
@@ -33,7 +34,7 @@ type Props = {
   snippets: Snippet[];
   lastEncounter: LastEncounter | null;
   autosave: (formData: FormData) => Promise<string>;
-  finalize: (formData: FormData) => Promise<void>;
+  reviewHref: string;
 };
 
 export function EncounterEditor({
@@ -47,27 +48,37 @@ export function EncounterEditor({
   snippets: initialSnippets,
   lastEncounter,
   autosave,
-  finalize,
+  reviewHref,
 }: Props) {
+  const router = useRouter();
   const [diagnoses, setDiagnoses] = useState(initialDiagnoses);
   const [snippets, setSnippets] = useState(initialSnippets);
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" });
   const formRef = useRef<HTMLFormElement>(null);
   const inputs = useRef<Record<string, HTMLInputElement | HTMLTextAreaElement | null>>({});
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const finalizing = useRef(false);
+  const leaving = useRef(false);
 
   const saveNow = useCallback(async () => {
     if (timer.current) clearTimeout(timer.current);
-    if (!formRef.current || finalizing.current) return;
+    if (!formRef.current || leaving.current) return false;
     setSaveState({ kind: "saving" });
     try {
       const at = await autosave(new FormData(formRef.current));
       setSaveState({ kind: "saved", at: new Date(at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) });
+      return true;
     } catch {
       setSaveState({ kind: "error" });
+      return false;
     }
   }, [autosave]);
+
+  // "Avançar" salva tudo antes de ir para a revisão, onde o atendimento é finalizado.
+  const advance = async () => {
+    if (!(await saveNow())) return;
+    leaving.current = true;
+    router.push(reviewHref);
+  };
 
   // Cada alteração agenda um salvamento automático alguns segundos depois da última tecla.
   const markDirty = useCallback(() => {
@@ -89,6 +100,7 @@ export function EncounterEditor({
   // Avisa antes de fechar a aba com alterações ainda não salvas.
   useEffect(() => {
     const warn = (e: BeforeUnloadEvent) => {
+      if (leaving.current) return;
       if (saveState.kind === "dirty" || saveState.kind === "saving" || saveState.kind === "error") e.preventDefault();
     };
     window.addEventListener("beforeunload", warn);
@@ -136,9 +148,9 @@ export function EncounterEditor({
   return (
     <form
       ref={formRef}
-      action={finalize}
+      onSubmit={(e) => e.preventDefault()}
       onInput={markDirty}
-      // Enter num campo de uma linha não pode finalizar o atendimento sem querer.
+      // Enter num campo de uma linha não pode enviar o formulário sem querer.
       onKeyDown={(e) => {
         if (e.key === "Enter" && e.target instanceof HTMLInputElement) e.preventDefault();
       }}
@@ -160,18 +172,8 @@ export function EncounterEditor({
             <button type="button" onClick={saveNow} className="btn border border-marinho-400 text-white hover:bg-marinho-800">
               Salvar
             </button>
-            <button
-              className="btn bg-dourado-500 text-marinho-950 hover:bg-dourado-400"
-              onClick={(e) => {
-                if (!confirm("Depois de finalizado, o atendimento não poderá mais ser alterado, apenas complementado por adendo. Finalizar?")) {
-                  e.preventDefault();
-                  return;
-                }
-                finalizing.current = true;
-                if (timer.current) clearTimeout(timer.current);
-              }}
-            >
-              Finalizar atendimento
+            <button type="button" onClick={advance} className="btn bg-dourado-500 text-marinho-950 hover:bg-dourado-400">
+              Avançar →
             </button>
           </div>
         </div>

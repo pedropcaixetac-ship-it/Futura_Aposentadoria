@@ -112,6 +112,7 @@ model Clinic {
   payrollEntries PayrollEntry[]
   obligations    TaxObligation[]
   obligationDone ObligationEntry[]
+  teleconsultations Teleconsultation[]
 }
 
 model User {
@@ -182,6 +183,7 @@ model User {
   appointments        Appointment[]      @relation("AppointmentProfessional")
   appointmentsCreated Appointment[]      @relation("AppointmentCreator")
   signatureSessions   SignatureSession[]
+  teleconsultations   Teleconsultation[]
   signedPdfs          SignedPdf[]
   // Dados de contrato de trabalho (aba Contabilidade). Vazio para quem não é funcionário da clínica.
   contract            EmploymentContract?
@@ -268,6 +270,7 @@ model Patient {
   documents    ClinicalDocument[]
   appointments Appointment[]
   signedPdfs   SignedPdf[]
+  teleconsultations Teleconsultation[]
 
   @@unique([clinicId, cpf])
   @@unique([clinicId, cns])
@@ -327,6 +330,7 @@ model Encounter {
   charges     Charge[]
   appointment Appointment?
   signedPdf   SignedPdf?
+  teleconsultation Teleconsultation?
 
   @@index([clinicId, patientId, startedAt])
 }
@@ -393,6 +397,39 @@ model SignedPdf {
   pdf               Bytes
   sha256            String
   signedAt          DateTime          @default(now())
+}
+
+// Atendimento por vídeo (Resolução CFM 2.314/2022). Cada teleconsulta é ligada
+// a um atendimento do prontuário, onde o profissional escreve normalmente.
+// O paciente entra por um link secreto, sem senha, e precisa aceitar o termo
+// de consentimento antes de ver a chamada. O vídeo não é gravado.
+model Teleconsultation {
+  id             String    @id @default(cuid())
+  clinicId       String
+  clinic         Clinic    @relation(fields: [clinicId], references: [id])
+  patientId      String
+  patient        Patient   @relation(fields: [patientId], references: [id])
+  professionalId String
+  professional   User      @relation(fields: [professionalId], references: [id])
+  encounterId    String    @unique
+  encounter      Encounter @relation(fields: [encounterId], references: [id])
+  // Código do link enviado ao paciente.
+  token          String    @unique
+  expiresAt      DateTime
+  // Sala na empresa de vídeo (Daily), criada quando alguém entra pela primeira vez.
+  roomName       String?
+  roomUrl        String?
+  // Termo aceito pelo paciente: o texto exato, quando e de onde.
+  consentText    String?
+  consentAt      DateTime?
+  consentIp      String?
+  consentDevice  String?
+  professionalJoinedAt DateTime?
+  patientJoinedAt      DateTime?
+  endedAt        DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([clinicId, patientId])
 }
 
 model Addendum {

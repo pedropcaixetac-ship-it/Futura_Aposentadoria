@@ -17,14 +17,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     include: {
       patient: true,
       professional: true,
-      template: true,
       addenda: { include: { author: true }, orderBy: { createdAt: "asc" } },
     },
   });
   if (!encounter) return new NextResponse("Atendimento não encontrado", { status: 404 });
   if (!canOpenEncounter(user, encounter)) return new NextResponse("Sem permissão", { status: 403 });
 
-  const bytes = await buildPdf(encounterPdfInput(user.clinic.name, encounter, encounter.template?.name ?? null));
+  const bytes = await buildPdf(encounterPdfInput(user.clinic.name, encounter));
   await audit({
     clinicId: user.clinicId,
     userId: user.id,

@@ -19,7 +19,7 @@ import {
   parseHistoryFilters,
 } from "@/lib/history";
 import { updateClinicalSummary } from "../actions";
-import { startEncounter } from "./actions";
+import { startEncounter, startTeleconsultation } from "./actions";
 import { ClinicalSummary } from "./clinical-summary";
 import { EncounterContent, Marked } from "./encounter-content";
 import { PatientDetails } from "./patient-details";
@@ -52,6 +52,7 @@ export default async function PatientRecordPage({
           include: {
             professional: true,
             template: true,
+            teleconsultation: { select: { id: true } },
             addenda: { include: { author: true }, orderBy: { createdAt: "asc" } },
           },
           orderBy: { startedAt: "desc" },
@@ -176,6 +177,7 @@ export default async function PatientRecordPage({
                   )}
                 </select>
                 <button className="btn-primary">+ Novo atendimento</button>
+                <button formAction={startTeleconsultation.bind(null, id)} className="btn-secondary">+ Teleconsulta</button>
               </form>
             </div>
 
@@ -267,6 +269,9 @@ export default async function PatientRecordPage({
                                 <span className="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800">Rascunho</span>
                               ) : (
                                 <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">Finalizado</span>
+                              )}
+                              {e.teleconsultation && (
+                                <span className="rounded bg-marinho-50 px-2 py-0.5 text-xs text-marinho-700">Teleconsulta</span>
                               )}
                               {e.addenda.length > 0 && (
                                 <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">

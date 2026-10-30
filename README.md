@@ -31,6 +31,10 @@ Este é o primeiro módulo: **Prontuário**.
   sem validade jurídica, para experimentar. As credenciais de cada provedor vão nas variáveis de `.env.example`
 - Barra lateral com a clínica, o usuário, o setor e o menu de cada perfil
 - "Usar modelo" ao lado de cada campo do atendimento, com os textos prontos de cada profissional
+- Teleconsulta por vídeo (Resolução CFM 2.314/2022): o profissional cria a teleconsulta no prontuário e envia o link
+  ao paciente (copiar ou WhatsApp). O paciente abre no celular, sem instalar nada, aceita o termo de consentimento
+  e entra na chamada. O vídeo fica ao lado do atendimento, não é gravado, e o termo aceito (texto, hora e IP) fica
+  guardado no prontuário sem poder ser alterado
 - Agenda por dia (uma coluna por profissional) e por semana, com horários de atendimento, bloqueios
   (almoço, férias), cadastro rápido de paciente, aviso de horário ocupado com opção de encaixe,
   situação da consulta em cores e sala de espera. O profissional inicia o atendimento direto da agenda,
@@ -113,6 +117,10 @@ npm test                    # testes (precisam do banco)
 
 Na Vercel, o comando `vercel-build` (em `scripts/vercel-build.sh`) aplica as migrações, carrega os dados iniciais e monta o site.
 Basta conectar um banco Neon ao projeto, que cria `DATABASE_URL` e `DATABASE_URL_UNPOOLED`.
+
+Para o vídeo da teleconsulta, crie uma conta na [Daily](https://www.daily.co), copie a chave de API (Developers → API keys)
+e cadastre-a como `DAILY_API_KEY` nas variáveis de ambiente. Sem a chave, o resto do sistema funciona e a teleconsulta
+avisa que o vídeo não está ativado.
 
 Tecnologias: Next.js 15, TypeScript, PostgreSQL com Prisma e Tailwind CSS.
 A tabela CID-10 (`prisma/data/cid10.tsv`) vem do DATASUS.

@@ -77,4 +77,9 @@ export const auditActionLabel: Record<string, string> = {
   PERMISSOES_ALTERADAS: "Alterou as abas que um servidor acessa",
   SERVIDOR_DESLIGADO: "Registrou desligamento de servidor",
   SERVIDOR_REATIVADO: "Reativou acesso de servidor",
+  TELECONSULTA_CRIADA: "Criou teleconsulta",
+  TELECONSULTA_TERMO_ACEITO: "Paciente aceitou o termo da teleconsulta",
+  TELECONSULTA_PROFISSIONAL_ENTROU: "Entrou na chamada da teleconsulta",
+  TELECONSULTA_PACIENTE_ENTROU: "Paciente entrou na chamada",
+  TELECONSULTA_ENCERRADA: "Encerrou teleconsulta",
 };
