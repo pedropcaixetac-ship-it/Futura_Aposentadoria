@@ -34,7 +34,48 @@ export function isValidCpf(value: string) {
   return true;
 }
 
-export const roleLabel = { ADMIN: "Administrador", PROFISSIONAL: "Profissional de saúde", RECEPCAO: "Recepção" } as const;
+export const roleLabel = { ADMIN: "Administrador", PROFISSIONAL: "Profissional de saúde", RECEPCAO: "Recepção", ADMINISTRATIVO: "Auxiliar administrativo" } as const;
+
+export function onlyDigits(value: string | null | undefined) {
+  return (value ?? "").replace(/\D/g, "");
+}
+
+export function formatPhone(phone: string | null | undefined) {
+  const d = onlyDigits(phone);
+  if (d.length === 11) return d.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
+  if (d.length === 10) return d.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3");
+  return phone ?? "";
+}
+
+export function formatCep(cep: string | null | undefined) {
+  const d = onlyDigits(cep);
+  return d.length === 8 ? d.replace(/(\d{5})(\d{3})/, "$1-$2") : (cep ?? "");
+}
+
+// Máscaras aplicadas enquanto a pessoa digita.
+export const masks = {
+  cpf: (v: string) =>
+    onlyDigits(v).slice(0, 11).replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})$/, "$1-$2"),
+  phone: (v: string) => {
+    const d = onlyDigits(v).slice(0, 11);
+    if (d.length <= 2) return d.length ? `(${d}` : "";
+    if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+    const split = d.length === 11 ? 7 : 6;
+    return `(${d.slice(0, 2)}) ${d.slice(2, split)}-${d.slice(split)}`;
+  },
+  cep: (v: string) => onlyDigits(v).slice(0, 8).replace(/(\d{5})(\d)/, "$1-$2"),
+  cns: (v: string) =>
+    onlyDigits(v).slice(0, 15).replace(/(\d{3})(\d)/, "$1 $2").replace(/(\d{4})(\d)/, "$1 $2").replace(/(\d{4})(\d)/, "$1 $2"),
+};
+
+// Cartão Nacional de Saúde: 15 dígitos, começa com 1, 2, 7, 8 ou 9 e a soma ponderada é múltipla de 11.
+export function isValidCns(value: string) {
+  const cns = onlyDigits(value);
+  if (cns.length !== 15 || !"12789".includes(cns[0])) return false;
+  let sum = 0;
+  for (let i = 0; i < 15; i++) sum += Number(cns[i]) * (15 - i);
+  return sum % 11 === 0;
+}
 
 // "31/12/1990" vira a data; qualquer outra coisa, null.
 export function parseBrDate(value: string) {

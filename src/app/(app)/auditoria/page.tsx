@@ -1,14 +1,11 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { auditActionLabel } from "@/lib/audit";
-import { canViewAudit } from "@/lib/permissions";
 import { formatDateTime } from "@/lib/format";
 
 export default async function AuditPage({ searchParams }: { searchParams: Promise<{ paciente?: string }> }) {
-  const user = await requireUser();
-  if (!canViewAudit(user)) notFound();
+  const user = await requireUser("auditoria");
   const { paciente } = await searchParams;
 
   const logs = await prisma.auditLog.findMany({

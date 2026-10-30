@@ -18,7 +18,7 @@ export default async function HistoryPrintPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const user = await requireUser();
+  const user = await requireUser("pacientes");
   if (!canViewClinical(user)) notFound();
   const { id } = await params;
   const filters = parseHistoryFilters(await searchParams);

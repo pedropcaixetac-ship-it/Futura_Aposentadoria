@@ -24,7 +24,7 @@ export function SearchBox({ initial }: { initial: string }) {
       name="q"
       value={value}
       onChange={(e) => setValue(e.target.value)}
-      placeholder="Nome, CPF, telefone, nascimento (dd/mm/aaaa) ou convênio"
+      placeholder="Nome, CPF, telefone, nascimento (dd/mm/aaaa), convênio, carteirinha ou Cartão SUS"
       aria-label="Buscar paciente"
       autoFocus
       className="input max-w-xl"

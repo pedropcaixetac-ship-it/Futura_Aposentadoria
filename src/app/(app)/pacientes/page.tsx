@@ -1,26 +1,30 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { age, formatCpf, formatDate, formatDay, parseBrDate } from "@/lib/format";
+import { age, formatCpf, formatDate, formatDay, formatPhone, parseBrDate } from "@/lib/format";
 import { SearchBox } from "./search-box";
 
 export default async function PatientsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const user = await requireUser();
+  const user = await requireUser("pacientes");
   const { q = "" } = await searchParams;
   const term = q.trim();
   const digits = term.replace(/\D/g, "");
   const birthDate = parseBrDate(term);
 
   const patients = await prisma.patient.findMany({
+    omit: { photo: true },
     where: {
       clinicId: user.clinicId,
       ...(term && {
         OR: [
           { name: { contains: term, mode: "insensitive" } },
           { socialName: { contains: term, mode: "insensitive" } },
+          { insuranceNumber: { contains: term, mode: "insensitive" } },
           { insurance: { contains: term, mode: "insensitive" } },
-          ...(digits ? [{ cpf: { contains: digits } }, { phone: { contains: digits } }] : []),
           ...(birthDate ? [{ birthDate }] : []),
+          ...(digits
+            ? [{ cpf: { contains: digits } }, { phone: { contains: digits } }, { landline: { contains: digits } }, { cns: { contains: digits } }]
+            : []),
         ],
       }),
     },
@@ -39,7 +43,10 @@ export default async function PatientsPage({ searchParams }: { searchParams: Pro
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Pacientes</h1>
-        <Link href="/pacientes/novo" className="btn-primary">+ Novo paciente</Link>
+        <div className="flex gap-2">
+          <Link href="/pacientes/novo?modo=rapido" className="btn-secondary">Cadastro rápido</Link>
+          <Link href="/pacientes/novo" className="btn-primary">+ Novo paciente</Link>
+        </div>
       </div>
       <form>
         <SearchBox initial={term} />
@@ -63,12 +70,15 @@ export default async function PatientsPage({ searchParams }: { searchParams: Pro
                   <Link href={`/pacientes/${p.id}`} className="font-medium text-marinho-800 hover:underline">
                     {p.socialName || p.name}
                   </Link>
+                  {!p.registrationComplete && (
+                    <span className="ml-2 rounded-full bg-dourado-100 px-2 py-0.5 text-xs text-dourado-700">cadastro incompleto</span>
+                  )}
                 </td>
                 <td className="px-4 py-2">
                   {formatDate(p.birthDate)} {p.birthDate && <span className="text-slate-400">({age(p.birthDate)} anos)</span>}
                 </td>
                 <td className="px-4 py-2">{formatCpf(p.cpf)}</td>
-                <td className="px-4 py-2">{p.phone}</td>
+                <td className="px-4 py-2">{formatPhone(p.phone)}</td>
                 <td className="px-4 py-2">{p.insurance}</td>
                 <td className="px-4 py-2">
                   {p.encounters[0] ? (

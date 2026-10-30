@@ -3,8 +3,10 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
-import { canEditEncounter, canViewClinical } from "@/lib/permissions";
-import { age, formatCpf, formatDate, formatDateTime } from "@/lib/format";
+import { canEditEncounter, canManageCharges, canViewClinical } from "@/lib/permissions";
+import { age, formatCpf, formatDate, formatDateTime, formatPhone } from "@/lib/format";
+import { whatsappNumber } from "@/lib/whatsapp";
+import { listUsableTemplates } from "@/lib/templates";
 import type { Diagnosis, TemplateField } from "@/lib/record";
 import {
   encounterTexts,
@@ -20,6 +22,8 @@ import { updateClinicalSummary } from "../actions";
 import { startEncounter } from "./actions";
 import { ClinicalSummary } from "./clinical-summary";
 import { EncounterContent, Marked } from "./encounter-content";
+import { PatientDetails } from "./patient-details";
+import { WhatsappButton } from "./whatsapp-button";
 
 export default async function PatientRecordPage({
   params,
@@ -28,7 +32,7 @@ export default async function PatientRecordPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const user = await requireUser();
+  const user = await requireUser("pacientes");
   const { id } = await params;
   const filters = parseHistoryFilters(await searchParams);
   const filtered = hasFilters(filters);
@@ -36,6 +40,7 @@ export default async function PatientRecordPage({
   if (!patient) notFound();
 
   const clinical = canViewClinical(user);
+  const canWhatsapp = patient.whatsappOptIn && patient.phoneWhatsapp && !!whatsappNumber(patient.phone);
   const [encounters, templates] = clinical
     ? await Promise.all([
         prisma.encounter.findMany({
@@ -47,9 +52,9 @@ export default async function PatientRecordPage({
           },
           orderBy: { startedAt: "desc" },
         }),
-        prisma.recordTemplate.findMany({ where: { clinicId: user.clinicId, active: true }, orderBy: { name: "asc" } }),
+        listUsableTemplates(user),
       ])
-    : [[], []];
+    : [[], { mine: [], clinic: [] }];
 
   if (clinical) {
     await audit({
@@ -70,25 +75,58 @@ export default async function PatientRecordPage({
     ...new Map(encounters.map((e) => [e.templateId ?? FREE_TEMPLATE, { id: e.templateId ?? FREE_TEMPLATE, name: e.template?.name ?? "Evolução livre" }])).values(),
   ];
 
+
   return (
     <div className="space-y-5">
-      <div className="card flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">{patient.socialName || patient.name}</h1>
-          {patient.socialName && <p className="text-sm text-slate-500">Nome de registro: {patient.name}</p>}
-          <p className="mt-1 text-sm text-slate-600">
-            {[
-              patient.birthDate && `${age(patient.birthDate)} anos (${formatDate(patient.birthDate)})`,
-              patient.cpf && `CPF ${formatCpf(patient.cpf)}`,
-              patient.phone,
-              patient.insurance && `${patient.insurance}${patient.insuranceNumber ? ` · ${patient.insuranceNumber}` : ""}`,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
+      {!patient.registrationComplete && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dourado-300 bg-dourado-100 px-4 py-3 text-sm text-dourado-700">
+          <span>Cadastro incompleto: este paciente foi registrado pelo cadastro rápido.</span>
+          <Link href={`/pacientes/${id}/editar`} className="font-medium underline">Completar cadastro</Link>
         </div>
-        <Link href={`/pacientes/${id}/editar`} className="btn-secondary">Editar cadastro</Link>
+      )}
+
+      <div className="card flex flex-wrap items-start justify-between gap-4">
+        <div className="flex items-start gap-4">
+          {patient.photo && (
+            // eslint-disable-next-line @next/next/no-img-element -- foto guardada como data URL
+            <img src={patient.photo} alt="" className="h-16 w-16 shrink-0 rounded-full border-2 border-dourado-300 object-cover" />
+          )}
+          <div>
+            <h1 className="text-2xl font-semibold">{patient.socialName || patient.name}</h1>
+            {patient.socialName && <p className="text-sm text-slate-500">Nome de registro: {patient.name}</p>}
+            <p className="mt-1 text-sm text-slate-600">
+              {[
+                patient.birthDate && `${age(patient.birthDate)} anos (${formatDate(patient.birthDate)})`,
+                patient.cpf && `CPF ${formatCpf(patient.cpf)}`,
+                patient.phone && formatPhone(patient.phone),
+                patient.insurance && `${patient.insurance}${patient.insuranceNumber ? ` · ${patient.insuranceNumber}` : ""}`,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {canWhatsapp && <WhatsappButton patientId={id} />}
+          {canManageCharges(user) && (
+            <Link href={`/financeiro/receitas/nova?paciente=${id}`} className="btn-secondary">Nova cobrança</Link>
+          )}
+          <Link href={`/agenda/novo?paciente=${id}`} className="btn-secondary">Agendar consulta</Link>
+          <Link href={`/pacientes/${id}/editar`} className="btn-secondary">Editar cadastro</Link>
+        </div>
+        {!patient.whatsappOptIn && (
+          <p className="w-full text-xs text-slate-500">
+            Sem autorização para mensagens pelo WhatsApp. Para ativar, marque a opção em &quot;Editar cadastro&quot;.
+          </p>
+        )}
+        {patient.whatsappOptIn && !canWhatsapp && (
+          <p className="w-full text-xs text-amber-700">
+            O paciente autorizou o WhatsApp, mas o celular do cadastro não tem WhatsApp ou não é válido.
+          </p>
+        )}
       </div>
+
+      <PatientDetails patient={patient} />
 
       {!clinical && (
         <p className="card text-sm text-slate-500">
@@ -111,11 +149,20 @@ export default async function PatientRecordPage({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="font-semibold">Histórico de atendimentos</h2>
               <form action={startEncounter.bind(null, id)} className="flex flex-wrap items-center gap-2">
-                <select name="templateId" aria-label="Modelo de atendimento" className="input w-auto!">
+                {/* Se o profissional tem um modelo só, ele já vem escolhido. */}
+                <select name="templateId" aria-label="Modelo de atendimento" className="input w-auto!"
+                  defaultValue={templates.mine.length === 1 ? templates.mine[0].id : ""}>
                   <option value="">Evolução livre</option>
-                  {templates.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
+                  {templates.mine.length > 0 && (
+                    <optgroup label="Meus modelos">
+                      {templates.mine.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </optgroup>
+                  )}
+                  {templates.clinic.length > 0 && (
+                    <optgroup label="Modelos da clínica">
+                      {templates.clinic.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </optgroup>
+                  )}
                 </select>
                 <button className="btn-primary">+ Novo atendimento</button>
               </form>

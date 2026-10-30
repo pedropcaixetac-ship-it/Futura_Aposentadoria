@@ -1,0 +1,132 @@
+import type { Role } from "@prisma/client";
+import { canManageTemplates, canUseReception, canViewClinical, type PermissionUser } from "./permissions";
+
+// Abas do sistema que o administrador pode liberar ou tirar de cada pessoa
+// em "Cadastro de servidores > Editar permissões".
+export type TabKey =
+  | "recepcao"
+  | "agenda"
+  | "pacientes"
+  | "modelos"
+  | "textos-prontos"
+  | "assinatura"
+  | "financeiro"
+  | "contabilidade"
+  | "auditoria"
+  | "servidores";
+
+export type TabUser = PermissionUser & { customTabs: boolean; allowedTabs: string[] };
+
+type Tab = {
+  key: TabKey;
+  label: string;
+  href: string;
+  description: string;
+  // Perfis que recebem a aba quando a pessoa ainda não tem permissões personalizadas.
+  defaultRoles: Role[];
+  // Regra que nenhuma permissão muda (ex.: conteúdo clínico só para quem tem conselho).
+  // Devolve o motivo quando a pessoa não pode ter a aba.
+  blockedReason?: (user: PermissionUser) => string | null;
+};
+
+const allRoles: Role[] = ["ADMIN", "PROFISSIONAL", "RECEPCAO"];
+
+// A ordem desta lista é a ordem do menu lateral.
+export const TABS: Tab[] = [
+  {
+    key: "recepcao",
+    label: "Recepção",
+    href: "/recepcao",
+    description: "Chegada e falta dos pacientes do dia.",
+    defaultRoles: ["ADMIN", "RECEPCAO"],
+    blockedReason: (u) => (canUseReception(u) ? null : "Só para recepção e administradores."),
+  },
+  {
+    key: "agenda",
+    label: "Agenda",
+    href: "/agenda",
+    description: "Recepção e administrador veem a agenda de todos; o profissional, só a própria.",
+    defaultRoles: allRoles,
+  },
+  {
+    key: "pacientes",
+    label: "Pacientes",
+    href: "/pacientes",
+    description: "Cadastro dos pacientes. O prontuário só aparece para profissionais de saúde.",
+    defaultRoles: allRoles,
+  },
+  {
+    key: "modelos",
+    label: "Modelos de atendimento",
+    href: "/modelos",
+    description: "Criar e alterar os modelos de atendimento.",
+    defaultRoles: allRoles,
+    blockedReason: (u) => (canManageTemplates(u) ? null : "Só para profissionais de saúde com registro em conselho."),
+  },
+  {
+    key: "textos-prontos",
+    label: "Meus textos prontos",
+    href: "/textos-prontos",
+    description: "Textos prontos da própria pessoa para usar no atendimento.",
+    defaultRoles: allRoles,
+    blockedReason: (u) => (canViewClinical(u) ? null : "Só para profissionais de saúde com registro em conselho."),
+  },
+  {
+    key: "assinatura",
+    label: "Assinatura digital",
+    href: "/assinatura",
+    description: "Certificado ICP-Brasil para assinar receitas, atestados e atendimentos.",
+    defaultRoles: allRoles,
+    blockedReason: (u) => (canViewClinical(u) ? null : "Só para profissionais de saúde com registro em conselho."),
+  },
+  {
+    key: "financeiro",
+    label: "Financeiro",
+    href: "/financeiro",
+    description: "Recepção lança cobranças e recebe pagamentos; profissionais veem o próprio repasse. Inclui Compras.",
+    defaultRoles: allRoles,
+  },
+  {
+    key: "contabilidade",
+    label: "Contabilidade e trabalhista",
+    href: "/contabilidade",
+    description: "Contratos, férias, folha do mês, impostos e planilha para o contador.",
+    defaultRoles: ["ADMIN", "ADMINISTRATIVO"],
+  },
+  {
+    key: "auditoria",
+    label: "Auditoria",
+    href: "/auditoria",
+    description: "Quem abriu ou alterou cada prontuário, e quando.",
+    defaultRoles: ["ADMIN"],
+  },
+  {
+    key: "servidores",
+    label: "Cadastro de servidores",
+    href: "/servidores",
+    description: "Cadastrar a equipe, mudar permissões e registrar desligamentos.",
+    defaultRoles: ["ADMIN"],
+    blockedReason: (u) => (u.role === "ADMIN" ? null : "Só para administradores."),
+  },
+];
+
+export function tabBlockedReason(user: PermissionUser, key: TabKey) {
+  return TABS.find((t) => t.key === key)?.blockedReason?.(user) ?? null;
+}
+
+// Administradores têm sempre todas as abas, para que ninguém fique trancado do lado de fora.
+export function hasTab(user: TabUser, key: TabKey) {
+  const tab = TABS.find((t) => t.key === key);
+  if (!tab || tab.blockedReason?.(user)) return false;
+  if (user.role === "ADMIN") return true;
+  return user.customTabs ? user.allowedTabs.includes(key) : tab.defaultRoles.includes(user.role);
+}
+
+export function userTabs(user: TabUser) {
+  return TABS.filter((t) => hasTab(user, t.key));
+}
+
+// Limpa a lista enviada pelo formulário: só abas que existem e que a pessoa pode ter.
+export function sanitizeTabs(user: PermissionUser, keys: string[]) {
+  return TABS.filter((t) => keys.includes(t.key) && !t.blockedReason?.(user)).map((t) => t.key);
+}
