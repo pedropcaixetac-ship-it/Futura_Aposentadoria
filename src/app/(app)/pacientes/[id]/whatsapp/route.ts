@@ -16,11 +16,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     return new NextResponse("O paciente não autorizou receber mensagens pelo WhatsApp.", { status: 403 });
   }
 
-  const link = whatsappLink(patient.phone ?? "", modelo, {
+  const link = patient.phoneWhatsapp && whatsappLink(patient.phone ?? "", modelo, {
     patient: patient.socialName || patient.name,
     clinic: user.clinic.name,
   });
-  if (!link) return new NextResponse("Telefone do paciente inválido.", { status: 400 });
+  if (!link) return new NextResponse("O celular do paciente não tem WhatsApp ou é inválido.", { status: 400 });
 
   await audit({
     clinicId: user.clinicId,
