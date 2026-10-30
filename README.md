@@ -71,6 +71,9 @@ Este é o primeiro módulo: **Prontuário**.
 - Pagamento do convênio: no lote ficam o protocolo de envio e, quando o convênio paga, o valor pago em cada guia.
   O que não foi pago (glosa) exige o motivo, para recorrer depois. O valor pago entra nas Receitas como pagamento por convênio
   e o lote pago não pode mais ser desfeito
+- Guia SP/SADT (exames e procedimentos): vários itens da tabela do convênio com quantidade, data e senha da autorização,
+  indicação clínica e caráter (eletivo ou urgência). Um atendimento pode ter guia de consulta e guia SP/SADT. Cada lote
+  leva um só tipo de guia, e o XML da SP/SADT também é validado contra os schemas da ANS
 - Repasse por profissional (porcentagem do valor recebido), que pode ser lançado como despesa
 - Recibo numerado, com valor por extenso, para imprimir ou salvar em PDF
 - O administrador vê tudo; a recepção lança cobranças e recebe pagamentos; cada profissional vê só o próprio repasse

@@ -7,7 +7,7 @@ import { formatDate, formatDateTime } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { monthRange } from "@/lib/finance";
 import { displayName } from "@/lib/staff";
-import { claimNumberLabel } from "@/lib/tiss";
+import { claimKindLabel, claimNumberLabel } from "@/lib/tiss";
 import { MonthNav } from "../ui";
 import { closeBatch } from "./actions";
 
@@ -49,7 +49,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
     }),
     // Guias de qualquer mês que ainda não entraram em lote, somadas por convênio.
     prisma.insuranceClaim.groupBy({
-      by: ["healthPlanId"],
+      by: ["healthPlanId", "kind"],
       where: { clinicId, status: "ABERTA", batchId: null },
       _count: true,
       _sum: { amountCents: true },
@@ -73,7 +73,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
     <div className="space-y-5">
       <div>
         <h2 className="text-lg font-semibold">Faturamento de convênios</h2>
-        <p className="text-sm text-slate-500">Guias de consulta no padrão TISS, geradas a partir dos atendimentos finalizados.</p>
+        <p className="text-sm text-slate-500">Guias de consulta e SP/SADT (exames e procedimentos) no padrão TISS, geradas a partir dos atendimentos finalizados.</p>
       </div>
 
       {toBill.length > 0 && (
@@ -86,9 +86,14 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
                   <span className="font-medium">{e.patient.name}</span>
                   <span className="text-slate-500"> · {e.patient.healthPlan?.name} · {displayName(e.professional)} · {formatDateTime(e.finalizedAt)}</span>
                 </span>
-                <Link href={`/financeiro/faturamento/nova?atendimento=${e.id}`} className="btn-primary px-3! py-1! text-xs!">
-                  Gerar guia
-                </Link>
+                <span className="flex gap-2">
+                  <Link href={`/financeiro/faturamento/nova?atendimento=${e.id}`} className="btn-primary px-3! py-1! text-xs!">
+                    Guia de consulta
+                  </Link>
+                  <Link href={`/financeiro/faturamento/nova?atendimento=${e.id}&tipo=sadt`} className="btn-secondary px-3! py-1! text-xs!">
+                    Guia SP/SADT
+                  </Link>
+                </span>
               </li>
             ))}
           </ul>
@@ -98,15 +103,15 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
       {toSend.length > 0 && (
         <div className="card space-y-3">
           <h3 className="font-semibold">Guias a enviar</h3>
-          <p className="text-sm text-slate-500">Feche um lote por convênio para gerar o arquivo XML que vai no portal do convênio (até 100 guias por lote).</p>
+          <p className="text-sm text-slate-500">Feche um lote por convênio e tipo de guia para gerar o arquivo XML que vai no portal do convênio (até 100 guias por lote).</p>
           <ul className="divide-y divide-slate-100 text-sm">
             {toSend.map((t) => (
-              <li key={t.healthPlanId} className="flex flex-wrap items-center justify-between gap-2 py-2">
+              <li key={`${t.healthPlanId}-${t.kind}`} className="flex flex-wrap items-center justify-between gap-2 py-2">
                 <span>
                   <span className="font-medium">{planNames.get(t.healthPlanId)}</span>
-                  <span className="text-slate-500"> · {t._count} guia(s) · {formatMoney(t._sum.amountCents ?? 0)}</span>
+                  <span className="text-slate-500"> · {claimKindLabel(t.kind)} · {t._count} guia(s) · {formatMoney(t._sum.amountCents ?? 0)}</span>
                 </span>
-                <form action={closeBatch.bind(null, t.healthPlanId)}>
+                <form action={closeBatch.bind(null, t.healthPlanId, t.kind)}>
                   <button className="btn-primary px-3! py-1! text-xs!">Fechar lote</button>
                 </form>
               </li>
@@ -122,7 +127,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
             {batches.map((b) => (
               <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                 <Link href={`/financeiro/faturamento/lotes/${b.id}`} className="text-marinho-700 hover:underline">
-                  Lote nº {b.number} · {b.healthPlan.name}
+                  Lote nº {b.number} · {b.healthPlan.name} · {claimKindLabel(b.kind)}
                 </Link>
                 <span className="text-slate-500">{b._count.claims} guia(s) · {formatDateTime(b.createdAt)}</span>
               </li>
@@ -143,6 +148,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           <thead className="bg-slate-50 text-left text-slate-500">
             <tr>
               <th className="px-4 py-2 font-medium">Guia</th>
+              <th className="px-4 py-2 font-medium">Tipo</th>
               <th className="px-4 py-2 font-medium">Data</th>
               <th className="px-4 py-2 font-medium">Paciente</th>
               <th className="px-4 py-2 font-medium">Convênio</th>
@@ -157,6 +163,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
                 <td className="px-4 py-2">
                   <Link href={`/financeiro/faturamento/${c.id}`} className="font-mono text-marinho-700 hover:underline">{claimNumberLabel(c.number)}</Link>
                 </td>
+                <td className="px-4 py-2">{claimKindLabel(c.kind)}</td>
                 <td className="px-4 py-2">{formatDate(c.serviceDate)}</td>
                 <td className="px-4 py-2">{c.patient.name}</td>
                 <td className="px-4 py-2">{c.healthPlan.name}</td>
@@ -176,7 +183,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
               </tr>
             ))}
             {claims.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-400">Nenhuma guia neste mês.</td></tr>
+              <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">Nenhuma guia neste mês.</td></tr>
             )}
           </tbody>
         </table>

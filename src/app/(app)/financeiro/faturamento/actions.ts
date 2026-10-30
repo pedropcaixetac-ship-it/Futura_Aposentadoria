@@ -9,7 +9,10 @@ import { canManageFinance } from "@/lib/permissions";
 import { parseMoney } from "@/lib/money";
 import { parseDateInput } from "@/lib/finance";
 import { normalizeTussCode } from "@/lib/convenios";
-import { accidentIndications, careRegime, claimNumberLabel, consultationTypes, missingForClaim, normalizeCbo, parseClaimPayments } from "@/lib/tiss";
+import {
+  accidentIndications, careRegime, claimNumberLabel, consultationTypes, missingForClaim, normalizeCbo, parseClaimItems, parseClaimPayments, serviceTypes,
+  type ClaimItemInput,
+} from "@/lib/tiss";
 import { MAX_CLAIMS_PER_BATCH, TISS_VERSION } from "@/lib/tiss-xml";
 import type { FormState } from "../actions";
 
@@ -24,8 +27,8 @@ async function requireAdmin() {
   return user;
 }
 
-// Gera a guia de consulta de um atendimento finalizado de paciente com convênio cadastrado.
-export async function createClaim(encounterId: string, _: FormState, formData: FormData): Promise<FormState> {
+// Gera a guia (de consulta ou SP/SADT) de um atendimento finalizado de paciente com convênio cadastrado.
+export async function createClaim(encounterId: string, kind: "CONSULTA" | "SPSADT", _: FormState, formData: FormData): Promise<FormState> {
   const user = await requireAdmin();
   const encounter = await prisma.encounter.findFirst({
     where: { id: encounterId, clinicId: user.clinicId, status: "FINALIZADO" },
@@ -38,8 +41,9 @@ export async function createClaim(encounterId: string, _: FormState, formData: F
   const missing = missingForClaim({ clinic: encounter.clinic, plan, professional: encounter.professional });
   if (missing.length > 0) return { error: `Falta no cadastro: ${missing.join("; ")}.` };
 
-  const open = await prisma.insuranceClaim.findFirst({ where: { clinicId: user.clinicId, encounterId, status: "ABERTA" } });
-  if (open) return { error: "Este atendimento já tem guia. Cancele a anterior para gerar outra." };
+  // Um atendimento pode ter uma guia de consulta e uma SP/SADT (por exemplo, consulta e eletrocardiograma no mesmo dia).
+  const open = await prisma.insuranceClaim.findFirst({ where: { clinicId: user.clinicId, encounterId, kind, status: "ABERTA" } });
+  if (open) return { error: "Este atendimento já tem guia deste tipo. Cancele a anterior para gerar outra." };
 
   const cardNumber = text(formData, "cardNumber")?.replace(/\s/g, "");
   if (!cardNumber) return { error: "Informe o número da carteirinha." };
@@ -48,16 +52,10 @@ export async function createClaim(encounterId: string, _: FormState, formData: F
   if (!serviceDate) return { error: "Informe a data do atendimento." };
   const cbo = normalizeCbo(text(formData, "cbo"));
   if (!cbo) return { error: "O CBO do profissional tem 6 números (ex.: 225125 para médico clínico)." };
-  const consultationType = Number(text(formData, "consultationType"));
-  if (!consultationTypes.some((t) => t.value === consultationType)) return { error: "Escolha o tipo de consulta." };
   const accidentIndication = Number(text(formData, "accidentIndication") ?? "9");
   if (!accidentIndications.some((a) => a.value === accidentIndication)) return { error: "Escolha a indicação de acidente." };
-  const tussCode = normalizeTussCode(text(formData, "tussCode") ?? "");
-  if (!tussCode) return { error: "Escolha o procedimento." };
-  const price = await prisma.healthPlanPrice.findUnique({ where: { healthPlanId_tussCode: { healthPlanId: plan.id, tussCode } } });
-  if (!price) return { error: "Este procedimento não está na tabela do convênio." };
-  const amountCents = parseMoney(text(formData, "amount") ?? "");
-  if (!amountCents) return { error: "Informe um valor válido (ex.: 150,00)." };
+  const details = kind === "SPSADT" ? await sadtDetails(plan.id, formData) : await consultationDetails(plan.id, formData);
+  if ("error" in details) return details;
 
   // Número da guia e gravação numa única operação, para duas guias ao mesmo tempo não pegarem o mesmo número.
   const claim = await prisma.$transaction(async (tx) => {
@@ -75,14 +73,13 @@ export async function createClaim(encounterId: string, _: FormState, formData: F
         cardValidUntil,
         newborn: formData.get("newborn") === "on",
         serviceDate,
-        consultationType,
+        kind,
         accidentIndication,
         careRegime: careRegime(!!encounter.teleconsultation),
         cbo,
-        tussCode,
-        description: price.description,
-        amountCents,
+        ...details.claim,
         notes: text(formData, "notes")?.slice(0, 500) ?? null,
+        items: { create: details.items.map((item) => ({ ...item, clinicId: user.clinicId })) },
       },
     });
   });
@@ -102,10 +99,69 @@ export async function createClaim(encounterId: string, _: FormState, formData: F
     entity: "InsuranceClaim",
     entityId: claim.id,
     patientId: claim.patientId,
-    details: { number: claim.number, healthPlan: plan.name, tussCode, amountCents },
+    details: { number: claim.number, tipo: kind, healthPlan: plan.name, tussCode: claim.tussCode, amountCents: claim.amountCents },
   });
   revalidatePath("/financeiro", "layout");
   redirect(`/financeiro/faturamento/${claim.id}`);
+}
+
+type ClaimDetails = {
+  claim: {
+    consultationType?: number;
+    tussCode: string;
+    description: string;
+    amountCents: number;
+    serviceType?: string;
+    urgent?: boolean;
+    clinicalIndication?: string | null;
+    requestDate?: Date | null;
+    authorizationDate?: Date | null;
+    authorizationCode?: string | null;
+  };
+  items: ClaimItemInput[];
+};
+
+// Guia de consulta: tipo de consulta e um único procedimento, com o valor da tabela (que pode ser ajustado).
+async function consultationDetails(healthPlanId: string, formData: FormData): Promise<ClaimDetails | { error: string }> {
+  const consultationType = Number(text(formData, "consultationType"));
+  if (!consultationTypes.some((t) => t.value === consultationType)) return { error: "Escolha o tipo de consulta." };
+  const tussCode = normalizeTussCode(text(formData, "tussCode") ?? "");
+  if (!tussCode) return { error: "Escolha o procedimento." };
+  const price = await prisma.healthPlanPrice.findUnique({ where: { healthPlanId_tussCode: { healthPlanId, tussCode } } });
+  if (!price) return { error: "Este procedimento não está na tabela do convênio." };
+  const amountCents = parseMoney(text(formData, "amount") ?? "");
+  if (!amountCents) return { error: "Informe um valor válido (ex.: 150,00)." };
+  return { claim: { consultationType, tussCode, description: price.description, amountCents }, items: [] };
+}
+
+// Guia SP/SADT: vários exames ou procedimentos, mais os dados do pedido e da autorização do convênio.
+async function sadtDetails(healthPlanId: string, formData: FormData): Promise<ClaimDetails | { error: string }> {
+  const serviceType = text(formData, "serviceType") ?? "";
+  if (!serviceTypes.some((t) => t.value === serviceType)) return { error: "Escolha o tipo de atendimento." };
+  const prices = await prisma.healthPlanPrice.findMany({ where: { healthPlanId }, select: { tussCode: true, description: true } });
+  const parsed = parseClaimItems((key) => text(formData, key), prices, parseMoney, normalizeTussCode);
+  if ("error" in parsed) return parsed;
+  const authorizationCode = text(formData, "authorizationCode")?.slice(0, 20) ?? null;
+  const authorizationDate = text(formData, "authorizationDate") ? parseDateInput(text(formData, "authorizationDate")!) : null;
+  if ((authorizationCode || text(formData, "operatorNumber")) && !authorizationDate) {
+    return { error: "Informe a data da autorização do convênio." };
+  }
+  const requestDate = text(formData, "requestDate") ? parseDateInput(text(formData, "requestDate")!) : null;
+  const [first] = parsed.items;
+  return {
+    claim: {
+      tussCode: first.tussCode,
+      description: parsed.items.length > 1 ? `${first.description} e mais ${parsed.items.length - 1}` : first.description,
+      amountCents: parsed.items.reduce((t, i) => t + i.totalCents, 0),
+      serviceType,
+      urgent: formData.get("urgent") === "on",
+      clinicalIndication: text(formData, "clinicalIndication")?.slice(0, 500) ?? null,
+      requestDate,
+      authorizationDate,
+      authorizationCode,
+    },
+    items: parsed.items,
+  };
 }
 
 export async function cancelClaim(claimId: string) {
@@ -120,7 +176,7 @@ export async function cancelClaim(claimId: string) {
 }
 
 // Fecha um lote com as guias de um convênio que ainda não foram enviadas (as mais antigas primeiro).
-export async function closeBatch(healthPlanId: string) {
+export async function closeBatch(healthPlanId: string, kind: "CONSULTA" | "SPSADT") {
   const user = await requireAdmin();
   const plan = await prisma.healthPlan.findFirst({ where: { id: healthPlanId, clinicId: user.clinicId } });
   if (!plan) throw new Error("Convênio não encontrado");
@@ -129,7 +185,7 @@ export async function closeBatch(healthPlanId: string) {
 
   const batch = await prisma.$transaction(async (tx) => {
     const claims = await tx.insuranceClaim.findMany({
-      where: { clinicId: user.clinicId, healthPlanId, status: "ABERTA", batchId: null },
+      where: { clinicId: user.clinicId, healthPlanId, kind, status: "ABERTA", batchId: null },
       orderBy: { number: "asc" },
       take: MAX_CLAIMS_PER_BATCH,
       select: { id: true },
@@ -137,7 +193,7 @@ export async function closeBatch(healthPlanId: string) {
     if (claims.length === 0) throw new Error("Não há guias a enviar para este convênio");
     const { lastBatchNumber } = await tx.clinic.update({ where: { id: user.clinicId }, data: { lastBatchNumber: { increment: 1 } } });
     const created = await tx.claimBatch.create({
-      data: { clinicId: user.clinicId, healthPlanId, number: lastBatchNumber, tissVersion: TISS_VERSION },
+      data: { clinicId: user.clinicId, healthPlanId, kind, number: lastBatchNumber, tissVersion: TISS_VERSION },
     });
     const { count } = await tx.insuranceClaim.updateMany({
       where: { clinicId: user.clinicId, id: { in: claims.map((c) => c.id) }, status: "ABERTA", batchId: null },
@@ -153,7 +209,7 @@ export async function closeBatch(healthPlanId: string) {
     action: "LOTE_FECHADO",
     entity: "ClaimBatch",
     entityId: batch.id,
-    details: { number: batch.number, healthPlan: plan.name, guias: batch.size },
+    details: { number: batch.number, tipo: kind, healthPlan: plan.name, guias: batch.size },
   });
   revalidatePath("/financeiro", "layout");
   redirect(`/financeiro/faturamento/lotes/${batch.id}`);

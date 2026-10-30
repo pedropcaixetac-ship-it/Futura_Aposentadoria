@@ -98,3 +98,20 @@ test("conferência do pagamento: valor pago e motivo da glosa", async () => {
   assert.match(JSON.stringify(parseClaimPayments(form({ pago_a: "200", pago_b: "150" }), claims, parseMoney)), /maior que o valor/);
   assert.match(JSON.stringify(parseClaimPayments(form({ pago_a: "abc", pago_b: "150" }), claims, parseMoney)), /inválido/);
 });
+
+test("itens da guia SP/SADT: pula linha vazia, confere a tabela e multiplica pela quantidade", async () => {
+  const { parseMoney } = await import("../src/lib/money");
+  const { parseClaimItems } = await import("../src/lib/tiss");
+  const prices = [{ tussCode: "40301630", description: "Hemograma" }, { tussCode: "40101010", description: "ECG" }];
+  const form = (values: Record<string, string>) => (key: string) => values[key] ?? null;
+  const ok = parseClaimItems(form({ item_tuss_0: "4.03.01.63-0", item_qtd_0: "2", item_valor_0: "40,00", item_tuss_2: "40101010", item_valor_2: "120" }), prices, parseMoney, normalizeTussCode);
+  assert.deepEqual(ok, {
+    items: [
+      { sequence: 1, tussCode: "40301630", description: "Hemograma", quantity: 2, unitCents: 4000, totalCents: 8000 },
+      { sequence: 2, tussCode: "40101010", description: "ECG", quantity: 1, unitCents: 12000, totalCents: 12000 },
+    ],
+  });
+  assert.deepEqual(parseClaimItems(form({}), prices, parseMoney, normalizeTussCode), { error: "Inclua ao menos um exame ou procedimento." });
+  assert.match((parseClaimItems(form({ item_tuss_0: "10101012", item_valor_0: "10" }), prices, parseMoney, normalizeTussCode) as { error: string }).error, /fora da tabela/);
+  assert.match((parseClaimItems(form({ item_tuss_0: "40101010", item_qtd_0: "0", item_valor_0: "10" }), prices, parseMoney, normalizeTussCode) as { error: string }).error, /quantidade/);
+});
