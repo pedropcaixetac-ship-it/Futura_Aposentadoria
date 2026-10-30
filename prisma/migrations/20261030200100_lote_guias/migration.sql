@@ -29,11 +29,12 @@ ALTER TABLE "ClaimBatch" ADD CONSTRAINT "ClaimBatch_clinicId_fkey" FOREIGN KEY (
 -- AddForeignKey
 ALTER TABLE "ClaimBatch" ADD CONSTRAINT "ClaimBatch_healthPlanId_fkey" FOREIGN KEY ("healthPlanId") REFERENCES "HealthPlan"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- Trava de mesma clínica (ver 20261030200000_mesma_clinica) para as guias e os lotes.
-CREATE TRIGGER "insuranceclaim_mesma_clinica"
-BEFORE INSERT OR UPDATE ON "InsuranceClaim"
-FOR EACH ROW EXECUTE FUNCTION conferir_mesma_clinica('healthPlanId', 'HealthPlan', 'patientId', 'Patient', 'professionalId', 'User', 'encounterId', 'Encounter', 'batchId', 'ClaimBatch');
-
+-- Trava de mesma clínica (ver 20261030200000_mesma_clinica) para os lotes e para o lote de cada guia.
+-- As outras ligações da guia ficam em 20261030201500_mesma_clinica_guias.
 CREATE TRIGGER "claimbatch_mesma_clinica"
 BEFORE INSERT OR UPDATE ON "ClaimBatch"
 FOR EACH ROW EXECUTE FUNCTION conferir_mesma_clinica('healthPlanId', 'HealthPlan');
+
+CREATE TRIGGER "insuranceclaim_lote_mesma_clinica"
+BEFORE INSERT OR UPDATE ON "InsuranceClaim"
+FOR EACH ROW EXECUTE FUNCTION conferir_mesma_clinica('batchId', 'ClaimBatch');
