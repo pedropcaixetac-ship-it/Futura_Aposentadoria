@@ -57,6 +57,9 @@ Este é o primeiro módulo: **Prontuário**.
   O XML da NF-e enviado pelo fornecedor preenche tudo sozinho. O pagamento (à vista ou em parcelas) entra nas Despesas,
   e a mesma nota não pode ser lançada duas vezes
 - Tabela de preços, que preenche o valor da cobrança
+- Convênios (primeira etapa do faturamento TISS): cadastro de cada plano de saúde (registro ANS, código da clínica no convênio,
+  prazo de pagamento e de retorno) e a tabela de preços combinada por código TUSS, digitada ou colada de uma planilha.
+  O CNES da clínica, que vai nas guias, também fica nesta aba
 - Repasse por profissional (porcentagem do valor recebido), que pode ser lançado como despesa
 - Recibo numerado, com valor por extenso, para imprimir ou salvar em PDF
 - O administrador vê tudo; a recepção lança cobranças e recebe pagamentos; cada profissional vê só o próprio repasse
