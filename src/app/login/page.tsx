@@ -10,6 +10,9 @@ export default async function LoginPage() {
         <h1 className="text-xl font-semibold text-marinho-800">Prontuário Eletrônico</h1>
         <p className="mb-6 text-sm text-slate-500">Entre com os dados da sua clínica</p>
         <LoginForm />
+        <p className="mt-6 border-t border-slate-100 pt-4 text-center text-sm text-slate-500">
+          É paciente? <a href="/paciente/entrar" className="font-medium text-marinho-700 underline">Veja suas consultas</a>
+        </p>
       </div>
     </main>
   );
