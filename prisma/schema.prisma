@@ -22,17 +22,36 @@ enum EncounterStatus {
   FINALIZADO
 }
 
+enum AppointmentType {
+  CONSULTA
+  RETORNO
+  PROCEDIMENTO
+}
+
+enum AppointmentStatus {
+  AGENDADO
+  CONFIRMADO
+  CHEGOU
+  EM_ATENDIMENTO
+  ATENDIDO
+  FALTOU
+  DESMARCADO
+}
+
 model Clinic {
   id        String   @id @default(cuid())
   name      String
   slug      String   @unique
   createdAt DateTime @default(now())
 
-  users     User[]
-  patients  Patient[]
-  templates RecordTemplate[]
-  encounters Encounter[]
-  auditLogs AuditLog[]
+  users          User[]
+  patients       Patient[]
+  templates      RecordTemplate[]
+  encounters     Encounter[]
+  auditLogs      AuditLog[]
+  workHours      WorkHours[]
+  scheduleBlocks ScheduleBlock[]
+  appointments   Appointment[]
 }
 
 model User {
@@ -53,11 +72,15 @@ model User {
   active        Boolean  @default(true)
   createdAt     DateTime @default(now())
 
-  sessions   Session[]
-  encounters Encounter[]
-  addenda    Addendum[]
-  auditLogs  AuditLog[]
-  snippets   TextSnippet[]
+  sessions            Session[]
+  encounters          Encounter[]
+  addenda             Addendum[]
+  auditLogs           AuditLog[]
+  snippets            TextSnippet[]
+  workHours           WorkHours[]
+  scheduleBlocks      ScheduleBlock[]
+  appointments        Appointment[]   @relation("AppointmentProfessional")
+  appointmentsCreated Appointment[]   @relation("AppointmentCreator")
 
   @@unique([clinicId, email])
 }
@@ -71,22 +94,22 @@ model Session {
 }
 
 model Patient {
-  id        String    @id @default(cuid())
-  clinicId  String
-  clinic    Clinic    @relation(fields: [clinicId], references: [id])
-  name      String
-  socialName String?
-  birthDate DateTime?
-  sex       String?
-  cpf       String?
-  phone     String?
-  email     String?
-  address   String?
-  insurance String?
+  id              String    @id @default(cuid())
+  clinicId        String
+  clinic          Clinic    @relation(fields: [clinicId], references: [id])
+  name            String
+  socialName      String?
+  birthDate       DateTime?
+  sex             String?
+  cpf             String?
+  phone           String?
+  email           String?
+  address         String?
+  insurance       String?
   insuranceNumber String?
-  guardianName String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  guardianName    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   // Resumo clínico, sempre visível no topo do prontuário.
   allergies          String?
@@ -94,10 +117,11 @@ model Patient {
   personalHistory    String?
   familyHistory      String?
 
-  encounters Encounter[]
+  encounters   Encounter[]
+  appointments Appointment[]
 
-  @@index([clinicId, name])
   @@unique([clinicId, cpf])
+  @@index([clinicId, name])
 }
 
 // Modelo de atendimento (ex.: "Consulta clínica geral", "Psicologia - sessão").
@@ -139,7 +163,8 @@ model Encounter {
   // Impressão digital (SHA-256) do conteúdo finalizado, para detectar adulteração.
   contentHash    String?
 
-  addenda Addendum[]
+  addenda     Addendum[]
+  appointment Appointment?
 
   @@index([clinicId, patientId, startedAt])
 }
@@ -185,6 +210,69 @@ model TextSnippet {
   createdAt DateTime @default(now())
 
   @@index([ownerId, fieldKey])
+}
+
+// Horário de atendimento de um profissional num dia da semana (0 = domingo).
+// Um profissional pode ter mais de um período no mesmo dia (manhã e tarde).
+// Horários em minutos desde a meia-noite, no horário de Brasília.
+model WorkHours {
+  id             String @id @default(cuid())
+  clinicId       String
+  clinic         Clinic @relation(fields: [clinicId], references: [id])
+  professionalId String
+  professional   User   @relation(fields: [professionalId], references: [id])
+  weekday        Int
+  startMinute    Int
+  endMinute      Int
+  // Duração padrão de cada consulta neste período.
+  slotMinutes    Int
+
+  @@index([clinicId, professionalId])
+}
+
+// Período em que o profissional não atende (almoço, férias, congresso...).
+model ScheduleBlock {
+  id             String   @id @default(cuid())
+  clinicId       String
+  clinic         Clinic   @relation(fields: [clinicId], references: [id])
+  professionalId String
+  professional   User     @relation(fields: [professionalId], references: [id])
+  startsAt       DateTime
+  endsAt         DateTime
+  reason         String?
+  createdAt      DateTime @default(now())
+
+  @@index([clinicId, professionalId, startsAt])
+}
+
+model Appointment {
+  id             String            @id @default(cuid())
+  clinicId       String
+  clinic         Clinic            @relation(fields: [clinicId], references: [id])
+  professionalId String
+  professional   User              @relation("AppointmentProfessional", fields: [professionalId], references: [id])
+  patientId      String
+  patient        Patient           @relation(fields: [patientId], references: [id])
+  startsAt       DateTime
+  endsAt         DateTime
+  type           AppointmentType   @default(CONSULTA)
+  // Vazio = particular; preenchido = nome do convênio.
+  insurance      String?
+  notes          String?
+  status         AppointmentStatus @default(AGENDADO)
+  arrivedAt      DateTime?
+  cancelReason   String?
+  // Atendimento do prontuário aberto a partir deste agendamento.
+  encounterId    String?           @unique
+  encounter      Encounter?        @relation(fields: [encounterId], references: [id])
+  createdById    String
+  createdBy      User              @relation("AppointmentCreator", fields: [createdById], references: [id])
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([clinicId, startsAt])
+  @@index([clinicId, professionalId, startsAt])
+  @@index([clinicId, patientId])
 }
 
 model Cid10 {

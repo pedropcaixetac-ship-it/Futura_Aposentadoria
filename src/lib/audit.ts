@@ -31,4 +31,11 @@ export const auditActionLabel: Record<string, string> = {
   ADENDO_CRIADO: "Adicionou adendo",
   MODELO_CRIADO: "Criou modelo de atendimento",
   MODELO_ALTERADO: "Alterou modelo de atendimento",
+  AGENDAMENTO_CRIADO: "Marcou consulta",
+  AGENDAMENTO_ALTERADO: "Remarcou ou alterou consulta",
+  AGENDAMENTO_SITUACAO: "Mudou a situação da consulta",
+  AGENDAMENTO_DESMARCADO: "Desmarcou consulta",
+  HORARIOS_ALTERADOS: "Alterou horários de atendimento",
+  BLOQUEIO_CRIADO: "Bloqueou horário na agenda",
+  BLOQUEIO_EXCLUIDO: "Excluiu bloqueio da agenda",
 };

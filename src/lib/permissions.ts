@@ -30,3 +30,18 @@ export function canManageTemplates(user: PermissionUser) {
 export function canViewAudit(user: PermissionUser) {
   return user.role === "ADMIN";
 }
+
+// Agenda: recepção e administrador cuidam da agenda de todos;
+// o profissional vê e marca só na própria agenda.
+export function canSeeAllAgendas(user: PermissionUser) {
+  return user.role === "ADMIN" || user.role === "RECEPCAO";
+}
+
+export function canManageAgendaOf(user: PermissionUser, professionalId: string) {
+  return canSeeAllAgendas(user) || user.id === professionalId;
+}
+
+// Só o profissional do agendamento inicia o atendimento a partir dele.
+export function canStartFromAppointment(user: PermissionUser, appointment: { professionalId: string }) {
+  return canViewClinical(user) && appointment.professionalId === user.id;
+}

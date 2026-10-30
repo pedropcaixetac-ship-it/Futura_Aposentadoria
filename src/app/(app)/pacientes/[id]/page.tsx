@@ -49,7 +49,10 @@ export default async function PatientRecordPage({ params }: { params: Promise<{ 
               .join(" · ")}
           </p>
         </div>
-        <Link href={`/pacientes/${id}/editar`} className="btn-secondary">Editar cadastro</Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href={`/agenda/novo?paciente=${id}`} className="btn-secondary">Agendar consulta</Link>
+          <Link href={`/pacientes/${id}/editar`} className="btn-secondary">Editar cadastro</Link>
+        </div>
       </div>
 
       {!clinical && (

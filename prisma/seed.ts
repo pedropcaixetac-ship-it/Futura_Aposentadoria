@@ -135,9 +135,79 @@ async function seedDemo() {
   console.log("Clínica de demonstração criada (senha de todos: senha123)");
 }
 
+// Horário de Brasília (sem horário de verão): hora local + 3 = UTC.
+function brasilia(daysFromToday: number, hour: number, minute = 0) {
+  const now = new Date(Date.now() - 3 * 3600 * 1000);
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + daysFromToday, hour + 3, minute));
+}
+
+// Horários de atendimento e algumas consultas na clínica de demonstração.
+// Roda à parte, para aparecer também em quem já tinha a clínica criada.
+async function seedAgenda() {
+  const clinic = await prisma.clinic.findUnique({ where: { slug: "demo" } });
+  if (!clinic || (await prisma.workHours.count({ where: { clinicId: clinic.id } })) > 0) return;
+
+  const users = await prisma.user.findMany({ where: { clinicId: clinic.id } });
+  const byEmail = (email: string) => users.find((u) => u.email === email)!;
+  const ana = byEmail("ana@demo.com");
+  const carlos = byEmail("carlos@demo.com");
+  const recepcao = byEmail("recepcao@demo.com");
+
+  const weekdays = [1, 2, 3, 4, 5];
+  await prisma.workHours.createMany({
+    data: [
+      ...weekdays.flatMap((weekday) => [
+        { clinicId: clinic.id, professionalId: ana.id, weekday, startMinute: 8 * 60, endMinute: 12 * 60, slotMinutes: 30 },
+        { clinicId: clinic.id, professionalId: ana.id, weekday, startMinute: 14 * 60, endMinute: 18 * 60, slotMinutes: 30 },
+      ]),
+      ...weekdays.map((weekday) => ({ clinicId: clinic.id, professionalId: carlos.id, weekday, startMinute: 13 * 60, endMinute: 19 * 60, slotMinutes: 50 })),
+    ],
+  });
+
+  const patients = await prisma.patient.findMany({ where: { clinicId: clinic.id } });
+  const maria = patients.find((p) => p.name === "Maria Oliveira")!;
+  const joao = patients.find((p) => p.name === "João Pereira")!;
+  const extra = await Promise.all(
+    [
+      { name: "Fernanda Costa", phone: "(11) 96666-3333" },
+      { name: "Roberto Alves", phone: "(11) 95555-4444", insurance: "Bradesco Saúde" },
+      { name: "Luíza Martins", phone: "(11) 94444-5555" },
+    ].map((data) => prisma.patient.create({ data: { ...data, clinicId: clinic.id } })),
+  );
+  const [fernanda, roberto, luiza] = extra;
+
+  const appt = (professionalId: string, patientId: string, start: Date, minutes: number, rest: Record<string, unknown> = {}) => ({
+    clinicId: clinic.id,
+    professionalId,
+    patientId,
+    startsAt: start,
+    endsAt: new Date(start.getTime() + minutes * 60_000),
+    createdById: recepcao.id,
+    ...rest,
+  });
+  await prisma.appointment.createMany({
+    data: [
+      appt(ana.id, maria.id, brasilia(0, 8), 30, { status: "ATENDIDO" as const }),
+      appt(ana.id, joao.id, brasilia(0, 9), 30, { status: "CHEGOU" as const, arrivedAt: brasilia(0, 8, 50), type: "RETORNO" as const, insurance: "Unimed" }),
+      appt(ana.id, fernanda.id, brasilia(0, 9, 30), 30, { status: "CONFIRMADO" as const }),
+      appt(ana.id, roberto.id, brasilia(0, 10, 30), 30, { insurance: "Bradesco Saúde", notes: "Trazer exames de sangue" }),
+      appt(ana.id, luiza.id, brasilia(0, 14), 60, { type: "PROCEDIMENTO" as const }),
+      appt(ana.id, maria.id, brasilia(1, 8, 30), 30, { type: "RETORNO" as const }),
+      appt(carlos.id, luiza.id, brasilia(0, 14), 50, { status: "CONFIRMADO" as const }),
+      appt(carlos.id, fernanda.id, brasilia(0, 15, 40), 50, { status: "DESMARCADO" as const, cancelReason: "Paciente viajou" }),
+      appt(carlos.id, roberto.id, brasilia(2, 13), 50, { insurance: "Bradesco Saúde" }),
+    ],
+  });
+  await prisma.scheduleBlock.create({
+    data: { clinicId: clinic.id, professionalId: ana.id, startsAt: brasilia(0, 11, 30), endsAt: brasilia(0, 12), reason: "Reunião" },
+  });
+  console.log("Agenda de demonstração criada");
+}
+
 async function main() {
   await seedCid10();
   await seedDemo();
+  await seedAgenda();
 }
 
 main().finally(() => prisma.$disconnect());

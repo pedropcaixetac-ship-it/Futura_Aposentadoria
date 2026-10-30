@@ -20,7 +20,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Itens "em breve" são os próximos módulos do plano.
   const items: NavItem[] = [
     { href: "/recepcao", label: "Recepção", soon: true },
-    { href: "/agenda", label: "Agenda", soon: true },
+    { href: "/agenda", label: "Agenda" },
     { href: "/pacientes", label: "Pacientes" },
     ...(canManageTemplates(user) ? [{ href: "/modelos", label: "Modelos de atendimento" }] : []),
     ...(clinical ? [{ href: "/textos-prontos", label: "Meus textos prontos" }] : []),

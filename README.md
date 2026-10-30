@@ -18,6 +18,10 @@ Este é o primeiro módulo: **Prontuário**.
 - Impressão do atendimento
 - Barra lateral com a clínica, o usuário, o setor e o menu de cada perfil
 - "Usar modelo" ao lado de cada campo do atendimento, com os textos prontos de cada profissional
+- Agenda por dia (uma coluna por profissional) e por semana, com horários de atendimento, bloqueios
+  (almoço, férias), cadastro rápido de paciente, aviso de horário ocupado com opção de encaixe,
+  situação da consulta em cores e sala de espera. O profissional inicia o atendimento direto da agenda,
+  e a consulta vira "Atendido" quando o atendimento é finalizado
 
 ## Usuários de demonstração
 
