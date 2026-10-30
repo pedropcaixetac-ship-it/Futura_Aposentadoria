@@ -85,6 +85,9 @@ model Patient {
   insurance String?
   insuranceNumber String?
   guardianName String?
+  // Consentimento (LGPD) para a clínica mandar mensagens pelo WhatsApp, e quando foi dado.
+  whatsappOptIn   Boolean   @default(false)
+  whatsappOptInAt DateTime?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 

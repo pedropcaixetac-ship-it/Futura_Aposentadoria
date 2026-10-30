@@ -18,6 +18,8 @@ Este é o primeiro módulo: **Prontuário**.
 - Impressão do atendimento
 - Barra lateral com a clínica, o usuário, o setor e o menu de cada perfil
 - "Usar modelo" ao lado de cada campo do atendimento, com os textos prontos de cada profissional
+- WhatsApp (primeira etapa): botão "Enviar no WhatsApp" na ficha do paciente, que abre o WhatsApp da recepção com o
+  texto pronto (contato ou aviso de retorno). Só aparece se o paciente autorizou no cadastro (LGPD), e cada envio fica na auditoria
 
 ## Usuários de demonstração
 

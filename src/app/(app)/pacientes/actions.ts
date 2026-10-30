@@ -31,7 +31,14 @@ function patientData(formData: FormData) {
     insurance: text(formData, "insurance"),
     insuranceNumber: text(formData, "insuranceNumber"),
     guardianName: text(formData, "guardianName"),
+    whatsappOptIn: formData.get("whatsappOptIn") === "on",
   };
+}
+
+// Guarda a data em que o paciente autorizou o WhatsApp; se ele retirar a autorização, apaga.
+function optInDate(optIn: boolean, before: { whatsappOptIn: boolean; whatsappOptInAt: Date | null } | null) {
+  if (!optIn) return null;
+  return before?.whatsappOptIn ? before.whatsappOptInAt : new Date();
 }
 
 function validate(data: ReturnType<typeof patientData>) {
@@ -56,12 +63,17 @@ export async function createPatient(_: FormState, formData: FormData): Promise<F
 
   let id: string;
   try {
-    const patient = await prisma.patient.create({ data: { ...data, clinicId: user.clinicId } });
+    const patient = await prisma.patient.create({
+      data: { ...data, whatsappOptInAt: optInDate(data.whatsappOptIn, null), clinicId: user.clinicId },
+    });
     id = patient.id;
   } catch (e) {
     return { error: friendlyError(e) };
   }
   await audit({ clinicId: user.clinicId, userId: user.id, action: "PACIENTE_CRIADO", entity: "Patient", entityId: id, patientId: id });
+  if (data.whatsappOptIn) {
+    await audit({ clinicId: user.clinicId, userId: user.id, action: "WHATSAPP_AUTORIZADO", entity: "Patient", entityId: id, patientId: id });
+  }
   redirect(`/pacientes/${id}`);
 }
 
@@ -71,13 +83,25 @@ export async function updatePatient(id: string, _: FormState, formData: FormData
   const error = validate(data);
   if (error) return { error };
 
+  const before = await prisma.patient.findFirst({ where: { id, clinicId: user.clinicId } });
+  if (!before) return { error: "Paciente não encontrado." };
+
   try {
-    const { count } = await prisma.patient.updateMany({ where: { id, clinicId: user.clinicId }, data });
-    if (count === 0) return { error: "Paciente não encontrado." };
+    await prisma.patient.update({ where: { id }, data: { ...data, whatsappOptInAt: optInDate(data.whatsappOptIn, before) } });
   } catch (e) {
     return { error: friendlyError(e) };
   }
   await audit({ clinicId: user.clinicId, userId: user.id, action: "PACIENTE_ALTERADO", entity: "Patient", entityId: id, patientId: id });
+  if (before.whatsappOptIn !== data.whatsappOptIn) {
+    await audit({
+      clinicId: user.clinicId,
+      userId: user.id,
+      action: data.whatsappOptIn ? "WHATSAPP_AUTORIZADO" : "WHATSAPP_REVOGADO",
+      entity: "Patient",
+      entityId: id,
+      patientId: id,
+    });
+  }
   redirect(`/pacientes/${id}`);
 }
 

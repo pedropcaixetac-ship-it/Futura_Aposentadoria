@@ -120,6 +120,8 @@ async function seedDemo() {
         allergies: "Dipirona",
         currentMedications: "Losartana 50 mg 1x/dia",
         personalHistory: "Hipertensão arterial desde 2015",
+        whatsappOptIn: true,
+        whatsappOptInAt: new Date(),
       },
       {
         clinicId: clinic.id,

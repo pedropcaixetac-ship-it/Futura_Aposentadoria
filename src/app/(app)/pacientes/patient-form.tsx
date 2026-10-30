@@ -47,6 +47,17 @@ export function PatientForm({ action, patient, submitLabel }: Props) {
         {field("insuranceNumber", "Nº da carteirinha")}
         {field("guardianName", "Responsável legal (menores)")}
       </div>
+      <label className="flex items-start gap-2 text-sm text-slate-700">
+        <input type="checkbox" name="whatsappOptIn" className="mt-1" defaultChecked={patient?.whatsappOptIn ?? false} />
+        <span>
+          O paciente autoriza receber mensagens da clínica pelo WhatsApp (lembretes, confirmações e avisos de retorno).
+          {patient?.whatsappOptInAt && (
+            <span className="block text-xs text-slate-500">
+              Autorizado em {patient.whatsappOptInAt.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}.
+            </span>
+          )}
+        </span>
+      </label>
       {state.error && <p className="text-sm text-red-600">{state.error}</p>}
       <button className="btn-primary" disabled={pending}>{pending ? "Salvando..." : submitLabel}</button>
     </form>
