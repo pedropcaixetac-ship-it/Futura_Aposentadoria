@@ -105,3 +105,8 @@ export function validatePatient(data: PatientInput, mode: RegistrationMode): str
 export function sameNameKey(name: string) {
   return name.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
 }
+
+// Busca pelo nome (ou nome social) sem ligar para acentos nem maiúsculas: "jose" acha "José".
+export function patientNameWhere(term: string) {
+  return { searchName: { contains: sameNameKey(term) } };
+}
