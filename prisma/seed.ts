@@ -228,11 +228,27 @@ async function seedLoginDemo() {
   }
 }
 
+// Função de cada usuário de demonstração, para o cadastro de servidores. Também preenche bancos já criados.
+async function seedStaffDemo() {
+  const clinic = await prisma.clinic.findUnique({ where: { slug: "demo" } });
+  if (!clinic) return;
+  const jobTitles: Record<string, string> = {
+    "admin@demo.com": "Administrador",
+    "ana@demo.com": "Médica",
+    "carlos@demo.com": "Psicólogo",
+    "recepcao@demo.com": "Recepcionista",
+  };
+  for (const [email, jobTitle] of Object.entries(jobTitles)) {
+    await prisma.user.updateMany({ where: { clinicId: clinic.id, email, jobTitle: null }, data: { jobTitle } });
+  }
+}
+
 async function main() {
   await seedCid10();
   await seedDemo();
   await seedFinanceDemo();
   await seedLoginDemo();
+  await seedStaffDemo();
 }
 
 main().finally(() => prisma.$disconnect());

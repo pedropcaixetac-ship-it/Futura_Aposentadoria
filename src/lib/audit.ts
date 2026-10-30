@@ -48,4 +48,9 @@ export const auditActionLabel: Record<string, string> = {
   WHATSAPP_AUTORIZADO: "Registrou autorização do paciente para WhatsApp",
   WHATSAPP_REVOGADO: "Registrou que o paciente retirou a autorização para WhatsApp",
   WHATSAPP_ABERTO: "Abriu conversa no WhatsApp com o paciente",
+  SERVIDOR_CRIADO: "Cadastrou servidor",
+  SERVIDOR_ALTERADO: "Alterou cadastro de servidor",
+  PERMISSOES_ALTERADAS: "Alterou as abas que um servidor acessa",
+  SERVIDOR_DESLIGADO: "Registrou desligamento de servidor",
+  SERVIDOR_REATIVADO: "Reativou acesso de servidor",
 };
