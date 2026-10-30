@@ -75,6 +75,7 @@ export const auditActionLabel: Record<string, string> = {
   SERVIDOR_CRIADO: "Cadastrou servidor",
   SERVIDOR_ALTERADO: "Alterou cadastro de servidor",
   PERMISSOES_ALTERADAS: "Alterou as abas que um servidor acessa",
+  SENHA_ALTERADA: "Trocou a própria senha",
   SERVIDOR_DESLIGADO: "Registrou desligamento de servidor",
   SERVIDOR_REATIVADO: "Reativou acesso de servidor",
   TELECONSULTA_CRIADA: "Criou teleconsulta",

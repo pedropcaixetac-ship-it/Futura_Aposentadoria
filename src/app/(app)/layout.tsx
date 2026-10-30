@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { userTabs } from "@/lib/tabs";
 import { roleLabel } from "@/lib/format";
@@ -19,7 +20,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await requireUser();
 
   // Abas liberadas para a pessoa: padrão do perfil ou o que o administrador escolheu em "Editar permissões".
-  const items: NavItem[] = userTabs(user).map((tab) => ({ href: tab.href, label: tab.label }));
+  // "Meu cadastro" aparece para todos, sem depender de permissão.
+  const items: NavItem[] = [
+    ...userTabs(user).filter((tab) => tab.menu !== false).map((tab) => ({ href: tab.href, label: tab.label })),
+    { href: "/meu-cadastro", label: "Meu cadastro" },
+  ];
 
   return (
     <div className="min-h-screen md:flex">
@@ -31,10 +36,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <span className="font-semibold leading-tight text-dourado-300">{user.clinic.name}</span>
         </div>
 
-        <div className="rounded-md bg-marinho-800/60 px-3 py-2">
+        <Link href="/meu-cadastro" className="block rounded-md bg-marinho-800/60 px-3 py-2 hover:bg-marinho-800">
           <p className="text-sm font-medium">{displayName(user)}</p>
           <p className="text-xs text-marinho-100">{user.sector ?? roleLabel[user.role]}</p>
-        </div>
+        </Link>
 
         <div className="flex-1">
           <SidebarNav items={items} />

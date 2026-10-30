@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { hasTab, sanitizeTabs, userTabs } from "../src/lib/tabs";
-import { displayName, parseStaff, staffFunction, validateStaff } from "../src/lib/staff";
+import { displayName, parseStaff, staffFunction, validateNewPassword, validateStaff } from "../src/lib/staff";
 import { canOpenEncounter, canViewClinical, canWorkClinical } from "../src/lib/permissions";
 
 const padrao = { customTabs: false, allowedTabs: [] as string[] };
@@ -108,4 +108,11 @@ test("saúde com acesso restrito: só os próprios atendimentos", () => {
   assert.equal(canOpenEncounter(medica, { professionalId: "t1" }), true);
   assert.equal(hasTab(tecnica, "assinatura"), false);
   assert.equal(hasTab(tecnica, "textos-prontos"), true);
+});
+
+test("troca da própria senha em Meu cadastro", () => {
+  assert.equal(validateNewPassword("antiga123", "novaSenha9", "novaSenha9"), null);
+  assert.match(validateNewPassword("antiga123", "curta", "curta")!, /8 caracteres/);
+  assert.match(validateNewPassword("antiga123", "novaSenha9", "outraSenha")!, /confirmação/);
+  assert.match(validateNewPassword("antiga123", "antiga123", "antiga123")!, /diferente/);
 });

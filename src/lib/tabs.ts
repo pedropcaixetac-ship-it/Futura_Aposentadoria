@@ -27,6 +27,8 @@ type Tab = {
   // Regra que nenhuma permissão muda (ex.: conteúdo clínico só para quem tem conselho).
   // Devolve o motivo quando a pessoa não pode ter a aba.
   blockedReason?: (user: PermissionUser) => string | null;
+  // false: vale como permissão, mas não tem item próprio no menu (ex.: assinatura fica dentro de "Meu cadastro").
+  menu?: false;
 };
 
 const allRoles: Role[] = ["ADMIN", "PROFISSIONAL", "TECNICO", "RECEPCAO"];
@@ -74,8 +76,9 @@ export const TABS: Tab[] = [
   {
     key: "assinatura",
     label: "Assinatura digital",
-    href: "/assinatura",
-    description: "Certificado ICP-Brasil para assinar receitas, atestados e atendimentos.",
+    href: "/meu-cadastro#certificado",
+    description: "Assinar receitas, atestados e atendimentos com certificado ICP-Brasil. O certificado fica em \"Meu cadastro\".",
+    menu: false,
     defaultRoles: allRoles,
     blockedReason: (u) => (canViewClinical(u) ? null : "Só para profissionais de saúde com acesso completo e registro em conselho."),
   },
