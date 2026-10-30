@@ -11,6 +11,7 @@ import { createEncounter } from "@/lib/encounter";
 import { canManageAgendaOf, canStartFromAppointment, canUseReception } from "@/lib/permissions";
 import { findProfessional } from "@/lib/agenda-data";
 import { onlyDigits } from "@/lib/format";
+import { syncAppointmentTeleconsultation } from "@/lib/teleconsulta-agenda";
 import {
   addDays,
   canCancel,
@@ -31,7 +32,7 @@ function text(formData: FormData, key: string) {
   return value || null;
 }
 
-const types: AppointmentType[] = ["CONSULTA", "RETORNO", "PROCEDIMENTO"];
+const types: AppointmentType[] = ["CONSULTA", "RETORNO", "PROCEDIMENTO", "TELECONSULTA"];
 const editableStatuses: AppointmentStatus[] = ["AGENDADO", "CONFIRMADO", "CHEGOU", "FALTOU"];
 
 export type PatientOption = { id: string; name: string; phone: string | null; insurance: string | null };
@@ -152,6 +153,7 @@ export async function saveAppointment(
     id = created.id;
     await audit({ clinicId: user.clinicId, userId: user.id, action: "AGENDAMENTO_CRIADO", entity: "Appointment", entityId: id, patientId });
   }
+  await syncAppointmentTeleconsultation(id, user.id);
   redirect(`/agenda?data=${date}`);
 }
 
@@ -205,6 +207,7 @@ export async function cancelAppointment(id: string, formData: FormData) {
     patientId: appointment.patientId,
     details: { motivo: cancelReason },
   });
+  await syncAppointmentTeleconsultation(id, user.id);
   redirect(`/agenda?data=${clinicParts(appointment.startsAt).date}`);
 }
 
@@ -222,6 +225,8 @@ export async function startFromAppointment(id: string, formData: FormData) {
     where: { id },
     data: { encounterId: encounter.id, status: "EM_ATENDIMENTO", arrivedAt: appointment.arrivedAt ?? new Date() },
   });
+  // Teleconsulta marcada: o atendimento abre já com o painel do vídeo.
+  await prisma.teleconsultation.updateMany({ where: { appointmentId: id, encounterId: null }, data: { encounterId: encounter.id } });
   redirect(`/pacientes/${appointment.patientId}/atendimentos/${encounter.id}`);
 }
 

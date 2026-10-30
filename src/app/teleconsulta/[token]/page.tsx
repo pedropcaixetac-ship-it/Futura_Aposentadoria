@@ -6,6 +6,7 @@ import { consentText, councilLabel, teleconsultationState } from "@/lib/telecons
 import { ensureRoom } from "@/lib/teleconsulta-sala";
 import { joinUrl, videoConfigured } from "@/lib/video";
 import { acceptConsent } from "./actions";
+import { formatDateTime } from "@/lib/format";
 import { displayName } from "@/lib/staff";
 
 // Página aberta pelo paciente, sem login: o link secreto é a chave.
@@ -36,7 +37,7 @@ export default async function PatientTeleconsultationPage({ params }: { params: 
   const { token } = await params;
   const t = await prisma.teleconsultation.findUnique({
     where: { token },
-    include: { clinic: true, professional: true, patient: true },
+    include: { clinic: true, professional: true, patient: true, appointment: true },
   });
   if (!t) notFound();
 
@@ -59,7 +60,8 @@ export default async function PatientTeleconsultationPage({ params }: { params: 
           <div>
             <h1 className="text-lg font-semibold text-marinho-800">Olá, {firstName}!</h1>
             <p className="text-sm text-slate-600">
-              Sua consulta com {displayName(t.professional)}{council && ` (${council})`} será por vídeo.
+              Sua consulta com {displayName(t.professional)}{council && ` (${council})`}
+              {t.appointment && `, marcada para ${formatDateTime(t.appointment.startsAt)},`} será por vídeo.
               Antes de entrar, leia e aceite o termo abaixo.
             </p>
           </div>

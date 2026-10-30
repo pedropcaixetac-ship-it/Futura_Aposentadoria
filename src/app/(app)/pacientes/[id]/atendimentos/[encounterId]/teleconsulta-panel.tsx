@@ -10,6 +10,7 @@ type Props = {
   initialConsentAt: string | null;
   initialPatientJoinedAt: string | null;
   configured: boolean;
+  expiresLabel: string;
   status: () => Promise<{ consentAt: string | null; patientJoinedAt: string | null; ended: boolean }>;
   join: () => Promise<{ url?: string; error?: string }>;
   end: () => Promise<void>;
@@ -27,7 +28,7 @@ function whatsappNumber(phone: string | null) {
   return "";
 }
 
-export function TeleconsultaPanel({ link, patientName, phone, initialConsentAt, initialPatientJoinedAt, configured, status, join, end }: Props) {
+export function TeleconsultaPanel({ link, patientName, phone, initialConsentAt, initialPatientJoinedAt, configured, expiresLabel, status, join, end }: Props) {
   const router = useRouter();
   const [consentAt, setConsentAt] = useState(initialConsentAt);
   const [patientJoinedAt, setPatientJoinedAt] = useState(initialPatientJoinedAt);
@@ -93,7 +94,7 @@ export function TeleconsultaPanel({ link, patientName, phone, initialConsentAt, 
             >
               Enviar pelo WhatsApp{wa ? "" : " (escolher contato)"}
             </a>
-            <p className="mt-1 text-xs text-slate-500">O link vale por 24 horas.</p>
+            <p className="mt-1 text-xs text-slate-500">O link vale até {expiresLabel}.</p>
           </div>
         </>
       )}

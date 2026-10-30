@@ -129,6 +129,7 @@ export const appointmentTypeLabel: Record<AppointmentType, string> = {
   CONSULTA: "Consulta",
   RETORNO: "Retorno",
   PROCEDIMENTO: "Procedimento",
+  TELECONSULTA: "Teleconsulta",
 };
 
 export const statusLabel: Record<AppointmentStatus, string> = {

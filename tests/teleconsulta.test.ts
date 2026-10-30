@@ -2,7 +2,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { PrismaClient } from "@prisma/client";
-import { consentText, councilLabel, teleconsultationState } from "../src/lib/teleconsulta";
+import { consentText, councilLabel, scheduledLinkExpiry, teleconsultationState } from "../src/lib/teleconsulta";
 
 const prisma = new PrismaClient();
 after(() => prisma.$disconnect());
@@ -15,6 +15,11 @@ test("situação do link da teleconsulta", () => {
   assert.equal(teleconsultationState({ endedAt: null, expiresAt: later, consentAt: now }, now), "LIBERADA");
   assert.equal(teleconsultationState({ endedAt: null, expiresAt: before, consentAt: now }, now), "EXPIRADA");
   assert.equal(teleconsultationState({ endedAt: now, expiresAt: later, consentAt: now }, now), "ENCERRADA");
+});
+
+test("link de teleconsulta marcada na agenda vale até 12 horas depois do fim da consulta", () => {
+  const endsAt = new Date("2026-11-03T14:30:00Z");
+  assert.equal(scheduledLinkExpiry(endsAt).toISOString(), "2026-11-04T02:30:00.000Z");
 });
 
 test("termo cita o profissional, o conselho e a resolução do CFM", () => {
