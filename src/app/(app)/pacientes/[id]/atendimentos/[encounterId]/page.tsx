@@ -8,6 +8,7 @@ import { age, formatDate, formatDateTime } from "@/lib/format";
 import { documentHash, encounterHash, type Diagnosis, type TemplateField } from "@/lib/record";
 import { documentTypeLabel } from "@/lib/documents";
 import { addAddendum, autosaveEncounter, finalizeEncounter, issueDocument } from "../../actions";
+import { updateClinicalSummary } from "../../../actions";
 import type { Vitals } from "@/lib/vitals";
 import { DocumentForm } from "./document-form";
 import { EncounterEditor } from "./encounter-editor";
@@ -59,6 +60,9 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
         take: 30,
       })
     : [];
+
+  // "Copiar da última consulta" usa a última do próprio profissional; se não houver, a última de qualquer um.
+  const last = history.find((e) => e.professionalId === user.id) ?? history[0];
 
   const fields = encounter.fields as TemplateField[];
   const content = encounter.content as Record<string, string>;
@@ -118,11 +122,24 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
             diagnoses={diagnoses}
             vitals={vitals}
             snippets={snippets}
+            lastEncounter={
+              last
+                ? {
+                    when: formatDateTime(last.startedAt),
+                    professionalName: last.professional.name,
+                    fields: last.fields as TemplateField[],
+                    content: last.content as Record<string, string>,
+                    diagnoses: last.diagnoses as Diagnosis[],
+                  }
+                : null
+            }
             autosave={autosaveEncounter.bind(null, encounter.id)}
             finalize={finalizeEncounter.bind(null, encounter.id)}
           />
           <PatientHistory
+            patientId={id}
             summary={patient}
+            updateSummary={updateClinicalSummary.bind(null, id)}
             encounters={history.map((e) => ({
               id: e.id,
               startedAt: e.startedAt,
