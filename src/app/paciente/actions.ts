@@ -1,10 +1,21 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { onlyDigits } from "@/lib/format";
-import { afterFailure, isLocked, LOCK_MINUTES, parseBirthDate, sameDay } from "@/lib/patient-app";
+import {
+  afterFailure,
+  isLocked,
+  LOCK_MINUTES,
+  parseBirthDate,
+  patientCancelReason,
+  patientCanCancel,
+  patientCanConfirm,
+  sameDay,
+} from "@/lib/patient-app";
+import { syncAppointmentTeleconsultation } from "@/lib/teleconsulta-agenda";
 import { createPatientSession, destroyPatientSession, getCurrentPatient } from "@/lib/patient-auth";
 
 const WRONG = "Clínica, CPF ou data de nascimento não conferem. Se o erro continuar, fale com a recepção.";
@@ -44,4 +55,52 @@ export async function patientLogout() {
   if (patient) await audit({ clinicId: patient.clinicId, entity: "Patient", entityId: patient.id, patientId: patient.id, action: "PACIENTE_APP_SAIU" });
   await destroyPatientSession();
   redirect("/paciente/entrar");
+}
+
+// Consulta do paciente que está no aplicativo; qualquer outra dá erro.
+async function ownAppointment(id: string) {
+  const patient = await getCurrentPatient();
+  if (!patient) redirect("/paciente/entrar");
+  const appointment = await prisma.appointment.findFirst({ where: { id, clinicId: patient.clinicId, patientId: patient.id } });
+  if (!appointment) throw new Error("Consulta não encontrada");
+  return { patient, appointment };
+}
+
+export async function patientConfirm(id: string) {
+  const { patient, appointment } = await ownAppointment(id);
+  if (!patientCanConfirm(appointment)) throw new Error("Esta consulta não pode ser confirmada");
+  await prisma.appointment.update({ where: { id }, data: { status: "CONFIRMADO", confirmedInAppAt: new Date() } });
+  await audit({
+    clinicId: patient.clinicId,
+    action: "PACIENTE_APP_CONFIRMOU",
+    entity: "Appointment",
+    entityId: id,
+    patientId: patient.id,
+    details: { antes: appointment.status, depois: "CONFIRMADO" },
+  });
+  refreshAgenda();
+}
+
+export async function patientCancel(id: string, formData: FormData) {
+  const { patient, appointment } = await ownAppointment(id);
+  if (!patientCanCancel(appointment)) throw new Error("Esta consulta não pode ser desmarcada");
+  const cancelReason = patientCancelReason(String(formData.get("reason") ?? ""));
+  await prisma.appointment.update({ where: { id }, data: { status: "DESMARCADO", cancelReason, cancelledInAppAt: new Date() } });
+  await audit({
+    clinicId: patient.clinicId,
+    action: "PACIENTE_APP_DESMARCOU",
+    entity: "Appointment",
+    entityId: id,
+    patientId: patient.id,
+    details: { motivo: cancelReason },
+  });
+  await syncAppointmentTeleconsultation(id, null);
+  refreshAgenda();
+}
+
+function refreshAgenda() {
+  revalidatePath("/paciente");
+  revalidatePath("/recepcao");
+  revalidatePath("/atender");
+  revalidatePath("/agenda", "layout");
 }

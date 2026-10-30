@@ -682,6 +682,9 @@ model Appointment {
   status         AppointmentStatus @default(AGENDADO)
   arrivedAt      DateTime?
   cancelReason   String?
+  // Quando o próprio paciente confirmou ou desmarcou pelo aplicativo (aparece como "pelo app").
+  confirmedInAppAt DateTime?
+  cancelledInAppAt DateTime?
   // WhatsApp: quando a recepção pediu a confirmação desta consulta.
   confirmationSentAt DateTime?
   // Retorno previsto depois desta consulta e quando o paciente foi avisado.

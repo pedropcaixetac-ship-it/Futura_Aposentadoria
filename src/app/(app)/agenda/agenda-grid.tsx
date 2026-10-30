@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { appointmentTypeLabel, clinicParts, formatMinutes, formatTime, layoutLanes, statusLabel, statusStyle } from "@/lib/agenda";
+import { appointmentTypeLabel, clinicParts, formatMinutes, formatTime, layoutLanes, statusLabel, statusStyle, statusText } from "@/lib/agenda";
 import type { AgendaColumn } from "@/lib/agenda-data";
 
 // Altura de cada minuto na tela: 30 minutos ocupam 42 pixels.
@@ -128,14 +128,14 @@ export function AgendaGrid({
                       href={appointmentHref(a.id)}
                       className={`absolute z-10 overflow-hidden rounded border-l-4 px-2 text-xs shadow-sm hover:z-20 hover:shadow-md ${compact ? "py-0.5" : "py-1"} ${statusStyle[a.status]}`}
                       style={{ ...pos, left: `calc(${(lane / lanes) * 100}% + 4px)`, width: `calc(${100 / lanes}% - 8px)` }}
-                      title={`${formatTime(a.startsAt)} ${a.patient.socialName || a.patient.name} · ${statusLabel[a.status]}`}
+                      title={`${formatTime(a.startsAt)} ${a.patient.socialName || a.patient.name} · ${statusText(a)}`}
                     >
                       <p className="truncate font-semibold">
                         {formatTime(a.startsAt)} {a.patient.socialName || a.patient.name}
                       </p>
                       {!compact && (
                         <p className="truncate opacity-80">
-                          {appointmentTypeLabel[a.type]} · {a.insurance ?? "Particular"} · {statusLabel[a.status]}
+                          {appointmentTypeLabel[a.type]} · {a.insurance ?? "Particular"} · {statusText(a)}
                         </p>
                       )}
                     </Link>

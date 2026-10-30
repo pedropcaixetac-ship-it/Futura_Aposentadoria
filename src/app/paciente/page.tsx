@@ -3,7 +3,9 @@ import { requirePatient } from "@/lib/patient-auth";
 import { appointmentTypeLabel, statusLabel } from "@/lib/agenda";
 import { displayName } from "@/lib/staff";
 import { teleconsultationState } from "@/lib/teleconsulta";
+import { patientCanCancel, patientCanConfirm } from "@/lib/patient-app";
 import { patientLogout } from "./actions";
+import { AppointmentActions } from "./appointment-actions";
 
 const when = (d: Date) => {
   const text = d.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", weekday: "long", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
@@ -51,6 +53,7 @@ export default async function PatientHomePage() {
         <section className="space-y-3">
           <h2 className="font-semibold text-marinho-800">Próximas consultas</h2>
           {upcoming.length === 0 && <p className="card text-sm text-slate-500">Nenhuma consulta marcada. Para marcar, fale com a recepção.</p>}
+          {upcoming.length > 0 && <p className="text-xs text-marinho-700">Confirme sua presença ou desmarque com antecedência: a recepção vê na hora.</p>}
           {upcoming.map((a) => {
             const tele = a.teleconsultation && teleconsultationState(a.teleconsultation, now);
             return (
@@ -59,7 +62,10 @@ export default async function PatientHomePage() {
                 <p className="text-sm text-slate-600">
                   {appointmentTypeLabel[a.type]} com {displayName(a.professional)}
                 </p>
-                <p className="mt-1 text-xs text-slate-500">{statusLabel[a.status]}</p>
+                <p className={`mt-1 text-xs ${a.status === "CONFIRMADO" ? "font-medium text-emerald-700" : "text-slate-500"}`}>
+                  {a.status === "CONFIRMADO" ? "Presença confirmada" : statusLabel[a.status]}
+                </p>
+                <AppointmentActions id={a.id} canConfirm={patientCanConfirm(a, now)} canCancel={patientCanCancel(a, now)} />
                 {a.teleconsultation && (tele === "AGUARDANDO_TERMO" || tele === "LIBERADA") && (
                   <a href={`/teleconsulta/${a.teleconsultation.token}`} className="btn-primary mt-3 w-full">
                     Entrar na teleconsulta
