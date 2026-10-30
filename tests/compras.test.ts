@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { parseNfe } from "../src/lib/nfe";
+import { parseAccessKey, parseNfe } from "../src/lib/nfe";
 import { parseQuantity, validatePurchase, type PurchaseInput } from "../src/lib/purchase";
 import { purchaseExpenseDescription, splitInstallments } from "../src/lib/finance";
 
@@ -14,7 +14,7 @@ test("lê o XML da nota fiscal eletrônica", () => {
   assert.equal(nfe.supplierCnpj, "11222333000181");
   assert.equal(nfe.invoiceNumber, "7890");
   assert.equal(nfe.invoiceSeries, "1");
-  assert.equal(nfe.accessKey, "52261011222333000181550010000078901123456789");
+  assert.equal(nfe.accessKey, "52261011222333000181550010000078901123456787");
   assert.equal(nfe.issueDate, "2026-10-28");
   // O total da nota inclui o frete.
   assert.equal(nfe.totalCents, 50000);
@@ -94,4 +94,17 @@ test("avisos da nota fiscal", () => {
   assert.match(error({ total: "" }), /valor total/);
   assert.match(error({ installments: [{ dueDate: "2026-11-27", amount: "100,00" }] }), /soma das parcelas/);
   assert.match(error({ items: [{ description: "Luva", unit: "", quantity: "", unitPrice: "1,00", batch: "", expiresAt: "" }] }), /quantidade/);
+});
+
+test("chave de acesso (ou código de barras) traz CNPJ, número, série e mês", () => {
+  assert.deepEqual(parseAccessKey("5226 1011 2223 3300 0181 5500 1000 0078 9011 2345 6787"), {
+    issueMonth: "2026-10",
+    cnpj: "11222333000181",
+    model: "55",
+    series: "1",
+    number: "7890",
+  });
+  // Um número trocado é percebido pela conta de verificação.
+  assert.equal(parseAccessKey("52261011222333000181550010000078901123456788"), null);
+  assert.equal(parseAccessKey("5226101122233300018155001000007890112345678"), null);
 });

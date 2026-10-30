@@ -3,9 +3,10 @@
 import { startTransition, useActionState, useMemo, useState } from "react";
 import { formatMoney, moneyInput, parseMoney } from "@/lib/money";
 import { dateInput, purchaseKinds, splitInstallments } from "@/lib/finance";
-import { parseNfe } from "@/lib/nfe";
+import { parseAccessKey, parseNfe } from "@/lib/nfe";
 import { itemTotal, parseQuantity } from "@/lib/purchase";
-import { createPurchase, type FormState } from "../../actions";
+import { createPurchase, lookupSupplierName, type FormState } from "../../actions";
+import { BarcodeScanner } from "./barcode-scanner";
 
 type Item = { description: string; unit: string; quantity: string; unitPrice: string; total?: string; batch: string; expiresAt: string };
 type Installment = { dueDate: string; amount: string };
@@ -71,6 +72,32 @@ export function PurchaseForm({ suppliers, paymentMethods, today }: Props) {
     if (known?.cnpj && !supplierCnpj) setSupplierCnpj(known.cnpj);
   }
 
+  // Pela chave de acesso (digitada, colada ou lida no código de barras) vêm CNPJ, número, série e mês
+  // da nota; o nome do fornecedor vem das notas anteriores ou da consulta pública de CNPJ.
+  async function applyAccessKey(raw: string) {
+    const digits = raw.replace(/\D/g, "").slice(0, 44);
+    setAccessKey(digits);
+    if (digits.length < 44) return;
+    const info = parseAccessKey(digits);
+    if (!info) {
+      setNotice("Esta chave tem algum número errado. Confira os 44 números (ou leia o código de barras de novo).");
+      return;
+    }
+    setSupplierCnpj(info.cnpj);
+    setInvoiceNumber(info.number);
+    setInvoiceSeries(info.series);
+    // A chave só traz mês e ano; se a data de emissão estiver em outro mês, vai para o dia 1º para a pessoa ajustar.
+    setIssueDate((current) => (current.startsWith(info.issueMonth) ? current : `${info.issueMonth}-01`));
+    setNotice(`Chave lida: NF ${info.number}, série ${info.series}. Buscando o fornecedor...`);
+    const name = await lookupSupplierName(info.cnpj).catch(() => null);
+    if (name) setSupplierName(name);
+    setNotice(
+      `Chave lida: NF ${info.number}, série ${info.series}${name ? `, de ${name}` : ""}. ` +
+        (name ? "" : "Não encontrei o nome do fornecedor, digite abaixo. ") +
+        "Confira a data de emissão e preencha os itens e o valor (ou escolha o XML para vir tudo).",
+    );
+  }
+
   async function importXml(file: File | undefined) {
     if (!file) return;
     const nfe = parseNfe(await file.text());
@@ -126,18 +153,42 @@ export function PurchaseForm({ suppliers, paymentMethods, today }: Props) {
       <input type="hidden" name="installments" value={JSON.stringify(parcels)} />
       <input type="hidden" name="total" value={totalValue} />
 
-      <div className="card space-y-2 border-dashed border-dourado-400 bg-dourado-50/40">
-        <p className="font-medium text-marinho-800">Tem o arquivo XML da nota?</p>
-        <p className="text-sm text-slate-600">
-          O fornecedor manda o XML junto com o PDF (DANFE), geralmente por e-mail. Escolhendo o arquivo, o sistema preenche
-          fornecedor, número, itens, lote, validade, total e parcelas sozinho.
-        </p>
-        <input
-          type="file"
-          accept=".xml,text/xml,application/xml"
-          onChange={(e) => importXml(e.target.files?.[0])}
-          className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-marinho-700 file:px-3 file:py-1.5 file:text-white"
-        />
+      <div className="card space-y-4 border-dashed border-dourado-400 bg-dourado-50/40">
+        <p className="font-medium text-marinho-800">Preencher a nota automaticamente</p>
+        <div className="grid gap-5 md:grid-cols-2">
+          <div className="space-y-2">
+            <label className="label" htmlFor="accessKey">Chave de acesso ou código de barras</label>
+            <input
+              className="input font-mono"
+              id="accessKey"
+              name="accessKey"
+              value={accessKey}
+              onChange={(e) => applyAccessKey(e.target.value)}
+              // O leitor de código de barras aperta "Enter" no fim; aqui isso não pode salvar a nota.
+              onKeyDown={(e) => e.key === "Enter" && e.preventDefault()}
+              inputMode="numeric"
+              placeholder="Digite, cole ou passe o leitor de código de barras"
+            />
+            <p className="text-xs text-slate-500">
+              São os 44 números impressos no DANFE (a nota em papel). Um leitor de código de barras ligado no computador
+              também funciona: clique no campo e passe o leitor. Preenche fornecedor, CNPJ, número e série.
+            </p>
+            <BarcodeScanner onRead={applyAccessKey} />
+          </div>
+          <div className="space-y-2">
+            <p className="label">Arquivo XML da nota (preenche tudo)</p>
+            <input
+              type="file"
+              accept=".xml,text/xml,application/xml"
+              onChange={(e) => importXml(e.target.files?.[0])}
+              className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-marinho-700 file:px-3 file:py-1.5 file:text-white"
+            />
+            <p className="text-xs text-slate-500">
+              O fornecedor manda o XML junto com o PDF, geralmente por e-mail. Com ele vêm também os itens, lote, validade,
+              total e parcelas.
+            </p>
+          </div>
+        </div>
         {notice && <p className="rounded-md bg-white px-3 py-2 text-sm text-marinho-800">{notice}</p>}
       </div>
 
@@ -186,10 +237,6 @@ export function PurchaseForm({ suppliers, paymentMethods, today }: Props) {
                 <option key={k} value={k}>{k}</option>
               ))}
             </select>
-          </div>
-          <div className="sm:col-span-3">
-            <label className="label" htmlFor="accessKey">Chave de acesso (44 números)</label>
-            <input className="input" id="accessKey" name="accessKey" value={accessKey} onChange={(e) => setAccessKey(e.target.value)} inputMode="numeric" />
           </div>
         </div>
       </div>

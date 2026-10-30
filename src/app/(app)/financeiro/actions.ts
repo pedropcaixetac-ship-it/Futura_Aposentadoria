@@ -306,6 +306,28 @@ export async function createPurchase(_: FormState, formData: FormData): Promise<
   redirect(`/financeiro/compras/${purchase.id}`);
 }
 
+// Nome do fornecedor pelo CNPJ: primeiro nas notas já lançadas; se não houver, na consulta pública
+// de CNPJ da Receita (BrasilAPI). Se a consulta falhar, devolve vazio e a pessoa digita o nome.
+export async function lookupSupplierName(cnpj: string): Promise<string | null> {
+  const user = await requireAdmin();
+  const digits = cnpj.replace(/\D/g, "");
+  if (digits.length !== 14) return null;
+  const known = await prisma.purchase.findFirst({
+    where: { clinicId: user.clinicId, supplierCnpj: digits },
+    orderBy: { createdAt: "desc" },
+    select: { supplierName: true },
+  });
+  if (known) return known.supplierName;
+  try {
+    const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${digits}`, { signal: AbortSignal.timeout(6000), cache: "force-cache" });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { razao_social?: string };
+    return data.razao_social?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
 // Cancela a nota lançada por engano e as parcelas dela na aba Despesas.
 export async function cancelPurchase(purchaseId: string) {
   const user = await requireAdmin();
