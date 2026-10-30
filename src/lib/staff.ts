@@ -39,11 +39,11 @@ export type StaffInput = {
 
 // O que cada perfil de acesso enxerga, para explicar na tela de cadastro.
 export const ROLE_HELP: Record<Role, string> = {
-  ADMIN: "Vê tudo, inclusive cadastro de servidores, financeiro e auditoria.",
+  ADMIN: "Pode tudo no sistema. É o único que vê a auditoria e que pode dar o perfil de gerente do sistema.",
   PROFISSIONAL: "Atende pacientes e vê o prontuário completo, com todas as consultas anteriores.",
   TECNICO: "Registra os próprios atendimentos e vê o resumo clínico (alergias, medicações). Não abre as consultas de outros profissionais.",
   RECEPCAO: "Agenda, recepção, cadastro de pacientes e cobranças. Não vê o prontuário.",
-  ADMINISTRATIVO: "Contabilidade e trabalhista. Não vê o prontuário.",
+  ADMINISTRATIVO: "Equipe do administrativo da clínica: recepção, agenda, pacientes, financeiro, contabilidade e cadastro de servidores. Não vê o prontuário nem a auditoria.",
 };
 
 export const councilTypes = ["CRM", "COREN", "CRP", "CRN", "CREFITO", "CRFa", "CRO", "CRF", "CRBM", "CREF", "CRTR"];
@@ -71,9 +71,10 @@ export const JOB_TITLES: JobTitle[] = [
   { title: "Técnico(a) de laboratório", group: "Saúde: acesso restrito", role: "TECNICO" },
   { title: "Auxiliar de saúde bucal", group: "Saúde: acesso restrito", role: "TECNICO", council: "CRO" },
   { title: "Recepcionista", group: "Administrativo", role: "RECEPCAO" },
+  { title: "Administrador(a)", group: "Administrativo", role: "ADMINISTRATIVO" },
   { title: "Auxiliar administrativo", group: "Administrativo", role: "ADMINISTRATIVO" },
   { title: "Faturista", group: "Administrativo", role: "ADMINISTRATIVO" },
-  { title: "Gerente / administrador(a)", group: "Administrativo", role: "ADMIN" },
+  { title: "Gerente do sistema", group: "Gestão do sistema", role: "ADMIN" },
   { title: "Auxiliar de limpeza", group: "Apoio (sem acesso ao sistema)", role: null },
   { title: "Copeiro(a)", group: "Apoio (sem acesso ao sistema)", role: null },
   { title: "Porteiro(a) / segurança", group: "Apoio (sem acesso ao sistema)", role: null },
@@ -234,4 +235,14 @@ export function councilLabel(u: CouncilUser) {
   if (!u.councilNumber) return null;
   const council = `${u.councilType ?? ""} ${u.councilNumber}${u.councilUf ? `/${u.councilUf}` : ""}`.trim();
   return u.rqe ? `${council} · RQE ${u.rqe}` : council;
+}
+
+// Quem não é gerente do sistema mas tem a aba Cadastro de servidores não mexe no cadastro de um gerente
+// nem no próprio, e não cria gerentes. Devolve o motivo do bloqueio.
+export function staffEditBlock(actor: { id: string; role: Role }, target: { id: string; role: Role } | null, newRole?: Role | null) {
+  if (actor.role === "ADMIN") return null;
+  if (target?.id === actor.id) return "O seu próprio cadastro só outra pessoa da administração altera. Para trocar a senha, use Meu cadastro.";
+  if (target?.role === "ADMIN") return "Só o gerente do sistema altera o cadastro de outro gerente do sistema.";
+  if (newRole === "ADMIN") return "Só o gerente do sistema pode dar o perfil de gerente do sistema.";
+  return null;
 }

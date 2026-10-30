@@ -1,17 +1,18 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { roleLabel } from "@/lib/format";
 import { hasTab, TABS } from "@/lib/tabs";
 import { resetPermissions, savePermissions } from "../../actions";
-import { displayName } from "@/lib/staff";
+import { displayName, staffEditBlock } from "@/lib/staff";
 
 export default async function PermissionsPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser("servidores");
   const { id } = await params;
   const staff = await prisma.user.findFirst({ where: { id, clinicId: user.clinicId }, omit: { passwordHash: true } });
   if (!staff) notFound();
+  if (staffEditBlock(user, staff)) redirect("/servidores");
   const isAdmin = staff.role === "ADMIN";
 
   return (
@@ -22,7 +23,7 @@ export default async function PermissionsPage({ params }: { params: Promise<{ id
         <p className="text-sm text-slate-500">
           Escolha as abas que aparecem para esta pessoa no menu. Perfil: {roleLabel[staff.role]}.{" "}
           {isAdmin
-            ? "Administradores têm acesso a todas as abas."
+            ? "O gerente do sistema tem acesso a todas as abas."
             : staff.customTabs
               ? "As abas abaixo foram escolhidas à mão."
               : "Hoje valem as abas padrão do perfil."}
@@ -56,8 +57,8 @@ export default async function PermissionsPage({ params }: { params: Promise<{ id
           })}
         </ul>
         <p className="text-xs text-slate-500">
-          Mesmo com a aba liberada, as regras de cada perfil continuam valendo: a recepção nunca vê o conteúdo clínico,
-          e no Financeiro só o administrador vê despesas e o resumo.
+          Mesmo com a aba liberada, as regras de cada perfil continuam valendo: só profissionais de saúde veem o conteúdo clínico,
+          e a Auditoria é só do gerente do sistema.
         </p>
         {!isAdmin && (
           <div className="flex flex-wrap gap-2">

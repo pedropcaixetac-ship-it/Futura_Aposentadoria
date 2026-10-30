@@ -9,11 +9,13 @@ type Props = {
   active: boolean;
   systemAccess: boolean;
   isSelf: boolean;
+  // Quem não é gerente do sistema não altera o cadastro de um gerente nem o próprio.
+  locked: boolean;
   reactivate: () => Promise<void>;
 };
 
 // Os "três pontinhos" no fim de cada linha da tabela de servidores.
-export function RowMenu({ id, name, active, systemAccess, isSelf, reactivate }: Props) {
+export function RowMenu({ id, name, active, systemAccess, isSelf, locked, reactivate }: Props) {
   // Posição na tela de onde o menu abre. O menu fica "solto" (fixed) para não ser cortado pela tabela.
   const [open, setOpen] = useState<{ top: number; right: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
@@ -57,14 +59,15 @@ export function RowMenu({ id, name, active, systemAccess, isSelf, reactivate }: 
       </button>
       {open && (
         <div style={open} className="fixed z-30 w-56 overflow-hidden rounded-md border border-slate-200 bg-white py-1 text-sm shadow-lg">
-          <Link href={`/servidores/${id}`} className={item}>Editar cadastro</Link>
-          {systemAccess && <Link href={`/servidores/${id}/permissoes`} className={item}>Editar permissões</Link>}
-          {active && !isSelf && (
+          {locked && <p className="px-4 py-2 text-slate-500">Você não pode alterar este cadastro.</p>}
+          {!locked && <Link href={`/servidores/${id}`} className={item}>Editar cadastro</Link>}
+          {!locked && systemAccess && <Link href={`/servidores/${id}/permissoes`} className={item}>Editar permissões</Link>}
+          {!locked && active && !isSelf && (
             <Link href={`/servidores/${id}/desligamento`} className={`${item} text-red-700 hover:bg-red-50`}>
               Registrar desligamento
             </Link>
           )}
-          {!active && (
+          {!locked && !active && (
             <form action={async () => { await reactivate(); setOpen(null); }}>
               <button className={item}>{systemAccess ? "Reativar acesso" : "Reativar"}</button>
             </form>

@@ -61,7 +61,7 @@ async function seedDemo() {
 
   await prisma.user.createMany({
     data: [
-      { clinicId: clinic.id, name: "Administrador", email: "admin@demo.com", passwordHash, role: "ADMIN", jobTitle: "Gerente / administrador(a)", sector: "Administração" },
+      { clinicId: clinic.id, name: "Administrador", email: "admin@demo.com", passwordHash, role: "ADMIN", jobTitle: "Gerente do sistema", sector: "Administração" },
       {
         clinicId: clinic.id,
         name: "Ana Souza",
@@ -359,7 +359,7 @@ async function seedStaffDemo() {
   const clinic = await prisma.clinic.findUnique({ where: { slug: "demo" } });
   if (!clinic) return;
   const jobTitles: Record<string, string> = {
-    "admin@demo.com": "Gerente / administrador(a)",
+    "admin@demo.com": "Gerente do sistema",
     "ana@demo.com": "Médico(a)",
     "carlos@demo.com": "Psicólogo(a)",
     "recepcao@demo.com": "Recepcionista",

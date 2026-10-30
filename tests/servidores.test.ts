@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { hasTab, sanitizeTabs, userTabs } from "../src/lib/tabs";
-import { councilLabel, displayName, parseStaff, staffFunction, validateNewPassword, validateStaff } from "../src/lib/staff";
-import { canOpenEncounter, canViewClinical, canWorkClinical } from "../src/lib/permissions";
+import { councilLabel, displayName, parseStaff, staffEditBlock, staffFunction, validateNewPassword, validateStaff } from "../src/lib/staff";
+import { canOpenEncounter, canSeeAllAgendas, canViewClinical, canWorkClinical } from "../src/lib/permissions";
 
 const padrao = { customTabs: false, allowedTabs: [] as string[] };
 const medica = { id: "m1", role: "PROFISSIONAL" as const, councilNumber: "123", ...padrao };
@@ -14,6 +14,7 @@ test("sem permissões personalizadas valem as abas padrão do perfil", () => {
   assert.deepEqual(userTabs(medica).map((t) => t.key), ["atender", "agenda", "pacientes", "modelos", "textos-prontos", "assinatura", "meu-financeiro"]);
   assert.deepEqual(userTabs(recepcao).map((t) => t.key), ["recepcao", "agenda", "pacientes", "financeiro"]);
   assert.deepEqual(userTabs(admin).map((t) => t.key), ["recepcao", "agenda", "pacientes", "modelos", "financeiro", "contabilidade", "auditoria", "servidores"]);
+  assert.deepEqual(userTabs(administrativo).map((t) => t.key), ["recepcao", "agenda", "pacientes", "financeiro", "contabilidade", "servidores"]);
 });
 
 test("Financeiro é da administração; Meu financeiro é dos profissionais", () => {
@@ -31,15 +32,32 @@ test("o administrador escolhe as abas de cada pessoa", () => {
   const semFinanceiro = { ...medica, customTabs: true, allowedTabs: ["pacientes", "textos-prontos"] };
   assert.equal(hasTab(semFinanceiro, "financeiro"), false);
   assert.equal(hasTab(semFinanceiro, "textos-prontos"), true);
-  const recepcaoComAuditoria = { ...recepcao, customTabs: true, allowedTabs: ["pacientes", "auditoria"] };
-  assert.equal(hasTab(recepcaoComAuditoria, "auditoria"), true);
+  // Recepção e Cadastro de servidores podem ser liberados para qualquer pessoa.
+  const medicaNaRecepcao = { ...medica, customTabs: true, allowedTabs: ["pacientes", "recepcao", "servidores"] };
+  assert.equal(hasTab(medicaNaRecepcao, "recepcao"), true);
+  assert.equal(hasTab(medicaNaRecepcao, "servidores"), true);
+  assert.equal(canSeeAllAgendas(medicaNaRecepcao), true);
+  assert.equal(canSeeAllAgendas(medica), false);
 });
 
-test("permissão não libera conteúdo clínico nem o cadastro de servidores para quem não pode", () => {
-  const tentativa = { ...recepcao, customTabs: true, allowedTabs: ["textos-prontos", "modelos", "servidores"] };
+test("permissão não libera conteúdo clínico nem a auditoria para quem não pode", () => {
+  const tentativa = { ...recepcao, customTabs: true, allowedTabs: ["textos-prontos", "modelos", "auditoria", "servidores"] };
   assert.equal(hasTab(tentativa, "textos-prontos"), false);
-  assert.equal(hasTab(tentativa, "servidores"), false);
-  assert.deepEqual(sanitizeTabs(recepcao, ["pacientes", "textos-prontos", "servidores", "inventada"]), ["pacientes"]);
+  assert.equal(hasTab(tentativa, "auditoria"), false);
+  assert.equal(hasTab(tentativa, "servidores"), true);
+  assert.deepEqual(sanitizeTabs(recepcao, ["pacientes", "textos-prontos", "auditoria", "servidores", "inventada"]), ["pacientes", "servidores"]);
+  // A auditoria é só do gerente do sistema.
+  assert.equal(hasTab({ ...administrativo, customTabs: true, allowedTabs: ["auditoria"] }, "auditoria"), false);
+  assert.equal(hasTab(admin, "auditoria"), true);
+});
+
+test("quem não é gerente do sistema não mexe em gerentes nem no próprio cadastro", () => {
+  assert.equal(staffEditBlock(administrativo, recepcao, "RECEPCAO"), null);
+  assert.equal(staffEditBlock(administrativo, null, "PROFISSIONAL"), null);
+  assert.match(staffEditBlock(administrativo, null, "ADMIN")!, /gerente/);
+  assert.match(staffEditBlock(administrativo, admin)!, /gerente/);
+  assert.match(staffEditBlock(administrativo, administrativo)!, /próprio/);
+  assert.equal(staffEditBlock(admin, admin, "ADMIN"), null);
 });
 
 test("administrador continua com todas as abas mesmo com lista vazia", () => {

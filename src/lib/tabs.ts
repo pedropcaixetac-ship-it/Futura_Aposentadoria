@@ -1,5 +1,5 @@
 import type { Role } from "@prisma/client";
-import { canManageCharges, canManageTemplates, canUseReception, canViewClinical, canWorkClinical, type PermissionUser } from "./permissions";
+import { canManageCharges, canManageTemplates, canViewClinical, canWorkClinical, RECEPTION_ROLES, type PermissionUser } from "./permissions";
 
 // Abas do sistema que o administrador pode liberar ou tirar de cada pessoa
 // em "Cadastro de servidores > Editar permissões".
@@ -33,7 +33,7 @@ type Tab = {
   menu?: false;
 };
 
-const allRoles: Role[] = ["ADMIN", "PROFISSIONAL", "TECNICO", "RECEPCAO"];
+const allRoles: Role[] = ["ADMIN", "PROFISSIONAL", "TECNICO", "RECEPCAO", "ADMINISTRATIVO"];
 
 // A ordem desta lista é a ordem do menu lateral.
 export const TABS: Tab[] = [
@@ -42,8 +42,7 @@ export const TABS: Tab[] = [
     label: "Recepção",
     href: "/recepcao",
     description: "Chegada e falta dos pacientes do dia.",
-    defaultRoles: ["ADMIN", "RECEPCAO"],
-    blockedReason: (u) => (canUseReception(u) ? null : "Só para recepção e administradores."),
+    defaultRoles: RECEPTION_ROLES,
   },
   {
     key: "atender",
@@ -57,7 +56,7 @@ export const TABS: Tab[] = [
     key: "agenda",
     label: "Agenda",
     href: "/agenda",
-    description: "Recepção e administrador veem a agenda de todos; o profissional, só a própria.",
+    description: "Quem tem a aba Recepção vê a agenda de todos; o profissional, só a própria.",
     defaultRoles: allRoles,
   },
   {
@@ -98,7 +97,7 @@ export const TABS: Tab[] = [
     href: "/financeiro",
     description: "Resumo, receitas, despesas, compras, repasse e preços. A recepção vê só as receitas (lança cobranças e recebe pagamentos).",
     defaultRoles: ["ADMIN", "ADMINISTRATIVO", "RECEPCAO"],
-    blockedReason: (u) => (canManageCharges(u) ? null : "Só para administrador, administrativo e recepção."),
+    blockedReason: (u) => (canManageCharges(u) ? null : "Só para gerente do sistema, administrativo e recepção."),
   },
   {
     key: "meu-financeiro",
@@ -119,16 +118,16 @@ export const TABS: Tab[] = [
     key: "auditoria",
     label: "Auditoria",
     href: "/auditoria",
-    description: "Quem abriu ou alterou cada prontuário, e quando.",
+    description: "Quem abriu ou alterou cada prontuário, e quando. Exclusiva do gerente do sistema.",
     defaultRoles: ["ADMIN"],
+    blockedReason: (u) => (u.role === "ADMIN" ? null : "Só para o gerente do sistema."),
   },
   {
     key: "servidores",
     label: "Cadastro de servidores",
     href: "/servidores",
     description: "Cadastrar a equipe, mudar permissões e registrar desligamentos.",
-    defaultRoles: ["ADMIN"],
-    blockedReason: (u) => (u.role === "ADMIN" ? null : "Só para administradores."),
+    defaultRoles: ["ADMIN", "ADMINISTRATIVO"],
   },
 ];
 
@@ -136,7 +135,7 @@ export function tabBlockedReason(user: PermissionUser, key: TabKey) {
   return TABS.find((t) => t.key === key)?.blockedReason?.(user) ?? null;
 }
 
-// Administradores têm sempre todas as abas, para que ninguém fique trancado do lado de fora.
+// O gerente do sistema tem sempre todas as abas, para que ninguém fique trancado do lado de fora.
 export function hasTab(user: TabUser, key: TabKey) {
   const tab = TABS.find((t) => t.key === key);
   if (!tab || tab.blockedReason?.(user)) return false;

@@ -61,7 +61,11 @@ Este é o primeiro módulo: **Prontuário**.
 - Recibo numerado, com valor por extenso, para imprimir ou salvar em PDF
 - O administrador vê tudo; a recepção lança cobranças e recebe pagamentos; cada profissional vê só o próprio repasse
 
-### Cadastro de servidores (só administrador)
+### Cadastro de servidores
+
+- Perfis: **Gerente do sistema** (pode tudo, único com a Auditoria e o único que cria outro gerente) e **Administrativo** (equipe do adm da clínica)
+- Recepção e Cadastro de servidores podem ser liberados para qualquer pessoa em "Editar permissões"; só as abas com dados clínicos e a Auditoria têm trava
+- Quem não é gerente do sistema não altera o cadastro de um gerente nem o próprio
 
 - Tabela com a equipe: nome completo, função, setor/especialidade e situação, com filtros por nome/e-mail/CPF/conselho,
   função, setor e situação (ativos, desligados ou todos)

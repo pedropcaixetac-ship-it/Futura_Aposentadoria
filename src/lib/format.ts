@@ -35,11 +35,11 @@ export function isValidCpf(value: string) {
 }
 
 export const roleLabel = {
-  ADMIN: "Administrador",
+  ADMIN: "Gerente do sistema",
   PROFISSIONAL: "Profissional de saúde (acesso completo)",
   TECNICO: "Profissional de saúde (acesso restrito)",
   RECEPCAO: "Recepção",
-  ADMINISTRATIVO: "Auxiliar administrativo",
+  ADMINISTRATIVO: "Administrativo",
 } as const;
 
 export function onlyDigits(value: string | null | undefined) {
