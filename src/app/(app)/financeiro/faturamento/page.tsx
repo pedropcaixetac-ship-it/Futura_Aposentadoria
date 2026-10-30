@@ -7,7 +7,7 @@ import { formatDate, formatDateTime } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { monthRange } from "@/lib/finance";
 import { displayName } from "@/lib/staff";
-import { claimKindLabel, claimNumberLabel } from "@/lib/tiss";
+import { claimKindLabel, claimNumberLabel, glossCents } from "@/lib/tiss";
 import { MonthNav } from "../ui";
 import { closeBatch } from "./actions";
 
@@ -18,7 +18,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   const clinicId = user.clinicId;
   const ninetyDaysAgo = new Date(Date.now() - 90 * 86400000);
 
-  const [claims, toBill, toSend, batches] = await Promise.all([
+  const [claims, toBill, toSend, batches, glossed] = await Promise.all([
     prisma.insuranceClaim.findMany({
       where: { clinicId, serviceDate: { gte: range.start, lt: range.end } },
       include: {
@@ -59,6 +59,13 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
       include: { healthPlan: { select: { name: true } }, _count: { select: { claims: true } } },
       orderBy: { createdAt: "desc" },
       take: 10,
+    }),
+    // Glosas ainda sem recurso ou aguardando a resposta do convênio.
+    prisma.insuranceClaim.findMany({
+      where: { clinicId, glossReason: { not: null }, OR: [{ appeal: null }, { appeal: { resolvedAt: null } }] },
+      include: { patient: { select: { name: true } }, healthPlan: { select: { name: true } }, appeal: { select: { sentAt: true } } },
+      orderBy: { number: "asc" },
+      take: 30,
     }),
   ]);
   const planNames = new Map(
@@ -114,6 +121,28 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
                 <form action={closeBatch.bind(null, t.healthPlanId, t.kind)}>
                   <button className="btn-primary px-3! py-1! text-xs!">Fechar lote</button>
                 </form>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {glossed.length > 0 && (
+        <div className="card space-y-3 border-red-200">
+          <h3 className="font-semibold">Glosas para recorrer</h3>
+          <ul className="divide-y divide-slate-100 text-sm">
+            {glossed.map((c) => (
+              <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <span>
+                  <Link href={`/financeiro/faturamento/${c.id}`} className="font-mono text-marinho-700 hover:underline">{claimNumberLabel(c.number)}</Link>
+                  <span className="text-slate-500"> · {c.patient.name} · {c.healthPlan.name} · </span>
+                  <span className="text-red-700">{formatMoney(glossCents(c))} · {c.glossReason}</span>
+                </span>
+                {c.appeal ? (
+                  <span className="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800">Recurso enviado em {formatDate(c.appeal.sentAt)}</span>
+                ) : (
+                  <Link href={`/financeiro/faturamento/${c.id}`} className="btn-secondary px-3! py-1! text-xs!">Recorrer</Link>
+                )}
               </li>
             ))}
           </ul>

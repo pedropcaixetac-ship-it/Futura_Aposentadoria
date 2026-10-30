@@ -171,3 +171,17 @@ export function parseClaimItems(
 export function claimKindLabel(kind: "CONSULTA" | "SPSADT") {
   return kind === "SPSADT" ? "SP/SADT" : "Consulta";
 }
+
+// Valor glosado de uma guia já conferida (o que o convênio deixou de pagar). Zero se não houve glosa.
+export function glossCents(claim: { amountCents: number; paidCents: number | null }) {
+  return claim.paidCents === null ? 0 : Math.max(claim.amountCents - claim.paidCents, 0);
+}
+
+// Resposta do recurso: quanto o convênio pagou a mais. Vazio ou zero é recurso negado; não pode passar do glosado.
+export function parseRecovered(raw: string, gloss: number, parseMoney: (value: string) => number | null): { cents: number } | { error: string } {
+  const value = raw.trim();
+  const cents = value === "" || /^0+(,0+)?$/.test(value) ? 0 : parseMoney(value);
+  if (cents === null) return { error: "Valor recuperado inválido (ex.: 30,00)." };
+  if (cents > gloss) return { error: "O valor recuperado é maior que o valor glosado." };
+  return { cents };
+}

@@ -138,6 +138,7 @@ model Clinic {
   claims         InsuranceClaim[]
   claimBatches   ClaimBatch[]
   claimItems     ClaimItem[]
+  claimAppeals   ClaimAppeal[]
 }
 
 model User {
@@ -580,6 +581,7 @@ model Charge {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   claim          InsuranceClaim?
+  claimAppeal    ClaimAppeal?
 
   @@unique([clinicId, receiptNumber])
   @@index([clinicId, dueDate])
@@ -916,6 +918,26 @@ model ClaimItem {
   @@unique([claimId, sequence])
 }
 
+// Recurso de glosa: a clínica contesta o que o convênio não pagou e, se ele aceitar, registra o valor recuperado.
+model ClaimAppeal {
+  id             String         @id @default(cuid())
+  clinicId       String
+  clinic         Clinic         @relation(fields: [clinicId], references: [id])
+  claimId        String         @unique
+  claim          InsuranceClaim @relation(fields: [claimId], references: [id])
+  reason         String
+  sentAt         DateTime       @db.Date
+  // Protocolo que o portal do convênio deu ao receber o recurso.
+  protocol       String?
+  // Resposta do convênio: quanto pagou a mais (zero se negou) e quando.
+  resolvedAt     DateTime?      @db.Date
+  recoveredCents Int?
+  // Receita lançada no Financeiro com o valor recuperado.
+  chargeId       String?        @unique
+  charge         Charge?        @relation(fields: [chargeId], references: [id])
+  createdAt      DateTime       @default(now())
+}
+
 enum ClaimKind {
   CONSULTA
   SPSADT
@@ -972,6 +994,7 @@ model InsuranceClaim {
   authorizationDate  DateTime?   @db.Date
   authorizationCode  String?
   items              ClaimItem[]
+  appeal             ClaimAppeal?
   status             ClaimStatus @default(ABERTA)
   canceledAt         DateTime?
   // Lote em que a guia foi enviada ao convênio. Guia em lote não pode ser cancelada.
