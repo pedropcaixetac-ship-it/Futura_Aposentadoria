@@ -6,13 +6,15 @@ import { formatDate, formatDateTime } from "@/lib/format";
 import { platformActionLabel } from "@/lib/painel";
 import { ActionForm } from "@/app/(app)/financeiro/action-form";
 import { ClinicForm } from "../../clinic-form";
-import { reactivateClinic, suspendClinic, updateClinic } from "../../actions";
+import { reactivateClinic, registerPayment, setClinicPlan, suspendClinic, updateClinic } from "../../actions";
+import { billingLabel, billingStatus, GRACE_DAYS, MODULES } from "@/lib/plans";
+import { formatMoney, moneyInput } from "@/lib/money";
 
 export default async function ClinicPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ criada?: string }> }) {
   await requirePlatformUser();
   const { id } = await params;
   const { criada } = await searchParams;
-  const clinic = await prisma.clinic.findUnique({ where: { id } });
+  const clinic = await prisma.clinic.findUnique({ where: { id }, include: { plan: true } });
   if (!clinic) notFound();
 
   // Só dados administrativos: quantos usuários e pacientes, quem são os gerentes. Nada do prontuário.
@@ -28,6 +30,9 @@ export default async function ClinicPage({ params, searchParams }: { params: Pro
     prisma.auditLog.findFirst({ where: { clinicId: id, action: "LOGIN" }, orderBy: { createdAt: "desc" }, select: { createdAt: true } }),
     prisma.platformAuditLog.findMany({ where: { clinicId: id }, include: { user: true }, orderBy: { createdAt: "desc" }, take: 20 }),
   ]);
+  const plans = await prisma.plan.findMany({ where: { OR: [{ active: true }, { id: clinic.planId ?? "" }] }, orderBy: { priceCents: "asc" } });
+  const billing = billingStatus(clinic.paidUntil);
+  const billingColor = { "sem-controle": "text-slate-600", "em-dia": "text-emerald-700", "vence-logo": "text-dourado-700", atrasada: "text-red-700", bloqueada: "text-red-700" }[billing.kind];
 
   return (
     <div className="space-y-6">
@@ -75,6 +80,57 @@ export default async function ClinicPage({ params, searchParams }: { params: Pro
           contactName: clinic.contactName, contactEmail: clinic.contactEmail, contactPhone: clinic.contactPhone,
         }}
       />
+
+      <section className="card space-y-4">
+        <h2 className="border-b border-dourado-300 pb-2 font-semibold text-marinho-800">Plano e mensalidade</h2>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-500">Plano</p>
+            <p className="text-sm font-medium">{clinic.plan ? `${clinic.plan.name} · ${formatMoney(clinic.plan.priceCents)}/mês` : "Sem plano (tudo liberado)"}</p>
+            {clinic.plan && (
+              <p className="text-xs text-slate-500">
+                {clinic.plan.maxUsers ? `Até ${clinic.plan.maxUsers} usuários` : "Usuários sem limite"} ·{" "}
+                {MODULES.filter((m) => clinic.plan!.modules.includes(m.key)).map((m) => m.label).join(", ") || "só o básico"}
+              </p>
+            )}
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-500">Pago até</p>
+            <p className="text-sm font-medium">{clinic.paidUntil ? formatDate(clinic.paidUntil) : "Sem controle"}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-500">Situação</p>
+            <p className={`text-sm font-semibold ${billingColor}`}>{billingLabel(billing)}</p>
+            {billing.kind === "atrasada" && <p className="text-xs text-slate-500">O acesso é suspenso sozinho em {billing.daysToBlock} dia(s).</p>}
+          </div>
+        </div>
+
+        <ActionForm action={registerPayment.bind(null, clinic.id)} submitLabel="Registrar pagamento" resetOnSuccess={false} className="flex flex-wrap items-end gap-3 rounded-md bg-marinho-50 p-3">
+          <div>
+            <label className="label" htmlFor="amount">Valor recebido (R$)</label>
+            <input className="input w-40" id="amount" name="amount" inputMode="decimal" defaultValue={clinic.plan ? moneyInput(clinic.plan.priceCents) : ""} />
+          </div>
+          <p className="flex-1 text-xs text-slate-500">Recebeu o Pix ou o boleto? Registrar estende o &quot;pago até&quot; em um mês e libera a clínica se estava bloqueada.</p>
+        </ActionForm>
+
+        <ActionForm action={setClinicPlan.bind(null, clinic.id)} submitLabel="Salvar plano e vencimento" resetOnSuccess={false} className="grid gap-4 sm:grid-cols-3 sm:items-end">
+          <div>
+            <label className="label" htmlFor="planId">Mudar plano</label>
+            <select className="input" id="planId" name="planId" defaultValue={clinic.planId ?? ""}>
+              <option value="">Sem plano (tudo liberado)</option>
+              {plans.map((p) => <option key={p.id} value={p.id}>{p.name} · {formatMoney(p.priceCents)}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="label" htmlFor="paidUntil">Pago até (ajuste manual)</label>
+            <input className="input" id="paidUntil" name="paidUntil" type="date" defaultValue={clinic.paidUntil?.toISOString().slice(0, 10) ?? ""} />
+          </div>
+          <p className="text-xs text-slate-500">
+            Data vazia: a mensalidade não é controlada. Com data, o gerente da clínica é avisado 5 dias antes e o acesso é
+            suspenso sozinho {GRACE_DAYS} dias depois do vencimento.
+          </p>
+        </ActionForm>
+      </section>
 
       <section className="card space-y-3">
         <h2 className="border-b border-dourado-300 pb-2 font-semibold text-marinho-800">Acesso da clínica</h2>

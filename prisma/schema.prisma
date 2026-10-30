@@ -107,6 +107,11 @@ model Clinic {
   contactName       String?
   contactEmail      String?
   contactPhone      String?
+  // Plano contratado (módulos liberados) e último dia coberto pela mensalidade paga.
+  // Sem plano, tudo fica liberado; sem data, a mensalidade não é controlada.
+  planId            String?
+  plan              Plan?     @relation(fields: [planId], references: [id])
+  paidUntil         DateTime? @db.Date
 
   users          User[]
   patients       Patient[]
@@ -994,4 +999,18 @@ model ClaimBatch {
   claims InsuranceClaim[]
 
   @@unique([clinicId, number])
+}
+
+// Plano vendido às clínicas no Painel do dono. modules: módulos opcionais liberados (ver src/lib/plans.ts).
+model Plan {
+  id         String   @id @default(cuid())
+  name       String   @unique
+  priceCents Int
+  // Máximo de pessoas com acesso ao sistema na clínica. Vazio = sem limite.
+  maxUsers   Int?
+  modules    String[] @default([])
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  clinics Clinic[]
 }
