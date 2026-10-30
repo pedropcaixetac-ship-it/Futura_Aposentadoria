@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { canUseReception } from "@/lib/permissions";
 import { addDays, appointmentTypeLabel, formatDayLabel, formatTime, isValidDate, nextStatuses, occupiesSlot, statusLabel, statusStyle, today } from "@/lib/agenda";
 import { listProfessionals, loadAgenda } from "@/lib/agenda-data";
+import { formatPhone } from "@/lib/format";
 import { setAppointmentStatus } from "../agenda/actions";
 
 // Texto do botão para cada mudança de situação. Voltar atrás aparece como "Desfazer".
@@ -104,7 +105,7 @@ export default async function ReceptionPage({ searchParams }: { searchParams: Pr
                     {a.patient.socialName || a.patient.name}
                   </Link>
                   <p className="text-xs text-slate-500">
-                    {[a.patient.phone, appointmentTypeLabel[a.type], a.insurance ?? "Particular"].filter(Boolean).join(" · ")}
+                    {[formatPhone(a.patient.phone), appointmentTypeLabel[a.type], a.insurance ?? "Particular"].filter(Boolean).join(" · ")}
                   </p>
                 </td>
                 <td className="px-4 py-2">{name.get(a.professionalId)}</td>

@@ -6,7 +6,12 @@ Este é o primeiro módulo: **Prontuário**.
 ## O que já funciona
 
 - Login por clínica, com perfis de administrador, profissional de saúde e recepção
-- Cadastro e busca de pacientes (nome, CPF, telefone)
+- Cadastro de pacientes completo, em blocos: identificação (com foto, RG, Cartão SUS), contato, endereço
+  (o CEP preenche rua, bairro e cidade), convênio, responsável legal e consentimento LGPD.
+  Obrigatórios: nome completo, CPF, celular (WhatsApp) e data de nascimento
+- Cadastro rápido para a recepção (nome, nascimento e celular), marcado como "cadastro incompleto" até ser completado
+- Confere CPF e Cartão SUS e avisa sobre paciente já cadastrado (mesmo CPF, mesmo cartão, ou mesmo nome e nascimento)
+- Busca de pacientes por nome, CPF, telefone, carteirinha ou Cartão SUS
 - Resumo clínico do paciente: alergias (em destaque), medicamentos em uso e antecedentes
 - Atendimentos com modelos personalizáveis por especialidade, ou evolução livre
 - Diagnóstico com busca na tabela CID-10 oficial do DATASUS
@@ -15,7 +20,9 @@ Este é o primeiro módulo: **Prontuário**.
 - Código de integridade em cada atendimento finalizado, que avisa se o conteúdo for adulterado
 - Recepção vê o cadastro, mas não o conteúdo clínico
 - Auditoria (LGPD): quem abriu ou alterou cada prontuário, quando e de onde. Esses registros também não podem ser apagados
-- Impressão do atendimento
+- Impressão do atendimento e PDF do atendimento finalizado
+- Receitas, atestados, pedidos de exame e relatórios emitidos dentro do atendimento, em PDF com o cabeçalho da clínica.
+  Depois de emitidos não podem ser alterados nem apagados. É sobre esses PDFs que entrará a assinatura digital ICP-Brasil
 - Barra lateral com a clínica, o usuário, o setor e o menu de cada perfil
 - "Usar modelo" ao lado de cada campo do atendimento, com os textos prontos de cada profissional
 - Agenda por dia (uma coluna por profissional) e por semana, com horários de atendimento, bloqueios
@@ -24,6 +31,18 @@ Este é o primeiro módulo: **Prontuário**.
   e a consulta vira "Atendido" quando o atendimento é finalizado
 - Recepção: lista das consultas do dia, onde a recepcionista marca quem confirmou, chegou ou faltou,
   e a sala de espera com o tempo de espera de cada paciente
+- WhatsApp (primeira etapa): botão "Enviar no WhatsApp" na ficha do paciente, que abre o WhatsApp da recepção com o
+  texto pronto (contato ou aviso de retorno). Só aparece se o paciente autorizou no cadastro (LGPD), e cada envio fica na auditoria
+
+### Financeiro
+
+- Resumo do mês: quanto entrou, quanto saiu, saldo, quanto falta receber e pagamentos atrasados
+- Receitas: cobrança de cada atendimento finalizado (ou avulsa), com forma de pagamento e situação
+- Despesas da clínica, com vencimento e aviso de atraso
+- Tabela de preços, que preenche o valor da cobrança
+- Repasse por profissional (porcentagem do valor recebido), que pode ser lançado como despesa
+- Recibo numerado, com valor por extenso, para imprimir ou salvar em PDF
+- O administrador vê tudo; a recepção lança cobranças e recebe pagamentos; cada profissional vê só o próprio repasse
 
 ## Usuários de demonstração
 

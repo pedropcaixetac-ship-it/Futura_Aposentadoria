@@ -1,13 +1,17 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { canAddAddendum, canEditEncounter, canViewClinical } from "@/lib/permissions";
 import { createEncounter } from "@/lib/encounter";
-import { encounterHash, parseDiagnoses, sanitizeContent, type TemplateField } from "@/lib/record";
+import { documentTypes } from "@/lib/documents";
+import { documentHash, encounterHash, parseDiagnoses, sanitizeContent, type TemplateField } from "@/lib/record";
+import { parseVitals } from "@/lib/vitals";
 
 export async function startEncounter(patientId: string, formData: FormData) {
   const user = await requireUser();
@@ -34,33 +38,48 @@ function readForm(fields: TemplateField[], formData: FormData) {
   return {
     content: sanitizeContent(fields, raw),
     diagnoses: parseDiagnoses(String(formData.get("diagnoses") ?? "")),
+    vitals: parseVitals(formData),
   };
 }
 
-export async function saveEncounter(encounterId: string, formData: FormData) {
+// Salvamento automático do rascunho. Não recarrega a página, para não atrapalhar quem está digitando.
+export async function autosaveEncounter(encounterId: string, formData: FormData) {
   const { user, encounter } = await loadEditable(encounterId);
-  const data = readForm(encounter.fields as TemplateField[], formData);
-  await prisma.encounter.update({ where: { id: encounter.id }, data });
-  await audit({
-    clinicId: user.clinicId,
-    userId: user.id,
-    action: "ATENDIMENTO_SALVO",
-    entity: "Encounter",
-    entityId: encounter.id,
-    patientId: encounter.patientId,
+  const { vitals, ...data } = readForm(encounter.fields as TemplateField[], formData);
+  await prisma.encounter.update({ where: { id: encounter.id }, data: { ...data, vitals: vitals ?? Prisma.DbNull } });
+
+  // Com o salvamento automático, registramos na auditoria no máximo um salvamento a cada 10 minutos.
+  const recent = await prisma.auditLog.findFirst({
+    where: {
+      clinicId: user.clinicId,
+      userId: user.id,
+      action: "ATENDIMENTO_SALVO",
+      entityId: encounter.id,
+      createdAt: { gt: new Date(Date.now() - 10 * 60 * 1000) },
+    },
   });
-  revalidatePath(`/pacientes/${encounter.patientId}/atendimentos/${encounter.id}`);
+  if (!recent) {
+    await audit({
+      clinicId: user.clinicId,
+      userId: user.id,
+      action: "ATENDIMENTO_SALVO",
+      entity: "Encounter",
+      entityId: encounter.id,
+      patientId: encounter.patientId,
+    });
+  }
+  return new Date().toISOString();
 }
 
 export async function finalizeEncounter(encounterId: string, formData: FormData) {
   const { user, encounter } = await loadEditable(encounterId);
-  const data = readForm(encounter.fields as TemplateField[], formData);
+  const { vitals, ...data } = readForm(encounter.fields as TemplateField[], formData);
   const finalizedAt = new Date();
-  const contentHash = encounterHash({ ...encounter, ...data, finalizedAt });
+  const contentHash = encounterHash({ ...encounter, ...data, vitals, finalizedAt });
 
   await prisma.encounter.update({
     where: { id: encounter.id },
-    data: { ...data, status: "FINALIZADO", finalizedAt, contentHash },
+    data: { ...data, vitals: vitals ?? Prisma.DbNull, status: "FINALIZADO", finalizedAt, contentHash },
   });
   await audit({
     clinicId: user.clinicId,
@@ -92,6 +111,45 @@ export async function addAddendum(encounterId: string, formData: FormData) {
     entity: "Addendum",
     entityId: addendum.id,
     patientId: encounter.patientId,
+  });
+  revalidatePath(`/pacientes/${encounter.patientId}/atendimentos/${encounter.id}`);
+}
+
+// Emite receita, atestado, pedido de exame ou relatório dentro do atendimento.
+// Só o profissional do atendimento emite; depois de emitido não muda mais.
+export async function issueDocument(encounterId: string, formData: FormData) {
+  const user = await requireUser();
+  const encounter = await prisma.encounter.findFirst({ where: { id: encounterId, clinicId: user.clinicId } });
+  if (!encounter || !canViewClinical(user) || encounter.professionalId !== user.id) throw new Error("Sem permissão");
+
+  const type = documentTypes.find((t) => t === formData.get("type"));
+  const body = String(formData.get("body") ?? "").trim();
+  if (!type || !body) return;
+
+  const id = randomUUID();
+  const createdAt = new Date();
+  const contentHash = documentHash({ id, patientId: encounter.patientId, authorId: user.id, type, body, createdAt });
+  await prisma.clinicalDocument.create({
+    data: {
+      id,
+      clinicId: user.clinicId,
+      encounterId,
+      patientId: encounter.patientId,
+      authorId: user.id,
+      type,
+      body,
+      createdAt,
+      contentHash,
+    },
+  });
+  await audit({
+    clinicId: user.clinicId,
+    userId: user.id,
+    action: "DOCUMENTO_EMITIDO",
+    entity: "ClinicalDocument",
+    entityId: id,
+    patientId: encounter.patientId,
+    details: { type, contentHash },
   });
   revalidatePath(`/pacientes/${encounter.patientId}/atendimentos/${encounter.id}`);
 }

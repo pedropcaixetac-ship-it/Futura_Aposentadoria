@@ -15,7 +15,7 @@ import {
   statusStyle,
 } from "@/lib/agenda";
 import { listProfessionals } from "@/lib/agenda-data";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatPhone } from "@/lib/format";
 import { cancelAppointment, saveAppointment, startFromAppointment } from "../actions";
 import { AppointmentForm } from "../appointment-form";
 
@@ -89,7 +89,7 @@ export default async function AppointmentPage({ params, searchParams }: { params
           <div><dt className="text-slate-500">Profissional</dt><dd>{appointment.professional.name}</dd></div>
           <div><dt className="text-slate-500">Tipo</dt><dd>{appointmentTypeLabel[appointment.type]}</dd></div>
           <div><dt className="text-slate-500">Pagamento</dt><dd>{appointment.insurance ? `Convênio: ${appointment.insurance}` : "Particular"}</dd></div>
-          <div><dt className="text-slate-500">Telefone</dt><dd>{patient.phone || "Não informado"}</dd></div>
+          <div><dt className="text-slate-500">Telefone</dt><dd>{formatPhone(patient.phone) || "Não informado"}</dd></div>
           {appointment.notes && (
             <div className="sm:col-span-2"><dt className="text-slate-500">Observação</dt><dd className="whitespace-pre-wrap">{appointment.notes}</dd></div>
           )}

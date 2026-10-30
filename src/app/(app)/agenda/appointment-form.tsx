@@ -3,6 +3,7 @@
 import { startTransition, useActionState, useEffect, useState } from "react";
 import type { AppointmentType } from "@prisma/client";
 import { appointmentTypeLabel } from "@/lib/agenda";
+import { formatPhone } from "@/lib/format";
 import { searchPatients, type AppointmentFormState, type PatientOption } from "./actions";
 
 type Props = {
@@ -67,7 +68,7 @@ export function AppointmentForm({ action, professionals, defaults, patient: init
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-marinho-100 bg-marinho-50 px-3 py-2">
             <div>
               <p className="font-medium text-marinho-900">{patient.name}</p>
-              <p className="text-xs text-slate-500">{[patient.phone, patient.insurance].filter(Boolean).join(" · ")}</p>
+              <p className="text-xs text-slate-500">{[formatPhone(patient.phone), patient.insurance].filter(Boolean).join(" · ")}</p>
             </div>
             <input type="hidden" name="patientId" value={patient.id} />
             {!lockPatient && (
@@ -107,7 +108,7 @@ export function AppointmentForm({ action, professionals, defaults, patient: init
                   <li key={p.id}>
                     <button type="button" onClick={() => choose(p)} className="block w-full px-3 py-2 text-left text-sm hover:bg-marinho-50">
                       <span className="font-medium">{p.name}</span>
-                      <span className="text-slate-500">{p.phone && ` · ${p.phone}`}</span>
+                      <span className="text-slate-500">{p.phone && ` · ${formatPhone(p.phone)}`}</span>
                     </button>
                   </li>
                 ))}

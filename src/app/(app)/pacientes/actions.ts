@@ -6,78 +6,135 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
-import { isValidCpf } from "@/lib/format";
+import { parsePatient, readFormData, sameNameKey, validatePatient, type PatientInput, type RegistrationMode } from "@/lib/patient";
 import { canViewClinical } from "@/lib/permissions";
 
-export type FormState = { error: string };
+export type FormState = { error: string; duplicate?: { id: string; name: string } };
 
 function text(formData: FormData, key: string) {
   const value = String(formData.get(key) ?? "").trim();
   return value || null;
 }
 
-function patientData(formData: FormData) {
-  const cpf = text(formData, "cpf")?.replace(/\D/g, "") || null;
-  const birth = text(formData, "birthDate");
-  return {
-    name: text(formData, "name") ?? "",
-    socialName: text(formData, "socialName"),
-    birthDate: birth ? new Date(`${birth}T00:00:00Z`) : null,
-    sex: text(formData, "sex"),
-    cpf,
-    phone: text(formData, "phone"),
-    email: text(formData, "email"),
-    address: text(formData, "address"),
-    insurance: text(formData, "insurance"),
-    insuranceNumber: text(formData, "insuranceNumber"),
-    guardianName: text(formData, "guardianName"),
-  };
-}
-
-function validate(data: ReturnType<typeof patientData>) {
-  if (data.name.length < 3) return "Informe o nome completo do paciente.";
-  if (data.cpf && !isValidCpf(data.cpf)) return "CPF inválido.";
-  if (data.birthDate && data.birthDate > new Date()) return "Data de nascimento no futuro.";
-  return "";
+function modeOf(formData: FormData): RegistrationMode {
+  return formData.get("mode") === "rapido" ? "rapido" : "completo";
 }
 
 function friendlyError(e: unknown) {
   if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
-    return "Já existe um paciente com este CPF nesta clínica.";
+    const target = String(e.meta?.target ?? "");
+    return target.includes("cns")
+      ? "Já existe um paciente com este Cartão SUS nesta clínica."
+      : "Já existe um paciente com este CPF nesta clínica.";
   }
   throw e;
 }
 
+async function findDuplicate(clinicId: string, data: PatientInput, exceptId?: string) {
+  if (!data.birthDate) return null;
+  const sameBirth = await prisma.patient.findMany({
+    where: { clinicId, birthDate: data.birthDate, ...(exceptId && { id: { not: exceptId } }) },
+    select: { id: true, name: true },
+  });
+  return sameBirth.find((p) => sameNameKey(p.name) === sameNameKey(data.name)) ?? null;
+}
+
+// Guarda a data do primeiro consentimento LGPD; desmarcar apaga.
+function consent(formData: FormData, before: Date | null | undefined) {
+  if (modeOf(formData) === "rapido") return {};
+  return { lgpdConsentAt: formData.get("lgpdConsent") ? (before ?? new Date()) : null };
+}
+
+// Mesma ideia para a autorização de mensagens pelo WhatsApp.
+function whatsappConsent(formData: FormData, before: { whatsappOptIn: boolean; whatsappOptInAt: Date | null } | null) {
+  if (modeOf(formData) === "rapido") return {};
+  const optIn = formData.get("whatsappOptIn") !== null;
+  return { whatsappOptIn: optIn, whatsappOptInAt: optIn ? (before?.whatsappOptInAt ?? new Date()) : null };
+}
+
 export async function createPatient(_: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();
-  const data = patientData(formData);
-  const error = validate(data);
+  const mode = modeOf(formData);
+  const data = parsePatient(readFormData(formData), mode);
+  const error = validatePatient(data, mode);
   if (error) return { error };
+
+  if (!formData.get("confirmDuplicate")) {
+    const duplicate = await findDuplicate(user.clinicId, data);
+    if (duplicate) {
+      return { error: "Já existe um paciente com o mesmo nome e data de nascimento.", duplicate };
+    }
+  }
 
   let id: string;
   try {
-    const patient = await prisma.patient.create({ data: { ...data, clinicId: user.clinicId } });
+    const patient = await prisma.patient.create({ data: { ...data, ...consent(formData, null), ...whatsappConsent(formData, null), clinicId: user.clinicId } });
     id = patient.id;
   } catch (e) {
     return { error: friendlyError(e) };
   }
-  await audit({ clinicId: user.clinicId, userId: user.id, action: "PACIENTE_CRIADO", entity: "Patient", entityId: id, patientId: id });
+  await audit({
+    clinicId: user.clinicId,
+    userId: user.id,
+    action: "PACIENTE_CRIADO",
+    entity: "Patient",
+    entityId: id,
+    patientId: id,
+    details: { cadastro: mode },
+  });
+  if (whatsappConsent(formData, null).whatsappOptIn) {
+    await audit({ clinicId: user.clinicId, userId: user.id, action: "WHATSAPP_AUTORIZADO", entity: "Patient", entityId: id, patientId: id });
+  }
   redirect(`/pacientes/${id}`);
 }
 
 export async function updatePatient(id: string, _: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();
-  const data = patientData(formData);
-  const error = validate(data);
+  const data = parsePatient(readFormData(formData), "completo");
+  const error = validatePatient(data, "completo");
   if (error) return { error };
 
+  const before = await prisma.patient.findFirst({ where: { id, clinicId: user.clinicId } });
+  if (!before) return { error: "Paciente não encontrado." };
+
+  if (!formData.get("confirmDuplicate")) {
+    const duplicate = await findDuplicate(user.clinicId, data, id);
+    if (duplicate) {
+      return { error: "Já existe outro paciente com o mesmo nome e data de nascimento.", duplicate };
+    }
+  }
+
+  const whatsapp = whatsappConsent(formData, before);
   try {
-    const { count } = await prisma.patient.updateMany({ where: { id, clinicId: user.clinicId }, data });
-    if (count === 0) return { error: "Paciente não encontrado." };
+    await prisma.patient.update({ where: { id }, data: { ...data, ...consent(formData, before.lgpdConsentAt), ...whatsapp } });
   } catch (e) {
     return { error: friendlyError(e) };
   }
-  await audit({ clinicId: user.clinicId, userId: user.id, action: "PACIENTE_ALTERADO", entity: "Patient", entityId: id, patientId: id });
+  // Registra quais campos mudaram (sem os valores, para não espalhar dados pessoais na auditoria).
+  const changed = Object.keys(data).filter((key) => {
+    const a = before[key as keyof typeof before];
+    const b = data[key as keyof typeof data];
+    return String(a instanceof Date ? a.toISOString() : (a ?? "")) !== String(b instanceof Date ? b.toISOString() : (b ?? ""));
+  });
+  await audit({
+    clinicId: user.clinicId,
+    userId: user.id,
+    action: "PACIENTE_ALTERADO",
+    entity: "Patient",
+    entityId: id,
+    patientId: id,
+    details: { camposAlterados: changed },
+  });
+  if (whatsapp.whatsappOptIn !== undefined && whatsapp.whatsappOptIn !== before.whatsappOptIn) {
+    await audit({
+      clinicId: user.clinicId,
+      userId: user.id,
+      action: whatsapp.whatsappOptIn ? "WHATSAPP_AUTORIZADO" : "WHATSAPP_REVOGADO",
+      entity: "Patient",
+      entityId: id,
+      patientId: id,
+    });
+  }
   redirect(`/pacientes/${id}`);
 }
 

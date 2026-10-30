@@ -9,6 +9,7 @@ import { audit } from "@/lib/audit";
 import { createEncounter } from "@/lib/encounter";
 import { canManageAgendaOf, canStartFromAppointment, canUseReception } from "@/lib/permissions";
 import { findProfessional } from "@/lib/agenda-data";
+import { onlyDigits } from "@/lib/format";
 import {
   canCancel,
   clinicParts,
@@ -123,7 +124,8 @@ export async function saveAppointment(
 
   if (!patientId) {
     const patient = await prisma.patient.create({
-      data: { clinicId: user.clinicId, name: newName!, phone: text(formData, "newPatientPhone"), insurance },
+      // Cadastro rápido: fica marcado como incompleto para a recepção completar depois.
+      data: { clinicId: user.clinicId, name: newName!, phone: onlyDigits(text(formData, "newPatientPhone")) || null, insurance, registrationComplete: false },
     });
     patientId = patient.id;
     await audit({ clinicId: user.clinicId, userId: user.id, action: "PACIENTE_CRIADO", entity: "Patient", entityId: patientId, patientId });

@@ -34,3 +34,36 @@ test("auditoria não pode ser apagada", async () => {
   const log = await prisma.auditLog.create({ data: { clinicId: clinic.id, action: "TESTE", entity: "Teste" } });
   await assert.rejects(prisma.auditLog.delete({ where: { id: log.id } }), /não podem ser alterados/);
 });
+
+test("número do recibo não se repete na mesma clínica", async () => {
+  const clinic = await testClinic();
+  const patient = await prisma.patient.create({ data: { clinicId: clinic.id, name: "Paciente Teste" } });
+  const charge = (n: number) => ({ clinicId: clinic.id, patientId: patient.id, description: "Consulta", amountCents: 100, dueDate: new Date(), receiptNumber: n });
+  await prisma.charge.create({ data: charge(1) });
+  await assert.rejects(prisma.charge.create({ data: charge(1) }), /Unique constraint/);
+});
+
+test("documento emitido (receita, atestado) não pode ser alterado nem excluído", async () => {
+  const clinic = await testClinic();
+  const professional = await prisma.user.create({
+    data: { clinicId: clinic.id, name: "Teste", email: "t@t.com", passwordHash: "-", role: "PROFISSIONAL" },
+  });
+  const patient = await prisma.patient.create({ data: { clinicId: clinic.id, name: "Paciente Teste" } });
+  const encounter = await prisma.encounter.create({
+    data: { clinicId: clinic.id, patientId: patient.id, professionalId: professional.id, fields: [] },
+  });
+  const doc = await prisma.clinicalDocument.create({
+    data: {
+      clinicId: clinic.id,
+      encounterId: encounter.id,
+      patientId: patient.id,
+      authorId: professional.id,
+      type: "ATESTADO",
+      body: "Atesto que...",
+      contentHash: "-",
+    },
+  });
+
+  await assert.rejects(prisma.clinicalDocument.update({ where: { id: doc.id }, data: { body: "mudado" } }), /não podem ser alterados/);
+  await assert.rejects(prisma.clinicalDocument.delete({ where: { id: doc.id } }), /não podem ser alterados/);
+});

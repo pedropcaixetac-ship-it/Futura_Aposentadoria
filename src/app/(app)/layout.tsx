@@ -24,7 +24,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: "/pacientes", label: "Pacientes" },
     ...(canManageTemplates(user) ? [{ href: "/modelos", label: "Modelos de atendimento" }] : []),
     ...(clinical ? [{ href: "/textos-prontos", label: "Meus textos prontos" }] : []),
-    ...(user.role !== "PROFISSIONAL" ? [{ href: "/financeiro", label: "Financeiro", soon: true }] : []),
+    { href: "/financeiro", label: "Financeiro" },
     ...(canViewAudit(user) ? [{ href: "/auditoria", label: "Auditoria" }] : []),
   ];
 

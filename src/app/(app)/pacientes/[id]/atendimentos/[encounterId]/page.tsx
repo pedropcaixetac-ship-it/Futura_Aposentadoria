@@ -5,10 +5,15 @@ import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { canAddAddendum, canEditEncounter, canViewClinical } from "@/lib/permissions";
 import { age, formatDate, formatDateTime } from "@/lib/format";
-import { encounterHash, type Diagnosis, type TemplateField } from "@/lib/record";
-import { addAddendum, finalizeEncounter, saveEncounter } from "../../actions";
+import { documentHash, encounterHash, type Diagnosis, type TemplateField } from "@/lib/record";
+import { documentTypeLabel } from "@/lib/documents";
+import { addAddendum, autosaveEncounter, finalizeEncounter, issueDocument } from "../../actions";
+import type { Vitals } from "@/lib/vitals";
+import { DocumentForm } from "./document-form";
 import { EncounterEditor } from "./encounter-editor";
 import { PrintButton } from "./print-button";
+import { PatientHistory } from "./patient-history";
+import { VitalsView } from "./vitals-view";
 
 export default async function EncounterPage({ params }: { params: Promise<{ id: string; encounterId: string }> }) {
   const user = await requireUser();
@@ -22,6 +27,7 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
       professional: true,
       template: true,
       addenda: { include: { author: true }, orderBy: { createdAt: "asc" } },
+      documents: { include: { author: true }, orderBy: { createdAt: "asc" } },
     },
   });
   if (!encounter) notFound();
@@ -36,6 +42,7 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
   });
 
   const editable = canEditEncounter(user, encounter);
+  const canIssueDocuments = encounter.professionalId === user.id;
   const snippets = editable
     ? await prisma.textSnippet.findMany({
         where: { ownerId: user.id },
@@ -44,33 +51,50 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
       })
     : [];
 
+  const history = editable
+    ? await prisma.encounter.findMany({
+        where: { patientId: id, clinicId: user.clinicId, status: "FINALIZADO", id: { not: encounter.id } },
+        include: { professional: true, template: true },
+        orderBy: { startedAt: "desc" },
+        take: 30,
+      })
+    : [];
+
   const fields = encounter.fields as TemplateField[];
   const content = encounter.content as Record<string, string>;
   const diagnoses = encounter.diagnoses as Diagnosis[];
+  const vitals = encounter.vitals as Vitals | null;
   const { patient, professional } = encounter;
   const intact =
     encounter.status !== "FINALIZADO" ||
     (encounter.finalizedAt && encounter.contentHash === encounterHash({ ...encounter, finalizedAt: encounter.finalizedAt }));
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className={editable ? "space-y-4" : "mx-auto max-w-3xl space-y-4"}>
       <div className="no-print flex items-center justify-between">
         <Link href={`/pacientes/${id}`} className="text-sm text-marinho-700 hover:underline">← Voltar ao prontuário</Link>
-        {encounter.status === "FINALIZADO" && <PrintButton />}
+        {encounter.status === "FINALIZADO" && (
+          <div className="flex gap-2">
+            <a href={`/api/pdf/atendimento/${encounter.id}`} target="_blank" className="btn-secondary">Baixar PDF</a>
+            <PrintButton />
+          </div>
+        )}
       </div>
 
-      <div className="card space-y-1">
-        <p className="text-xs uppercase tracking-wide text-slate-500">{encounter.template?.name ?? "Evolução livre"}</p>
-        <h1 className="text-xl font-semibold">
-          {patient.name}
-          {patient.birthDate && <span className="font-normal text-slate-500"> · {age(patient.birthDate)} anos ({formatDate(patient.birthDate)})</span>}
-        </h1>
-        <p className="text-sm text-slate-600">
-          {formatDateTime(encounter.startedAt)} · {professional.name}
-          {professional.councilNumber && ` · ${professional.councilType} ${professional.councilNumber}/${professional.councilUf}`}
-        </p>
-        {patient.allergies && <p className="text-sm font-semibold text-red-700">Alergias: {patient.allergies}</p>}
-      </div>
+      {!editable && (
+        <div className="card space-y-1">
+          <p className="text-xs uppercase tracking-wide text-slate-500">{encounter.template?.name ?? "Evolução livre"}</p>
+          <h1 className="text-xl font-semibold">
+            {patient.name}
+            {patient.birthDate && <span className="font-normal text-slate-500"> · {age(patient.birthDate)} anos ({formatDate(patient.birthDate)})</span>}
+          </h1>
+          <p className="text-sm text-slate-600">
+            {formatDateTime(encounter.startedAt)} · {professional.name}
+            {professional.councilNumber && ` · ${professional.councilType} ${professional.councilNumber}/${professional.councilUf}`}
+          </p>
+          {patient.allergies && <p className="text-sm font-semibold text-red-700">Alergias: {patient.allergies}</p>}
+        </div>
+      )}
 
       {!intact && (
         <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800">
@@ -79,14 +103,38 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
       )}
 
       {editable ? (
-        <EncounterEditor
-          fields={fields}
-          content={content}
-          diagnoses={diagnoses}
-          snippets={snippets}
-          save={saveEncounter.bind(null, encounter.id)}
-          finalize={finalizeEncounter.bind(null, encounter.id)}
-        />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+          <EncounterEditor
+            patient={{
+              name: patient.socialName || patient.name,
+              ageLine: patient.birthDate ? `${age(patient.birthDate)} anos (${formatDate(patient.birthDate)})` : null,
+              insurance: patient.insurance,
+              allergies: patient.allergies,
+            }}
+            startedAt={encounter.startedAt.toISOString()}
+            heading={`${encounter.template?.name ?? "Evolução livre"} · ${professional.name}`}
+            fields={fields}
+            content={content}
+            diagnoses={diagnoses}
+            vitals={vitals}
+            snippets={snippets}
+            autosave={autosaveEncounter.bind(null, encounter.id)}
+            finalize={finalizeEncounter.bind(null, encounter.id)}
+          />
+          <PatientHistory
+            summary={patient}
+            encounters={history.map((e) => ({
+              id: e.id,
+              startedAt: e.startedAt,
+              templateName: e.template?.name ?? null,
+              professionalName: e.professional.name,
+              fields: e.fields as TemplateField[],
+              content: e.content as Record<string, string>,
+              diagnoses: e.diagnoses as Diagnosis[],
+              vitals: e.vitals as Vitals | null,
+            }))}
+          />
+        </div>
       ) : (
         <div className="card space-y-4">
           {encounter.status === "RASCUNHO" && (
@@ -94,6 +142,7 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
               Rascunho em andamento. Só {professional.name} pode editar e finalizar.
             </p>
           )}
+          <VitalsView vitals={vitals} />
           {fields.map((f) => (
             <section key={f.key}>
               <h2 className="text-sm font-semibold text-slate-700">{f.label}</h2>
@@ -132,6 +181,32 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
               <p className="whitespace-pre-wrap text-sm">{a.text}</p>
             </div>
           ))}
+        </div>
+      )}
+
+      {(encounter.documents.length > 0 || canIssueDocuments) && (
+        <div className="no-print card space-y-3">
+          <h2 className="font-semibold">Receitas, atestados e pedidos</h2>
+          {encounter.documents.length > 0 && (
+            <ul className="divide-y divide-slate-100">
+              {encounter.documents.map((d) => (
+                <li key={d.id} className="flex items-start justify-between gap-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">
+                      {documentTypeLabel[d.type]}
+                      <span className="font-normal text-slate-500"> · {formatDateTime(d.createdAt)} · {d.author.name}</span>
+                    </p>
+                    <p className="truncate text-sm text-slate-600">{d.body.split("\n").find((l) => l.trim())}</p>
+                    {d.contentHash !== documentHash(d) && (
+                      <p className="text-xs font-semibold text-red-700">Atenção: este documento não confere com o emitido.</p>
+                    )}
+                  </div>
+                  <a href={`/api/pdf/documento/${d.id}`} target="_blank" className="btn-secondary shrink-0">PDF</a>
+                </li>
+              ))}
+            </ul>
+          )}
+          {canIssueDocuments && <DocumentForm issue={issueDocument.bind(null, encounter.id)} />}
         </div>
       )}
 
