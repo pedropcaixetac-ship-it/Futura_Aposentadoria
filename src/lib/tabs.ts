@@ -1,5 +1,5 @@
 import type { Role } from "@prisma/client";
-import { canManageTemplates, canViewClinical, canWorkClinical, RECEPTION_ROLES, type PermissionUser } from "./permissions";
+import { canManageCharges, canManageTemplates, canViewClinical, canWorkClinical, RECEPTION_ROLES, type PermissionUser } from "./permissions";
 
 // Abas do sistema que o administrador pode liberar ou tirar de cada pessoa
 // em "Cadastro de servidores > Editar permissões".
@@ -12,6 +12,7 @@ export type TabKey =
   | "textos-prontos"
   | "assinatura"
   | "financeiro"
+  | "meu-financeiro"
   | "contabilidade"
   | "auditoria"
   | "servidores";
@@ -94,8 +95,17 @@ export const TABS: Tab[] = [
     key: "financeiro",
     label: "Financeiro",
     href: "/financeiro",
-    description: "Recepção lança cobranças e recebe pagamentos; profissionais veem o próprio repasse. Inclui Compras.",
-    defaultRoles: allRoles,
+    description: "Resumo, receitas, despesas, compras, repasse e preços. A recepção vê só as receitas (lança cobranças e recebe pagamentos).",
+    defaultRoles: ["ADMIN", "ADMINISTRATIVO", "RECEPCAO"],
+    blockedReason: (u) => (canManageCharges(u) ? null : "Só para gerente do sistema, administrativo e recepção."),
+  },
+  {
+    key: "meu-financeiro",
+    label: "Meu financeiro",
+    href: "/meu-financeiro",
+    description: "Quanto o profissional recebeu dos próprios atendimentos, a porcentagem e o repasse do mês.",
+    defaultRoles: ["ADMIN", "PROFISSIONAL", "TECNICO"],
+    blockedReason: (u) => (canWorkClinical(u) ? null : "Só para profissionais de saúde."),
   },
   {
     key: "contabilidade",

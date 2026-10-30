@@ -71,14 +71,14 @@ export function canUseReception(user: PermissionUser) {
   return hasReceptionTab(user);
 }
 
-// Financeiro: o administrador vê tudo; a recepção lança cobranças e recebe pagamentos;
-// cada profissional vê apenas o próprio repasse.
+// Financeiro: o administrador e o auxiliar administrativo veem tudo; a recepção lança cobranças
+// e recebe pagamentos. Cada profissional vê o próprio repasse em "Meu financeiro".
 export function canManageCharges(user: PermissionUser) {
-  return user.role === "ADMIN" || user.role === "RECEPCAO";
+  return canManageFinance(user) || user.role === "RECEPCAO";
 }
 
 export function canManageFinance(user: PermissionUser) {
-  return user.role === "ADMIN";
+  return user.role === "ADMIN" || user.role === "ADMINISTRATIVO";
 }
 
 export function canCancelCharge(user: PermissionUser, charge: { status: "PENDENTE" | "PAGO" | "CANCELADO" }) {
