@@ -4,6 +4,7 @@ import { documentTypeLabel } from "./documents";
 import type { Diagnosis, TemplateField } from "./record";
 import type { PdfInput } from "./pdf";
 import { vitalsSummary, type Vitals } from "./vitals";
+import { displayName } from "./staff";
 
 function council(user: User) {
   return user.councilNumber ? `${user.councilType} ${user.councilNumber}/${user.councilUf}` : null;
@@ -37,7 +38,7 @@ export function encounterPdfInput(
     sections.push({ title: "Diagnósticos (CID-10)", text: diagnoses.map((d) => `${d.code} ${d.description}`).join("\n") });
   }
   for (const a of encounter.addenda) {
-    const who = [a.author.name, council(a.author)].filter(Boolean).join(" · ");
+    const who = [displayName(a.author), council(a.author)].filter(Boolean).join(" · ");
     sections.push({ title: `Adendo em ${formatDateTime(a.createdAt)} (${who})`, text: a.text });
   }
 
@@ -46,7 +47,7 @@ export function encounterPdfInput(
     title: templateName ?? "Registro de atendimento",
     info: [...patientLines(encounter.patient), `Atendimento: ${formatDateTime(encounter.startedAt)}`],
     sections,
-    professional: { name: encounter.professional.name, council: council(encounter.professional), specialty: encounter.professional.specialty },
+    professional: { name: displayName(encounter.professional), council: council(encounter.professional), specialty: encounter.professional.specialty },
     place: encounter.finalizedAt ? `Finalizado em ${formatDateTime(encounter.finalizedAt)}` : "Rascunho (não finalizado)",
     integrityCode: encounter.contentHash,
   };
@@ -58,7 +59,7 @@ export function documentPdfInput(clinicName: string, doc: ClinicalDocument & { p
     title: documentTypeLabel[doc.type],
     info: patientLines(doc.patient),
     sections: [{ text: doc.body }],
-    professional: { name: doc.author.name, council: council(doc.author), specialty: doc.author.specialty },
+    professional: { name: displayName(doc.author), council: council(doc.author), specialty: doc.author.specialty },
     place: `Emitido em ${formatDateTime(doc.createdAt)}`,
     integrityCode: doc.contentHash,
   };

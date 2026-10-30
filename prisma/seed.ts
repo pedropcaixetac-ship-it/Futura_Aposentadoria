@@ -61,10 +61,12 @@ async function seedDemo() {
 
   await prisma.user.createMany({
     data: [
-      { clinicId: clinic.id, name: "Administrador", email: "admin@demo.com", passwordHash, role: "ADMIN", sector: "Administração" },
+      { clinicId: clinic.id, name: "Administrador", email: "admin@demo.com", passwordHash, role: "ADMIN", jobTitle: "Gerente / administrador(a)", sector: "Administração" },
       {
         clinicId: clinic.id,
-        name: "Dra. Ana Souza",
+        name: "Ana Souza",
+        sex: "F",
+        jobTitle: "Médico(a)",
         email: "ana@demo.com",
         passwordHash,
         role: "PROFISSIONAL",
@@ -77,6 +79,8 @@ async function seedDemo() {
       {
         clinicId: clinic.id,
         name: "Carlos Lima",
+        sex: "M",
+        jobTitle: "Psicólogo(a)",
         email: "carlos@demo.com",
         passwordHash,
         role: "PROFISSIONAL",
@@ -86,7 +90,7 @@ async function seedDemo() {
         specialty: "Psicologia",
         sector: "Consultório 2",
       },
-      { clinicId: clinic.id, name: "Júlia Recepção", email: "recepcao@demo.com", passwordHash, role: "RECEPCAO", sector: "Recepção" },
+      { clinicId: clinic.id, name: "Júlia Recepção", email: "recepcao@demo.com", passwordHash, role: "RECEPCAO", jobTitle: "Recepcionista", sector: "Recepção" },
     ],
   });
 
@@ -355,9 +359,9 @@ async function seedStaffDemo() {
   const clinic = await prisma.clinic.findUnique({ where: { slug: "demo" } });
   if (!clinic) return;
   const jobTitles: Record<string, string> = {
-    "admin@demo.com": "Administrador",
-    "ana@demo.com": "Médica",
-    "carlos@demo.com": "Psicólogo",
+    "admin@demo.com": "Gerente / administrador(a)",
+    "ana@demo.com": "Médico(a)",
+    "carlos@demo.com": "Psicólogo(a)",
     "recepcao@demo.com": "Recepcionista",
   };
   for (const [email, jobTitle] of Object.entries(jobTitles)) {

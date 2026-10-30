@@ -6,6 +6,7 @@ import { formatMoney } from "@/lib/money";
 import { commission, commissionDescription, monthRange } from "@/lib/finance";
 import { launchCommissionExpense, updateCommission } from "../actions";
 import { MonthNav, SummaryCard } from "../ui";
+import { displayName } from "@/lib/staff";
 
 export default async function CommissionPage({ searchParams }: { searchParams: Promise<{ mes?: string }> }) {
   const user = await requireUser("financeiro");
@@ -107,7 +108,7 @@ export default async function CommissionPage({ searchParams }: { searchParams: P
             {rows.map((p) => (
               <tr key={p.id} className="border-t border-slate-100">
                 <td className="px-4 py-2">
-                  <span className="font-medium">{p.name}</span>
+                  <span className="font-medium">{displayName(p)}</span>
                   {p.specialty && <span className="block text-xs text-slate-500">{p.specialty}</span>}
                 </td>
                 <td className="px-4 py-2 text-right">{p.count}</td>
@@ -121,7 +122,7 @@ export default async function CommissionPage({ searchParams }: { searchParams: P
                       max={100}
                       defaultValue={p.commissionPercent ?? ""}
                       className="input w-20!"
-                      aria-label={`Porcentagem de ${p.name}`}
+                      aria-label={`Porcentagem de ${displayName(p)}`}
                     />
                     <span>%</span>
                     <button className="ml-1 text-xs text-marinho-700 hover:underline">Salvar</button>

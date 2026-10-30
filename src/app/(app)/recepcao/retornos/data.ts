@@ -21,7 +21,7 @@ export async function returnsToNotify(clinicId: string) {
     },
     include: {
       patient: { select: { id: true, name: true, socialName: true, phone: true, phoneWhatsapp: true, whatsappOptIn: true } },
-      professional: { select: { id: true, name: true } },
+      professional: { select: { id: true, name: true, jobTitle: true, sex: true } },
     },
     orderBy: { returnDueOn: "asc" },
   });

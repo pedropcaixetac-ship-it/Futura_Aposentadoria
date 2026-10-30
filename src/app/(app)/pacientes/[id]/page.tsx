@@ -24,6 +24,7 @@ import { ClinicalSummary } from "./clinical-summary";
 import { EncounterContent, Marked } from "./encounter-content";
 import { PatientDetails } from "./patient-details";
 import { WhatsappButton } from "./whatsapp-button";
+import { displayName } from "@/lib/staff";
 
 export default async function PatientRecordPage({
   params,
@@ -189,7 +190,7 @@ export default async function PatientRecordPage({
                   <label className="label" htmlFor="profissional">Profissional</label>
                   <select id="profissional" name="profissional" defaultValue={filters.profissional} className="input">
                     <option value="">Todos</option>
-                    {professionals.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    {professionals.map((p) => <option key={p.id} value={p.id}>{displayName(p)}</option>)}
                   </select>
                 </div>
                 <div>
@@ -261,7 +262,7 @@ export default async function PatientRecordPage({
                             <div className="flex flex-wrap items-center gap-2 text-sm">
                               <span className="inline-block text-marinho-600 transition group-open:rotate-90">▸</span>
                               <span className="font-medium">{formatDateTime(e.startedAt)}</span>
-                              <span className="text-slate-500">· {e.template?.name ?? "Evolução livre"} · {e.professional.name}</span>
+                              <span className="text-slate-500">· {e.template?.name ?? "Evolução livre"} · {displayName(e.professional)}</span>
                               {e.status === "RASCUNHO" ? (
                                 <span className="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800">Rascunho</span>
                               ) : (

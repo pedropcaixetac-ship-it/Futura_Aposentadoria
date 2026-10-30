@@ -1,14 +1,16 @@
 // Leituras da agenda no banco de dados.
 import { prisma } from "./db";
+import { displayName } from "./staff";
 import { clinicTime, freeSlots, occupiesSlot, overlaps, weekdayOf, type Interval } from "./agenda";
 
-// Quem atende: profissionais de saúde ativos com registro em conselho.
-export function listProfessionals(clinicId: string) {
-  return prisma.user.findMany({
+// Quem atende: profissionais de saúde ativos com registro em conselho. O nome já vem com "Dr./Dra." quando a função pede.
+export async function listProfessionals(clinicId: string) {
+  const list = await prisma.user.findMany({
     where: { clinicId, active: true, role: { not: "RECEPCAO" }, councilNumber: { not: null } },
-    select: { id: true, name: true, specialty: true },
+    select: { id: true, name: true, specialty: true, jobTitle: true, sex: true },
     orderBy: { name: "asc" },
   });
+  return list.map((p) => ({ id: p.id, name: displayName(p), specialty: p.specialty }));
 }
 
 export async function findProfessional(clinicId: string, id: string) {

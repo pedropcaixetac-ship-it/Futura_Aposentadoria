@@ -7,6 +7,7 @@ import { formatDate, formatDateTime, formatPhone } from "@/lib/format";
 import { canMessage } from "@/lib/whatsapp";
 import { WhatsappLink } from "../../agenda/whatsapp-link";
 import { RETURN_NOTICE_DAYS_BEFORE, returnsToNotify } from "./data";
+import { displayName } from "@/lib/staff";
 
 export default async function ReturnsPage() {
   const user = await requireUser("recepcao");
@@ -51,7 +52,7 @@ export default async function ReturnsPage() {
                     </Link>
                     <p className="text-xs text-slate-500">{formatPhone(r.patient.phone)}</p>
                   </td>
-                  <td className="px-4 py-2">{r.professional.name}</td>
+                  <td className="px-4 py-2">{displayName(r.professional)}</td>
                   <td className="px-4 py-2">
                     <Link href={`/agenda/${r.id}`} className="text-marinho-700 hover:underline">{formatDayLabel(clinicParts(r.startsAt).date)}</Link>
                   </td>

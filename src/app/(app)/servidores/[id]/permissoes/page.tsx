@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { roleLabel } from "@/lib/format";
 import { hasTab, TABS } from "@/lib/tabs";
 import { resetPermissions, savePermissions } from "../../actions";
+import { displayName } from "@/lib/staff";
 
 export default async function PermissionsPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser("servidores");
@@ -17,7 +18,7 @@ export default async function PermissionsPage({ params }: { params: Promise<{ id
     <div className="max-w-3xl space-y-4">
       <div>
         <Link href="/servidores" className="text-sm text-marinho-700 hover:underline">← Cadastro de servidores</Link>
-        <h1 className="text-2xl font-semibold">Permissões de {staff.name}</h1>
+        <h1 className="text-2xl font-semibold">Permissões de {displayName(staff)}</h1>
         <p className="text-sm text-slate-500">
           Escolha as abas que aparecem para esta pessoa no menu. Perfil: {roleLabel[staff.role]}.{" "}
           {isAdmin

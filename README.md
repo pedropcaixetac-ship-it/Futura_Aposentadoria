@@ -59,7 +59,13 @@ Este é o primeiro módulo: **Prontuário**.
 
 - Tabela com a equipe: nome completo, função, setor/especialidade e situação, com filtros por nome/e-mail/CPF/conselho,
   função, setor e situação (ativos, desligados ou todos)
-- Cadastro de cada pessoa com CPF e registro no conselho, que servem para entrar no sistema
+- Cadastro de cada pessoa com os mesmos dados do paciente (foto, documentos, contato, endereço com busca pelo CEP),
+  mais CPF e registro no conselho, que servem para entrar no sistema
+- Função, especialidade e setor em listas prontas (com "Outro" para digitar). A função já sugere o perfil de acesso e o conselho
+- Perfis de saúde: acesso completo (médico, enfermeiro, psicólogo...) ou restrito (técnico/auxiliar de enfermagem, radiologia...).
+  O restrito vê o resumo clínico e só os próprios atendimentos; não abre consultas de outros, não emite documentos nem imprime o histórico
+- "Dr."/"Dra." aparece sozinho antes do nome de médicos, psicólogos e dentistas ("Dra." quando o sexo é feminino).
+  Não se digita no nome: se vier digitado, é retirado ao salvar
 - Dá para cadastrar quem faz parte da equipe mas não usa o sistema (ex.: limpeza): sem e-mail, sem senha e sem login
 - Nos três pontinhos de cada linha: editar cadastro, editar permissões e registrar desligamento (ou reativar)
 - Editar permissões escolhe as abas que aparecem para a pessoa. As regras de cada perfil continuam valendo:

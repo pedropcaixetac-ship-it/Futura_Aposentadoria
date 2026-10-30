@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { auditActionLabel } from "@/lib/audit";
 import { formatDateTime } from "@/lib/format";
+import { displayName } from "@/lib/staff";
 
 export default async function AuditPage({ searchParams }: { searchParams: Promise<{ paciente?: string }> }) {
   const user = await requireUser("auditoria");
@@ -44,7 +45,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
             {logs.map((l) => (
               <tr key={l.id} className="border-t border-slate-100">
                 <td className="whitespace-nowrap px-4 py-2">{formatDateTime(l.createdAt)}</td>
-                <td className="px-4 py-2">{l.user?.name ?? "—"}</td>
+                <td className="px-4 py-2">{l.user ? displayName(l.user) : "—"}</td>
                 <td className="px-4 py-2">{auditActionLabel[l.action] ?? l.action}</td>
                 <td className="px-4 py-2">
                   {l.patientId && (

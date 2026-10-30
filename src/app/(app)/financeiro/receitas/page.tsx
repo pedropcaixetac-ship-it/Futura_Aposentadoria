@@ -9,6 +9,7 @@ import { formatMoney } from "@/lib/money";
 import { monthRange, paymentMethodLabel, today } from "@/lib/finance";
 import { cancelCharge, receiveCharge } from "../actions";
 import { MonthNav, PayForm, StatusBadge } from "../ui";
+import { displayName } from "@/lib/staff";
 
 const filters = [
   { value: "", label: "Todas" },
@@ -52,7 +53,7 @@ export default async function ChargesPage({ searchParams }: { searchParams: Prom
         finalizedAt: { gte: ninetyDaysAgo },
         charges: { none: { status: { not: "CANCELADO" } } },
       },
-      select: { id: true, finalizedAt: true, patient: { select: { name: true, insurance: true } }, professional: { select: { name: true } } },
+      select: { id: true, finalizedAt: true, patient: { select: { name: true, insurance: true } }, professional: { select: { name: true, jobTitle: true, sex: true } } },
       orderBy: { finalizedAt: "desc" },
       take: 20,
     }),
@@ -71,7 +72,7 @@ export default async function ChargesPage({ searchParams }: { searchParams: Prom
                 <span>
                   <span className="font-medium">{e.patient.name}</span>
                   <span className="text-slate-500">
-                    {" "}· {e.professional.name} · {formatDateTime(e.finalizedAt)}
+                    {" "}· {displayName(e.professional)} · {formatDateTime(e.finalizedAt)}
                     {e.patient.insurance && ` · ${e.patient.insurance}`}
                   </span>
                 </span>
@@ -126,7 +127,7 @@ export default async function ChargesPage({ searchParams }: { searchParams: Prom
                 <td className="whitespace-nowrap px-4 py-2">{formatDate(c.dueDate)}</td>
                 <td className="px-4 py-2 font-medium">{c.patient.name}</td>
                 <td className="px-4 py-2">{c.description}</td>
-                <td className="px-4 py-2">{c.professional?.name ?? "—"}</td>
+                <td className="px-4 py-2">{c.professional ? displayName(c.professional) : "—"}</td>
                 <td className="whitespace-nowrap px-4 py-2 text-right font-medium">{formatMoney(c.amountCents)}</td>
                 <td className="px-4 py-2">
                   <StatusBadge status={c.status} dueDate={c.dueDate} />

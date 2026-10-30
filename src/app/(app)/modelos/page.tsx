@@ -5,6 +5,7 @@ import { canManageTemplates } from "@/lib/permissions";
 import type { TemplateField } from "@/lib/record";
 import { TemplateForm } from "./template-form";
 import { TemplateList } from "./template-list";
+import { displayName } from "@/lib/staff";
 
 export default async function TemplatesPage() {
   const user = await requireUser("modelos");
@@ -22,9 +23,9 @@ export default async function TemplatesPage() {
     isAdmin
       ? prisma.user.findMany({
           where: { clinicId: user.clinicId, active: true, role: { not: "RECEPCAO" }, councilNumber: { not: null } },
-          select: { id: true, name: true },
+          select: { id: true, name: true, jobTitle: true, sex: true },
           orderBy: { name: "asc" },
-        })
+        }).then((list) => list.map((p) => ({ id: p.id, name: displayName(p) })))
       : [],
   ]);
   const templates = rows.map((t) => ({ ...t, fields: t.fields as TemplateField[] }));

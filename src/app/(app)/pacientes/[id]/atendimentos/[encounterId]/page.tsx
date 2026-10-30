@@ -17,6 +17,7 @@ import { EncounterEditor } from "./encounter-editor";
 import { PrintButton } from "./print-button";
 import { PatientHistory } from "./patient-history";
 import { VitalsView } from "./vitals-view";
+import { displayName } from "@/lib/staff";
 
 export default async function EncounterPage({
   params,
@@ -112,7 +113,7 @@ export default async function EncounterPage({
             {patient.birthDate && <span className="font-normal text-slate-500"> · {age(patient.birthDate)} anos ({formatDate(patient.birthDate)})</span>}
           </h1>
           <p className="text-sm text-slate-600">
-            {formatDateTime(encounter.startedAt)} · {professional.name}
+            {formatDateTime(encounter.startedAt)} · {displayName(professional)}
             {professional.councilNumber && ` · ${professional.councilType} ${professional.councilNumber}/${professional.councilUf}`}
           </p>
           {patient.allergies && <p className="text-sm font-semibold text-red-700">Alergias: {patient.allergies}</p>}
@@ -146,7 +147,7 @@ export default async function EncounterPage({
               allergies: patient.allergies,
             }}
             startedAt={encounter.startedAt.toISOString()}
-            heading={`${encounter.template?.name ?? "Evolução livre"} · ${professional.name}`}
+            heading={`${encounter.template?.name ?? "Evolução livre"} · ${displayName(professional)}`}
             fields={fields}
             content={content}
             diagnoses={diagnoses}
@@ -156,7 +157,7 @@ export default async function EncounterPage({
               last
                 ? {
                     when: formatDateTime(last.startedAt),
-                    professionalName: last.professional.name,
+                    professionalName: displayName(last.professional),
                     fields: last.fields as TemplateField[],
                     content: last.content as Record<string, string>,
                     diagnoses: last.diagnoses as Diagnosis[],
@@ -174,7 +175,7 @@ export default async function EncounterPage({
               id: e.id,
               startedAt: e.startedAt,
               templateName: e.template?.name ?? null,
-              professionalName: e.professional.name,
+              professionalName: displayName(e.professional),
               fields: e.fields as TemplateField[],
               content: e.content as Record<string, string>,
               diagnoses: e.diagnoses as Diagnosis[],
@@ -186,7 +187,7 @@ export default async function EncounterPage({
         <div className="card space-y-4">
           {encounter.status === "RASCUNHO" && (
             <p className="rounded bg-amber-50 p-2 text-sm text-amber-800">
-              Rascunho em andamento. Só {professional.name} pode editar e finalizar.
+              Rascunho em andamento. Só {displayName(professional)} pode editar e finalizar.
             </p>
           )}
           <VitalsView vitals={vitals} />
@@ -208,7 +209,7 @@ export default async function EncounterPage({
           )}
           {encounter.finalizedAt && (
             <p className="border-t border-slate-100 pt-3 text-xs text-slate-500">
-              Finalizado em {formatDateTime(encounter.finalizedAt)} por {professional.name}.
+              Finalizado em {formatDateTime(encounter.finalizedAt)} por {displayName(professional)}.
               <br />
               Código de integridade: <span className="font-mono">{encounter.contentHash?.slice(0, 16)}</span>
             </p>
@@ -222,7 +223,7 @@ export default async function EncounterPage({
           {encounter.addenda.map((a) => (
             <div key={a.id} className="border-l-2 border-dourado-500 pl-3">
               <p className="text-xs text-slate-500">
-                {formatDateTime(a.createdAt)} · {a.author.name}
+                {formatDateTime(a.createdAt)} · {displayName(a.author)}
                 {a.author.councilNumber && ` · ${a.author.councilType} ${a.author.councilNumber}/${a.author.councilUf}`}
               </p>
               <p className="whitespace-pre-wrap text-sm">{a.text}</p>
@@ -241,7 +242,7 @@ export default async function EncounterPage({
                   <div className="min-w-0">
                     <p className="text-sm font-medium">
                       {documentTypeLabel[d.type]}
-                      <span className="font-normal text-slate-500"> · {formatDateTime(d.createdAt)} · {d.author.name}</span>
+                      <span className="font-normal text-slate-500"> · {formatDateTime(d.createdAt)} · {displayName(d.author)}</span>
                     </p>
                     <p className="truncate text-sm text-slate-600">{d.body.split("\n").find((l) => l.trim())}</p>
                     {d.contentHash !== documentHash(d) && (

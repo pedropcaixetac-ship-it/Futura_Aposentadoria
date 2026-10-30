@@ -21,6 +21,7 @@ import { canMessage } from "@/lib/whatsapp";
 import { WhatsappLink } from "../whatsapp-link";
 import { cancelAppointment, saveAppointment, setReturnDue, startFromAppointment } from "../actions";
 import { AppointmentForm } from "../appointment-form";
+import { displayName } from "@/lib/staff";
 
 export default async function AppointmentPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ remarcar?: string }> }) {
   const user = await requireUser("agenda");
@@ -89,7 +90,7 @@ export default async function AppointmentPage({ params, searchParams }: { params
         </div>
 
         <dl className="grid gap-3 text-sm sm:grid-cols-2">
-          <div><dt className="text-slate-500">Profissional</dt><dd>{appointment.professional.name}</dd></div>
+          <div><dt className="text-slate-500">Profissional</dt><dd>{displayName(appointment.professional)}</dd></div>
           <div><dt className="text-slate-500">Tipo</dt><dd>{appointmentTypeLabel[appointment.type]}</dd></div>
           <div><dt className="text-slate-500">Pagamento</dt><dd>{appointment.insurance ? `Convênio: ${appointment.insurance}` : "Particular"}</dd></div>
           <div><dt className="text-slate-500">Telefone</dt><dd>{formatPhone(patient.phone) || "Não informado"}</dd></div>
@@ -103,7 +104,7 @@ export default async function AppointmentPage({ params, searchParams }: { params
             <div><dt className="text-slate-500">Motivo da desmarcação</dt><dd>{appointment.cancelReason}</dd></div>
           )}
         </dl>
-        <p className="text-xs text-slate-400">Marcado por {appointment.createdBy.name} em {formatDateTime(appointment.createdAt)}</p>
+        <p className="text-xs text-slate-400">Marcado por {displayName(appointment.createdBy)} em {formatDateTime(appointment.createdAt)}</p>
       </div>
 
       {canStart && (

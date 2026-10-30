@@ -3,7 +3,7 @@ import type { Prisma, Role } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { formatDate, roleLabel } from "@/lib/format";
-import { staffFunction } from "@/lib/staff";
+import { staffFunction, displayName } from "@/lib/staff";
 import { reactivateStaff } from "./actions";
 import { RowMenu } from "./row-menu";
 
@@ -43,7 +43,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
     prisma.user.findMany({
       where,
       select: {
-        id: true, name: true, email: true, role: true, jobTitle: true, sector: true, specialty: true,
+        id: true, name: true, sex: true, email: true, role: true, jobTitle: true, sector: true, specialty: true,
         councilType: true, councilNumber: true, councilUf: true, systemAccess: true, active: true, terminatedAt: true, customTabs: true,
       },
       orderBy: [{ active: "desc" }, { name: "asc" }],
@@ -123,7 +123,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
             {staff.map((s) => (
               <tr key={s.id} className={`border-t border-slate-100 ${s.active ? "" : "bg-slate-50/60 text-slate-500"}`}>
                 <td className="px-4 py-2">
-                  <p className={`font-medium ${s.active ? "text-marinho-800" : ""}`}>{s.name}</p>
+                  <p className={`font-medium ${s.active ? "text-marinho-800" : ""}`}>{displayName(s)}</p>
                   <p className="text-xs text-slate-400">{s.systemAccess ? s.email : "Sem acesso ao sistema"}</p>
                 </td>
                 <td className="px-4 py-2">

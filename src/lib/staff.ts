@@ -36,21 +36,31 @@ export type StaffInput = {
   password: string | null;
 };
 
+// O que cada perfil de acesso enxerga, para explicar na tela de cadastro.
+export const ROLE_HELP: Record<Role, string> = {
+  ADMIN: "Vê tudo, inclusive cadastro de servidores, financeiro e auditoria.",
+  PROFISSIONAL: "Atende pacientes e vê o prontuário completo, com todas as consultas anteriores.",
+  TECNICO: "Registra os próprios atendimentos e vê o resumo clínico (alergias, medicações). Não abre as consultas de outros profissionais.",
+  RECEPCAO: "Agenda, recepção, cadastro de pacientes e cobranças. Não vê o prontuário.",
+  ADMINISTRATIVO: "Contabilidade e trabalhista. Não vê o prontuário.",
+};
+
 export const councilTypes = ["CRM", "COREN", "CRP", "CRN", "CREFITO", "CRFa", "CRO", "CRF", "CRBM", "CREF", "CRTR"];
 
 // Funções/cargos já cadastrados. Ao escolher uma, o formulário sugere o perfil de acesso,
 // o conselho e a lista de especialidades. "Outro" deixa digitar.
-export type JobTitle = { title: string; group: string; role: Role | null; council?: string; specialties?: string };
+// honorific: profissões em que o sistema escreve "Dr."/"Dra." antes do nome.
+export type JobTitle = { title: string; group: string; role: Role | null; council?: string; specialties?: string; honorific?: boolean };
 
 export const JOB_TITLES: JobTitle[] = [
-  { title: "Médico(a)", group: "Saúde: acesso completo ao prontuário", role: "PROFISSIONAL", council: "CRM", specialties: "medicina" },
+  { title: "Médico(a)", group: "Saúde: acesso completo ao prontuário", role: "PROFISSIONAL", council: "CRM", specialties: "medicina", honorific: true },
   { title: "Enfermeiro(a)", group: "Saúde: acesso completo ao prontuário", role: "PROFISSIONAL", council: "COREN", specialties: "enfermagem" },
-  { title: "Psicólogo(a)", group: "Saúde: acesso completo ao prontuário", role: "PROFISSIONAL", council: "CRP", specialties: "psicologia" },
+  { title: "Psicólogo(a)", group: "Saúde: acesso completo ao prontuário", role: "PROFISSIONAL", council: "CRP", specialties: "psicologia", honorific: true },
   { title: "Nutricionista", group: "Saúde: acesso completo ao prontuário", role: "PROFISSIONAL", council: "CRN", specialties: "nutricao" },
   { title: "Fisioterapeuta", group: "Saúde: acesso completo ao prontuário", role: "PROFISSIONAL", council: "CREFITO", specialties: "fisioterapia" },
   { title: "Fonoaudiólogo(a)", group: "Saúde: acesso completo ao prontuário", role: "PROFISSIONAL", council: "CRFa", specialties: "fonoaudiologia" },
   { title: "Terapeuta ocupacional", group: "Saúde: acesso completo ao prontuário", role: "PROFISSIONAL", council: "CREFITO" },
-  { title: "Cirurgião(ã)-dentista", group: "Saúde: acesso completo ao prontuário", role: "PROFISSIONAL", council: "CRO", specialties: "odontologia" },
+  { title: "Cirurgião(ã)-dentista", group: "Saúde: acesso completo ao prontuário", role: "PROFISSIONAL", council: "CRO", specialties: "odontologia", honorific: true },
   { title: "Farmacêutico(a)", group: "Saúde: acesso completo ao prontuário", role: "PROFISSIONAL", council: "CRF" },
   { title: "Biomédico(a)", group: "Saúde: acesso completo ao prontuário", role: "PROFISSIONAL", council: "CRBM" },
   { title: "Profissional de educação física", group: "Saúde: acesso completo ao prontuário", role: "PROFISSIONAL", council: "CREF" },
@@ -112,7 +122,7 @@ export function parseStaff(formData: FormData): StaffInput {
   const birth = text(formData, "birthDate");
   const photo = text(formData, "photo");
   return {
-    name: text(formData, "name") ?? "",
+    name: stripHonorific(text(formData, "name") ?? ""),
     socialName: text(formData, "socialName"),
     birthDate: birth && /^\d{4}-\d{2}-\d{2}$/.test(birth) ? new Date(`${birth}T00:00:00Z`) : null,
     sex: text(formData, "sex"),
@@ -172,4 +182,28 @@ export function validateStaff(input: StaffInput, { needsPassword }: { needsPassw
 // Coluna "Função": o cargo informado ou, se não houver, o perfil de acesso.
 export function staffFunction(user: { jobTitle: string | null; role: Role }) {
   return user.jobTitle ?? roleLabel[user.role];
+}
+
+// "Dr."/"Dra." vem da função (médico, psicólogo, dentista), nunca do nome digitado.
+// Também reconhece funções escritas à mão antes das listas prontas (ex.: "Médica", "Dentista").
+const HONORIFIC_TITLE = /^(m[ée]dic|psic[óo]log|cirurgi[ãa]|dentista)/i;
+const FEMININE_TITLE = /^(m[ée]dica|psic[óo]loga|cirurgi[ãa]-dentista)$/i;
+
+type NamedUser = { name: string; jobTitle: string | null; sex: string | null };
+
+export function honorific(user: Omit<NamedUser, "name">) {
+  const title = user.jobTitle?.trim();
+  if (!title || !(jobTitleInfo(title)?.honorific || HONORIFIC_TITLE.test(title))) return null;
+  return user.sex === "F" || FEMININE_TITLE.test(title) ? "Dra." : "Dr.";
+}
+
+// Nome como aparece no sistema: "Dra. Ana Souza" para a médica, "Maria Silva" para o administrativo.
+export function displayName(user: NamedUser) {
+  const prefix = honorific(user);
+  return prefix ? `${prefix} ${user.name}` : user.name;
+}
+
+// Tira um "Dr."/"Dra." digitado no começo do nome (o sistema coloca sozinho).
+export function stripHonorific(name: string) {
+  return name.replace(/^\s*(dr|dra)\.?\s+/i, "").trim();
 }
