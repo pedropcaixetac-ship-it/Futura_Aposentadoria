@@ -22,7 +22,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Abas liberadas para a pessoa: padrão do perfil ou o que o administrador escolheu em "Editar permissões".
   // "Meu cadastro" aparece para todos, sem depender de permissão.
   const items: NavItem[] = [
-    ...userTabs(user).filter((tab) => tab.menu !== false).map((tab) => ({ href: tab.href, label: tab.label })),
+    ...userTabs(user).filter((tab) => tab.menu !== false).map((tab) => ({
+      href: tab.href,
+      label: tab.label,
+      // A tela do atendimento fica dentro de Pacientes, mas para quem atende ela pertence à aba Atender.
+      ...(tab.key === "atender" && { alsoActive: "^/pacientes/[^/]+/atendimentos/" }),
+    })),
     { href: "/meu-cadastro", label: "Meu cadastro" },
   ];
 

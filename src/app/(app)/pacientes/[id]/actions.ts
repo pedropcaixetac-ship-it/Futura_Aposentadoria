@@ -6,6 +6,7 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { hasTab } from "@/lib/tabs";
 import { audit } from "@/lib/audit";
 import { canAddAddendum, canEditEncounter, canViewClinical, canWorkClinical } from "@/lib/permissions";
 import { createEncounter } from "@/lib/encounter";
@@ -122,7 +123,9 @@ export async function finalizeEncounter(encounterId: string) {
     details: { contentHash },
   });
   // Se o atendimento veio da agenda, a consulta passa para "Atendido".
-  await prisma.appointment.updateMany({ where: { encounterId: encounter.id }, data: { status: "ATENDIDO" } });
+  const { count } = await prisma.appointment.updateMany({ where: { encounterId: encounter.id }, data: { status: "ATENDIDO" } });
+  // Veio da aba Atender: volta para ela, para o profissional chamar o próximo paciente.
+  if (count > 0 && hasTab(user, "atender")) redirect(`/atender?finalizado=${encounter.id}`);
   redirect(`/pacientes/${encounter.patientId}/atendimentos/${encounter.id}?finalizado=1`);
 }
 
