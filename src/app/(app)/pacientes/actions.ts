@@ -45,6 +45,13 @@ function consent(formData: FormData, before: Date | null | undefined) {
   return { lgpdConsentAt: formData.get("lgpdConsent") ? (before ?? new Date()) : null };
 }
 
+// Mesma ideia para a autorização de mensagens pelo WhatsApp.
+function whatsappConsent(formData: FormData, before: { whatsappOptIn: boolean; whatsappOptInAt: Date | null } | null) {
+  if (modeOf(formData) === "rapido") return {};
+  const optIn = formData.get("whatsappOptIn") !== null;
+  return { whatsappOptIn: optIn, whatsappOptInAt: optIn ? (before?.whatsappOptInAt ?? new Date()) : null };
+}
+
 export async function createPatient(_: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();
   const mode = modeOf(formData);
@@ -61,7 +68,7 @@ export async function createPatient(_: FormState, formData: FormData): Promise<F
 
   let id: string;
   try {
-    const patient = await prisma.patient.create({ data: { ...data, ...consent(formData, null), clinicId: user.clinicId } });
+    const patient = await prisma.patient.create({ data: { ...data, ...consent(formData, null), ...whatsappConsent(formData, null), clinicId: user.clinicId } });
     id = patient.id;
   } catch (e) {
     return { error: friendlyError(e) };
@@ -75,6 +82,9 @@ export async function createPatient(_: FormState, formData: FormData): Promise<F
     patientId: id,
     details: { cadastro: mode },
   });
+  if (whatsappConsent(formData, null).whatsappOptIn) {
+    await audit({ clinicId: user.clinicId, userId: user.id, action: "WHATSAPP_AUTORIZADO", entity: "Patient", entityId: id, patientId: id });
+  }
   redirect(`/pacientes/${id}`);
 }
 
@@ -94,8 +104,9 @@ export async function updatePatient(id: string, _: FormState, formData: FormData
     }
   }
 
+  const whatsapp = whatsappConsent(formData, before);
   try {
-    await prisma.patient.update({ where: { id }, data: { ...data, ...consent(formData, before.lgpdConsentAt) } });
+    await prisma.patient.update({ where: { id }, data: { ...data, ...consent(formData, before.lgpdConsentAt), ...whatsapp } });
   } catch (e) {
     return { error: friendlyError(e) };
   }
@@ -114,6 +125,16 @@ export async function updatePatient(id: string, _: FormState, formData: FormData
     patientId: id,
     details: { camposAlterados: changed },
   });
+  if (whatsapp.whatsappOptIn !== undefined && whatsapp.whatsappOptIn !== before.whatsappOptIn) {
+    await audit({
+      clinicId: user.clinicId,
+      userId: user.id,
+      action: whatsapp.whatsappOptIn ? "WHATSAPP_AUTORIZADO" : "WHATSAPP_REVOGADO",
+      entity: "Patient",
+      entityId: id,
+      patientId: id,
+    });
+  }
   redirect(`/pacientes/${id}`);
 }
 

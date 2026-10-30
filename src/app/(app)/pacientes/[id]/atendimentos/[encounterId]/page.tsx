@@ -7,12 +7,15 @@ import { canAddAddendum, canEditEncounter, canViewClinical } from "@/lib/permiss
 import { age, formatDate, formatDateTime } from "@/lib/format";
 import { documentHash, encounterHash, type Diagnosis, type TemplateField } from "@/lib/record";
 import { documentTypeLabel } from "@/lib/documents";
-import { addAddendum, finalizeEncounter, issueDocument, saveEncounter } from "../../actions";
+import { addAddendum, autosaveEncounter, finalizeEncounter, issueDocument } from "../../actions";
+import type { Vitals } from "@/lib/vitals";
 import { DocumentForm } from "./document-form";
 import { SignBox } from "./sign-box";
 import { availableProviders } from "@/lib/signature/providers";
 import { EncounterEditor } from "./encounter-editor";
 import { PrintButton } from "./print-button";
+import { PatientHistory } from "./patient-history";
+import { VitalsView } from "./vitals-view";
 
 export default async function EncounterPage({
   params,
@@ -59,16 +62,26 @@ export default async function EncounterPage({
       })
     : [];
 
+  const history = editable
+    ? await prisma.encounter.findMany({
+        where: { patientId: id, clinicId: user.clinicId, status: "FINALIZADO", id: { not: encounter.id } },
+        include: { professional: true, template: true },
+        orderBy: { startedAt: "desc" },
+        take: 30,
+      })
+    : [];
+
   const fields = encounter.fields as TemplateField[];
   const content = encounter.content as Record<string, string>;
   const diagnoses = encounter.diagnoses as Diagnosis[];
+  const vitals = encounter.vitals as Vitals | null;
   const { patient, professional } = encounter;
   const intact =
     encounter.status !== "FINALIZADO" ||
     (encounter.finalizedAt && encounter.contentHash === encounterHash({ ...encounter, finalizedAt: encounter.finalizedAt }));
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className={editable ? "space-y-4" : "mx-auto max-w-3xl space-y-4"}>
       <div className="no-print flex items-center justify-between">
         <Link href={`/pacientes/${id}`} className="text-sm text-marinho-700 hover:underline">← Voltar ao prontuário</Link>
         {encounter.status === "FINALIZADO" && (
@@ -85,18 +98,20 @@ export default async function EncounterPage({
         )}
       </div>
 
-      <div className="card space-y-1">
-        <p className="text-xs uppercase tracking-wide text-slate-500">{encounter.template?.name ?? "Evolução livre"}</p>
-        <h1 className="text-xl font-semibold">
-          {patient.name}
-          {patient.birthDate && <span className="font-normal text-slate-500"> · {age(patient.birthDate)} anos ({formatDate(patient.birthDate)})</span>}
-        </h1>
-        <p className="text-sm text-slate-600">
-          {formatDateTime(encounter.startedAt)} · {professional.name}
-          {professional.councilNumber && ` · ${professional.councilType} ${professional.councilNumber}/${professional.councilUf}`}
-        </p>
-        {patient.allergies && <p className="text-sm font-semibold text-red-700">Alergias: {patient.allergies}</p>}
-      </div>
+      {!editable && (
+        <div className="card space-y-1">
+          <p className="text-xs uppercase tracking-wide text-slate-500">{encounter.template?.name ?? "Evolução livre"}</p>
+          <h1 className="text-xl font-semibold">
+            {patient.name}
+            {patient.birthDate && <span className="font-normal text-slate-500"> · {age(patient.birthDate)} anos ({formatDate(patient.birthDate)})</span>}
+          </h1>
+          <p className="text-sm text-slate-600">
+            {formatDateTime(encounter.startedAt)} · {professional.name}
+            {professional.councilNumber && ` · ${professional.councilType} ${professional.councilNumber}/${professional.councilUf}`}
+          </p>
+          {patient.allergies && <p className="text-sm font-semibold text-red-700">Alergias: {patient.allergies}</p>}
+        </div>
+      )}
 
       {assinatura === "erro" && (
         <p className="no-print rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800">
@@ -116,14 +131,38 @@ export default async function EncounterPage({
       )}
 
       {editable ? (
-        <EncounterEditor
-          fields={fields}
-          content={content}
-          diagnoses={diagnoses}
-          snippets={snippets}
-          save={saveEncounter.bind(null, encounter.id)}
-          finalize={finalizeEncounter.bind(null, encounter.id)}
-        />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+          <EncounterEditor
+            patient={{
+              name: patient.socialName || patient.name,
+              ageLine: patient.birthDate ? `${age(patient.birthDate)} anos (${formatDate(patient.birthDate)})` : null,
+              insurance: patient.insurance,
+              allergies: patient.allergies,
+            }}
+            startedAt={encounter.startedAt.toISOString()}
+            heading={`${encounter.template?.name ?? "Evolução livre"} · ${professional.name}`}
+            fields={fields}
+            content={content}
+            diagnoses={diagnoses}
+            vitals={vitals}
+            snippets={snippets}
+            autosave={autosaveEncounter.bind(null, encounter.id)}
+            finalize={finalizeEncounter.bind(null, encounter.id)}
+          />
+          <PatientHistory
+            summary={patient}
+            encounters={history.map((e) => ({
+              id: e.id,
+              startedAt: e.startedAt,
+              templateName: e.template?.name ?? null,
+              professionalName: e.professional.name,
+              fields: e.fields as TemplateField[],
+              content: e.content as Record<string, string>,
+              diagnoses: e.diagnoses as Diagnosis[],
+              vitals: e.vitals as Vitals | null,
+            }))}
+          />
+        </div>
       ) : (
         <div className="card space-y-4">
           {encounter.status === "RASCUNHO" && (
@@ -131,6 +170,7 @@ export default async function EncounterPage({
               Rascunho em andamento. Só {professional.name} pode editar e finalizar.
             </p>
           )}
+          <VitalsView vitals={vitals} />
           {fields.map((f) => (
             <section key={f.key}>
               <h2 className="text-sm font-semibold text-slate-700">{f.label}</h2>

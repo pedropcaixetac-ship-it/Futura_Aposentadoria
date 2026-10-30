@@ -11,6 +11,22 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum AppointmentType {
+  CONSULTA
+  RETORNO
+  PROCEDIMENTO
+}
+
+enum AppointmentStatus {
+  AGENDADO
+  CONFIRMADO
+  CHEGOU
+  EM_ATENDIMENTO
+  ATENDIDO
+  FALTOU
+  DESMARCADO
+}
+
 enum Role {
   ADMIN
   PROFISSIONAL
@@ -22,6 +38,23 @@ enum EncounterStatus {
   FINALIZADO
 }
 
+// Situação de uma cobrança ou despesa no financeiro.
+enum FinanceStatus {
+  PENDENTE
+  PAGO
+  CANCELADO
+}
+
+enum PaymentMethod {
+  PIX
+  DINHEIRO
+  CARTAO_CREDITO
+  CARTAO_DEBITO
+  TRANSFERENCIA
+  BOLETO
+  CONVENIO
+}
+
 enum DocumentType {
   RECEITA
   ATESTADO
@@ -30,50 +63,72 @@ enum DocumentType {
 }
 
 model Clinic {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  createdAt DateTime @default(now())
+  id                String   @id @default(cuid())
+  name              String
+  slug              String   @unique
+  createdAt         DateTime @default(now())
+  // Dados que aparecem no recibo.
+  cnpj              String?
+  address           String?
+  phone             String?
+  // Último número de recibo emitido (os recibos seguem uma sequência por clínica).
+  lastReceiptNumber Int      @default(0)
 
-  users     User[]
-  patients  Patient[]
-  templates RecordTemplate[]
-  encounters Encounter[]
-  auditLogs AuditLog[]
-  documents ClinicalDocument[]
-  signedPdfs SignedPdf[]
+  users          User[]
+  patients       Patient[]
+  templates      RecordTemplate[]
+  encounters     Encounter[]
+  auditLogs      AuditLog[]
+  priceItems     PriceItem[]
+  charges        Charge[]
+  expenses       Expense[]
+  purchases      Purchase[]
+  documents      ClinicalDocument[]
+  workHours      WorkHours[]
+  scheduleBlocks ScheduleBlock[]
+  appointments   Appointment[]
+  signedPdfs     SignedPdf[]
 }
 
 model User {
-  id            String   @id @default(cuid())
-  clinicId      String
-  clinic        Clinic   @relation(fields: [clinicId], references: [id])
-  name          String
-  email         String
-  passwordHash  String
-  role          Role
+  id                String   @id @default(cuid())
+  clinicId          String
+  clinic            Clinic   @relation(fields: [clinicId], references: [id])
+  name              String
+  email             String
+  // CPF só com números. Serve para entrar no sistema no lugar do e-mail.
+  cpf               String?
+  passwordHash      String
+  role              Role
   // Registro no conselho profissional (CRM, CRP, CRN, CRO...), exigido no prontuário.
-  councilType   String?
-  councilNumber String?
-  councilUf     String?
-  specialty     String?
+  councilType       String?
+  councilNumber     String?
+  councilUf         String?
+  specialty         String?
   // Setor onde a pessoa trabalha (ex.: Recepção, Consultório 2), mostrado na barra lateral.
-  sector        String?
-  // CPF do profissional, usado para encontrar o certificado digital em nuvem.
-  cpf           String?
-  active        Boolean  @default(true)
-  createdAt     DateTime @default(now())
+  sector            String?
+  // Porcentagem do valor recebido que fica com o profissional (repasse).
+  commissionPercent Int?
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
 
-  sessions   Session[]
-  encounters Encounter[]
-  addenda    Addendum[]
-  auditLogs  AuditLog[]
-  snippets   TextSnippet[]
-  documents  ClinicalDocument[]
-  signatureSessions SignatureSession[]
-  signedPdfs SignedPdf[]
+  sessions            Session[]
+  encounters          Encounter[]
+  addenda             Addendum[]
+  auditLogs           AuditLog[]
+  snippets            TextSnippet[]
+  templates           RecordTemplate[]
+  charges             Charge[]
+  documents           ClinicalDocument[]
+  workHours           WorkHours[]
+  scheduleBlocks      ScheduleBlock[]
+  appointments        Appointment[]      @relation("AppointmentProfessional")
+  appointmentsCreated Appointment[]      @relation("AppointmentCreator")
+  signatureSessions   SignatureSession[]
+  signedPdfs          SignedPdf[]
 
   @@unique([clinicId, email])
+  @@unique([clinicId, cpf])
 }
 
 model Session {
@@ -85,9 +140,9 @@ model Session {
 }
 
 model Patient {
-  id        String    @id @default(cuid())
-  clinicId  String
-  clinic    Clinic    @relation(fields: [clinicId], references: [id])
+  id                   String  @id @default(cuid())
+  clinicId             String
+  clinic               Clinic  @relation(fields: [clinicId], references: [id])
   // false quando veio do cadastro rápido da recepção e ainda falta completar.
   registrationComplete Boolean @default(true)
 
@@ -106,11 +161,14 @@ model Patient {
 
   // Contato (telefones guardados só com os números)
   phone                 String?
-  phoneWhatsapp         Boolean @default(true)
+  phoneWhatsapp         Boolean   @default(true)
   landline              String?
   email                 String?
   emergencyContactName  String?
   emergencyContactPhone String?
+  // Consentimento (LGPD) para a clínica mandar mensagens pelo WhatsApp, e quando foi dado.
+  whatsappOptIn         Boolean   @default(false)
+  whatsappOptInAt       DateTime?
 
   // Endereço
   cep        String?
@@ -137,8 +195,8 @@ model Patient {
   notes          String?
   lgpdConsentAt  DateTime?
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Resumo clínico, sempre visível no topo do prontuário.
   allergies          String?
@@ -146,28 +204,37 @@ model Patient {
   personalHistory    String?
   familyHistory      String?
 
-  encounters Encounter[]
-  documents  ClinicalDocument[]
-  signedPdfs SignedPdf[]
+  encounters   Encounter[]
+  charges      Charge[]
+  documents    ClinicalDocument[]
+  appointments Appointment[]
+  signedPdfs   SignedPdf[]
 
-  @@index([clinicId, name])
   @@unique([clinicId, cpf])
   @@unique([clinicId, cns])
+  @@index([clinicId, name])
 }
 
 // Modelo de atendimento (ex.: "Consulta clínica geral", "Psicologia - sessão").
 // fields é uma lista de campos: [{ key, label, type: "text" | "textarea" }]
+// Cada modelo pertence a um profissional (ownerId), que monta o formulário do seu jeito.
+// Sem ownerId, é um modelo da clínica, que todos os profissionais podem usar.
 model RecordTemplate {
   id        String   @id @default(cuid())
   clinicId  String
   clinic    Clinic   @relation(fields: [clinicId], references: [id])
+  ownerId   String?
+  owner     User?    @relation(fields: [ownerId], references: [id])
   name      String
+  // Não é mais usado nas telas (os modelos agora são por profissional).
   specialty String?
   fields    Json
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 
   encounters Encounter[]
+
+  @@index([clinicId, ownerId])
 }
 
 // Um atendimento no prontuário. Enquanto RASCUNHO pode ser editado;
@@ -187,6 +254,8 @@ model Encounter {
   fields         Json
   content        Json            @default("{}")
   diagnoses      Json            @default("[]")
+  // Sinais vitais (PA, FC, peso, altura...). Vazio em atendimentos antigos.
+  vitals         Json?
   status         EncounterStatus @default(RASCUNHO)
   startedAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
@@ -194,9 +263,11 @@ model Encounter {
   // Impressão digital (SHA-256) do conteúdo finalizado, para detectar adulteração.
   contentHash    String?
 
-  addenda   Addendum[]
-  documents ClinicalDocument[]
-  signedPdf SignedPdf?
+  addenda     Addendum[]
+  documents   ClinicalDocument[]
+  charges     Charge[]
+  appointment Appointment?
+  signedPdf   SignedPdf?
 
   @@index([clinicId, patientId, startedAt])
 }
@@ -306,6 +377,185 @@ model TextSnippet {
   createdAt DateTime @default(now())
 
   @@index([ownerId, fieldKey])
+}
+
+// Tabela de preços: quanto custa cada consulta ou procedimento.
+// Valores sempre em centavos, para não haver erro de arredondamento.
+model PriceItem {
+  id         String   @id @default(cuid())
+  clinicId   String
+  clinic     Clinic   @relation(fields: [clinicId], references: [id])
+  name       String
+  priceCents Int
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  charges Charge[]
+}
+
+// Receita: uma cobrança feita a um paciente, normalmente ligada a um atendimento.
+model Charge {
+  id             String         @id @default(cuid())
+  clinicId       String
+  clinic         Clinic         @relation(fields: [clinicId], references: [id])
+  patientId      String
+  patient        Patient        @relation(fields: [patientId], references: [id])
+  // Profissional que fez o atendimento; é a base do repasse.
+  professionalId String?
+  professional   User?          @relation(fields: [professionalId], references: [id])
+  encounterId    String?
+  encounter      Encounter?     @relation(fields: [encounterId], references: [id])
+  priceItemId    String?
+  priceItem      PriceItem?     @relation(fields: [priceItemId], references: [id])
+  description    String
+  amountCents    Int
+  dueDate        DateTime       @db.Date
+  status         FinanceStatus  @default(PENDENTE)
+  paymentMethod  PaymentMethod?
+  paidAt         DateTime?      @db.Date
+  receiptNumber  Int?
+  notes          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([clinicId, receiptNumber])
+  @@index([clinicId, dueDate])
+  @@index([clinicId, paidAt])
+  @@index([encounterId])
+}
+
+// Despesa: conta a pagar da clínica (aluguel, salários, materiais, repasses...).
+model Expense {
+  id            String         @id @default(cuid())
+  clinicId      String
+  clinic        Clinic         @relation(fields: [clinicId], references: [id])
+  description   String
+  category      String
+  amountCents   Int
+  dueDate       DateTime       @db.Date
+  status        FinanceStatus  @default(PENDENTE)
+  paymentMethod PaymentMethod?
+  paidAt        DateTime?      @db.Date
+  notes         String?
+  // Parcela de uma nota fiscal de compra (aba Compras), quando houver.
+  purchaseId    String?
+  purchase      Purchase?      @relation(fields: [purchaseId], references: [id])
+  installment   Int?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([clinicId, dueDate])
+  @@index([clinicId, paidAt])
+  @@index([purchaseId])
+}
+
+// Nota fiscal de compra (material, medicamento, insumo...). O pagamento vira uma ou mais
+// despesas (parcelas) na aba Despesas.
+model Purchase {
+  id            String         @id @default(cuid())
+  clinicId      String
+  clinic        Clinic         @relation(fields: [clinicId], references: [id])
+  kind          String
+  supplierName  String
+  supplierCnpj  String?
+  invoiceNumber String
+  invoiceSeries String?
+  accessKey     String?
+  issueDate     DateTime       @db.Date
+  totalCents    Int
+  notes         String?
+  status        PurchaseStatus @default(ATIVA)
+  createdById   String
+  createdAt     DateTime       @default(now())
+
+  items    PurchaseItem[]
+  expenses Expense[]
+
+  @@index([clinicId, issueDate])
+  @@index([clinicId, supplierCnpj, invoiceNumber])
+}
+
+enum PurchaseStatus {
+  ATIVA
+  CANCELADA
+}
+
+model PurchaseItem {
+  id             String    @id @default(cuid())
+  purchaseId     String
+  purchase       Purchase  @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  position       Int
+  description    String
+  unit           String?
+  quantity       Decimal   @db.Decimal(12, 3)
+  unitPriceCents Int
+  totalCents     Int
+  // Lote e validade (importante para medicamentos e insumos).
+  batch          String?
+  expiresAt      DateTime? @db.Date
+}
+
+// Horário de atendimento de um profissional num dia da semana (0 = domingo).
+// Um profissional pode ter mais de um período no mesmo dia (manhã e tarde).
+// Horários em minutos desde a meia-noite, no horário de Brasília.
+model WorkHours {
+  id             String @id @default(cuid())
+  clinicId       String
+  clinic         Clinic @relation(fields: [clinicId], references: [id])
+  professionalId String
+  professional   User   @relation(fields: [professionalId], references: [id])
+  weekday        Int
+  startMinute    Int
+  endMinute      Int
+  // Duração padrão de cada consulta neste período.
+  slotMinutes    Int
+
+  @@index([clinicId, professionalId])
+}
+
+// Período em que o profissional não atende (almoço, férias, congresso...).
+model ScheduleBlock {
+  id             String   @id @default(cuid())
+  clinicId       String
+  clinic         Clinic   @relation(fields: [clinicId], references: [id])
+  professionalId String
+  professional   User     @relation(fields: [professionalId], references: [id])
+  startsAt       DateTime
+  endsAt         DateTime
+  reason         String?
+  createdAt      DateTime @default(now())
+
+  @@index([clinicId, professionalId, startsAt])
+}
+
+model Appointment {
+  id             String            @id @default(cuid())
+  clinicId       String
+  clinic         Clinic            @relation(fields: [clinicId], references: [id])
+  professionalId String
+  professional   User              @relation("AppointmentProfessional", fields: [professionalId], references: [id])
+  patientId      String
+  patient        Patient           @relation(fields: [patientId], references: [id])
+  startsAt       DateTime
+  endsAt         DateTime
+  type           AppointmentType   @default(CONSULTA)
+  // Vazio = particular; preenchido = nome do convênio.
+  insurance      String?
+  notes          String?
+  status         AppointmentStatus @default(AGENDADO)
+  arrivedAt      DateTime?
+  cancelReason   String?
+  // Atendimento do prontuário aberto a partir deste agendamento.
+  encounterId    String?           @unique
+  encounter      Encounter?        @relation(fields: [encounterId], references: [id])
+  createdById    String
+  createdBy      User              @relation("AppointmentCreator", fields: [createdById], references: [id])
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([clinicId, startsAt])
+  @@index([clinicId, professionalId, startsAt])
+  @@index([clinicId, patientId])
 }
 
 model Cid10 {

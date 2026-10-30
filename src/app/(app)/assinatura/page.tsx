@@ -43,6 +43,7 @@ export default async function SignatureSettingsPage({ searchParams }: { searchPa
           <button className="btn-secondary">Salvar</button>
         </div>
         {erro === "cpf" && <p className="text-sm text-red-700">CPF inválido.</p>}
+        {erro === "cpf-em-uso" && <p className="text-sm text-red-700">Este CPF já está cadastrado para outra pessoa da clínica.</p>}
       </form>
 
       <div className="card space-y-3">

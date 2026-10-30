@@ -1,6 +1,3 @@
--- AlterTable
-ALTER TABLE "User" ADD COLUMN     "cpf" TEXT;
-
 -- CreateTable
 CREATE TABLE "SignatureSession" (
     "id" TEXT NOT NULL,

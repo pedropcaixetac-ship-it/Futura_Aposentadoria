@@ -3,13 +3,16 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
-import { canViewClinical } from "@/lib/permissions";
+import { canManageCharges, canViewClinical } from "@/lib/permissions";
 import { age, formatCpf, formatDate, formatDateTime, formatPhone } from "@/lib/format";
+import { whatsappNumber } from "@/lib/whatsapp";
+import { listUsableTemplates } from "@/lib/templates";
 import type { Diagnosis, TemplateField } from "@/lib/record";
 import { updateClinicalSummary } from "../actions";
 import { startEncounter } from "./actions";
 import { ClinicalSummary } from "./clinical-summary";
 import { PatientDetails } from "./patient-details";
+import { WhatsappButton } from "./whatsapp-button";
 
 export default async function PatientRecordPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
@@ -18,6 +21,7 @@ export default async function PatientRecordPage({ params }: { params: Promise<{ 
   if (!patient) notFound();
 
   const clinical = canViewClinical(user);
+  const canWhatsapp = patient.whatsappOptIn && patient.phoneWhatsapp && !!whatsappNumber(patient.phone);
   const [encounters, templates] = clinical
     ? await Promise.all([
         prisma.encounter.findMany({
@@ -25,9 +29,9 @@ export default async function PatientRecordPage({ params }: { params: Promise<{ 
           include: { professional: true, template: true, _count: { select: { addenda: true } } },
           orderBy: { startedAt: "desc" },
         }),
-        prisma.recordTemplate.findMany({ where: { clinicId: user.clinicId, active: true }, orderBy: { name: "asc" } }),
+        listUsableTemplates(user),
       ])
-    : [[], []];
+    : [[], { mine: [], clinic: [] }];
 
   if (clinical) {
     await audit({ clinicId: user.clinicId, userId: user.id, action: "PRONTUARIO_VISUALIZADO", entity: "Patient", entityId: id, patientId: id });
@@ -63,7 +67,24 @@ export default async function PatientRecordPage({ params }: { params: Promise<{ 
             </p>
           </div>
         </div>
-        <Link href={`/pacientes/${id}/editar`} className="btn-secondary">Editar cadastro</Link>
+        <div className="flex flex-wrap items-center gap-2">
+          {canWhatsapp && <WhatsappButton patientId={id} />}
+          {canManageCharges(user) && (
+            <Link href={`/financeiro/receitas/nova?paciente=${id}`} className="btn-secondary">Nova cobrança</Link>
+          )}
+          <Link href={`/agenda/novo?paciente=${id}`} className="btn-secondary">Agendar consulta</Link>
+          <Link href={`/pacientes/${id}/editar`} className="btn-secondary">Editar cadastro</Link>
+        </div>
+        {!patient.whatsappOptIn && (
+          <p className="w-full text-xs text-slate-500">
+            Sem autorização para mensagens pelo WhatsApp. Para ativar, marque a opção em &quot;Editar cadastro&quot;.
+          </p>
+        )}
+        {patient.whatsappOptIn && !canWhatsapp && (
+          <p className="w-full text-xs text-amber-700">
+            O paciente autorizou o WhatsApp, mas o celular do cadastro não tem WhatsApp ou não é válido.
+          </p>
+        )}
       </div>
 
       <PatientDetails patient={patient} />
@@ -89,11 +110,20 @@ export default async function PatientRecordPage({ params }: { params: Promise<{ 
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="font-semibold">Atendimentos</h2>
               <form action={startEncounter.bind(null, id)} className="flex flex-wrap items-center gap-2">
-                <select name="templateId" aria-label="Modelo de atendimento" className="input w-auto!">
+                {/* Se o profissional tem um modelo só, ele já vem escolhido. */}
+                <select name="templateId" aria-label="Modelo de atendimento" className="input w-auto!"
+                  defaultValue={templates.mine.length === 1 ? templates.mine[0].id : ""}>
                   <option value="">Evolução livre</option>
-                  {templates.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
+                  {templates.mine.length > 0 && (
+                    <optgroup label="Meus modelos">
+                      {templates.mine.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </optgroup>
+                  )}
+                  {templates.clinic.length > 0 && (
+                    <optgroup label="Modelos da clínica">
+                      {templates.clinic.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </optgroup>
+                  )}
                 </select>
                 <button className="btn-primary">+ Novo atendimento</button>
               </form>

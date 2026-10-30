@@ -29,6 +29,9 @@ export async function saveCpf(formData: FormData) {
   const user = await requireUser();
   const cpf = String(formData.get("cpf") ?? "").replace(/\D/g, "");
   if (cpf && !isValidCpf(cpf)) redirect("/assinatura?erro=cpf");
+  // O CPF também serve para entrar no sistema, então não pode repetir na clínica.
+  const taken = cpf && (await prisma.user.findFirst({ where: { clinicId: user.clinicId, cpf, NOT: { id: user.id } } }));
+  if (taken) redirect("/assinatura?erro=cpf-em-uso");
   await prisma.user.update({ where: { id: user.id }, data: { cpf: cpf || null } });
   revalidatePath("/assinatura");
 }

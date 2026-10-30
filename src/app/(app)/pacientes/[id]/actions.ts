@@ -2,15 +2,16 @@
 
 import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { canAddAddendum, canEditEncounter, canViewClinical } from "@/lib/permissions";
+import { createEncounter } from "@/lib/encounter";
 import { documentTypes } from "@/lib/documents";
 import { documentHash, encounterHash, parseDiagnoses, sanitizeContent, type TemplateField } from "@/lib/record";
-
-const freeTextFields: TemplateField[] = [{ key: "evolucao", label: "Evolução", type: "textarea" }];
+import { parseVitals } from "@/lib/vitals";
 
 export async function startEncounter(patientId: string, formData: FormData) {
   const user = await requireUser();
@@ -19,28 +20,7 @@ export async function startEncounter(patientId: string, formData: FormData) {
   const patient = await prisma.patient.findFirst({ where: { id: patientId, clinicId: user.clinicId } });
   if (!patient) throw new Error("Paciente não encontrado");
 
-  const templateId = String(formData.get("templateId") ?? "") || null;
-  const template = templateId
-    ? await prisma.recordTemplate.findFirst({ where: { id: templateId, clinicId: user.clinicId } })
-    : null;
-
-  const encounter = await prisma.encounter.create({
-    data: {
-      clinicId: user.clinicId,
-      patientId,
-      professionalId: user.id,
-      templateId: template?.id,
-      fields: (template?.fields as TemplateField[] | undefined) ?? freeTextFields,
-    },
-  });
-  await audit({
-    clinicId: user.clinicId,
-    userId: user.id,
-    action: "ATENDIMENTO_INICIADO",
-    entity: "Encounter",
-    entityId: encounter.id,
-    patientId,
-  });
+  const encounter = await createEncounter(user, patientId, String(formData.get("templateId") ?? "") || null);
   redirect(`/pacientes/${patientId}/atendimentos/${encounter.id}`);
 }
 
@@ -58,33 +38,48 @@ function readForm(fields: TemplateField[], formData: FormData) {
   return {
     content: sanitizeContent(fields, raw),
     diagnoses: parseDiagnoses(String(formData.get("diagnoses") ?? "")),
+    vitals: parseVitals(formData),
   };
 }
 
-export async function saveEncounter(encounterId: string, formData: FormData) {
+// Salvamento automático do rascunho. Não recarrega a página, para não atrapalhar quem está digitando.
+export async function autosaveEncounter(encounterId: string, formData: FormData) {
   const { user, encounter } = await loadEditable(encounterId);
-  const data = readForm(encounter.fields as TemplateField[], formData);
-  await prisma.encounter.update({ where: { id: encounter.id }, data });
-  await audit({
-    clinicId: user.clinicId,
-    userId: user.id,
-    action: "ATENDIMENTO_SALVO",
-    entity: "Encounter",
-    entityId: encounter.id,
-    patientId: encounter.patientId,
+  const { vitals, ...data } = readForm(encounter.fields as TemplateField[], formData);
+  await prisma.encounter.update({ where: { id: encounter.id }, data: { ...data, vitals: vitals ?? Prisma.DbNull } });
+
+  // Com o salvamento automático, registramos na auditoria no máximo um salvamento a cada 10 minutos.
+  const recent = await prisma.auditLog.findFirst({
+    where: {
+      clinicId: user.clinicId,
+      userId: user.id,
+      action: "ATENDIMENTO_SALVO",
+      entityId: encounter.id,
+      createdAt: { gt: new Date(Date.now() - 10 * 60 * 1000) },
+    },
   });
-  revalidatePath(`/pacientes/${encounter.patientId}/atendimentos/${encounter.id}`);
+  if (!recent) {
+    await audit({
+      clinicId: user.clinicId,
+      userId: user.id,
+      action: "ATENDIMENTO_SALVO",
+      entity: "Encounter",
+      entityId: encounter.id,
+      patientId: encounter.patientId,
+    });
+  }
+  return new Date().toISOString();
 }
 
 export async function finalizeEncounter(encounterId: string, formData: FormData) {
   const { user, encounter } = await loadEditable(encounterId);
-  const data = readForm(encounter.fields as TemplateField[], formData);
+  const { vitals, ...data } = readForm(encounter.fields as TemplateField[], formData);
   const finalizedAt = new Date();
-  const contentHash = encounterHash({ ...encounter, ...data, finalizedAt });
+  const contentHash = encounterHash({ ...encounter, ...data, vitals, finalizedAt });
 
   await prisma.encounter.update({
     where: { id: encounter.id },
-    data: { ...data, status: "FINALIZADO", finalizedAt, contentHash },
+    data: { ...data, vitals: vitals ?? Prisma.DbNull, status: "FINALIZADO", finalizedAt, contentHash },
   });
   await audit({
     clinicId: user.clinicId,
@@ -95,6 +90,8 @@ export async function finalizeEncounter(encounterId: string, formData: FormData)
     patientId: encounter.patientId,
     details: { contentHash },
   });
+  // Se o atendimento veio da agenda, a consulta passa para "Atendido".
+  await prisma.appointment.updateMany({ where: { encounterId: encounter.id }, data: { status: "ATENDIDO" } });
   redirect(`/pacientes/${encounter.patientId}/atendimentos/${encounter.id}`);
 }
 

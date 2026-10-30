@@ -26,9 +26,10 @@ export function encounterHash(data: {
   fields: unknown;
   content: unknown;
   diagnoses: unknown;
+  vitals?: unknown;
   finalizedAt: Date;
 }) {
-  const payload = canonicalJson([
+  const items: unknown[] = [
     data.id,
     data.patientId,
     data.professionalId,
@@ -36,7 +37,10 @@ export function encounterHash(data: {
     data.content,
     data.diagnoses,
     data.finalizedAt.toISOString(),
-  ]);
+  ];
+  // Sinais vitais entram só quando existem, para não mudar o código dos atendimentos antigos.
+  if (data.vitals) items.push(data.vitals);
+  const payload = canonicalJson(items);
   return createHash("sha256").update(payload).digest("hex");
 }
 
