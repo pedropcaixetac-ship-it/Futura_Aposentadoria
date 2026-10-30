@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { discoverCertificate, exchangeCode } from "@/lib/signature/providers";
-import { backUrl, signTarget } from "@/lib/signature/service";
+import { signTarget } from "@/lib/signature/service";
 import { redirectUri, takePending } from "@/lib/signature/flow";
 import { seal } from "@/lib/signature/secret-box";
 
@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   const pending = await takePending(url.searchParams.get("state"));
   if (!pending) return new NextResponse("Pedido de assinatura expirado. Volte e clique em Assinar de novo.", { status: 400 });
 
-  const back = await backUrl(user, pending.target);
+  const back = pending.back;
   const code = url.searchParams.get("code");
   if (!code) return NextResponse.redirect(new URL(`${back}?assinatura=cancelada`, request.url));
 
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
       create: { userId: user.id, provider: pending.provider, ...data },
       update: data,
     });
-    await signTarget(user, pending.target, pending.provider);
+    for (const target of pending.targets) await signTarget(user, target, pending.provider);
   } catch (error) {
     console.error("Falha na assinatura", error);
     return NextResponse.redirect(new URL(`${back}?assinatura=erro`, request.url));

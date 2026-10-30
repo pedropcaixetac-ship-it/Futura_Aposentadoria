@@ -19,6 +19,11 @@ export function isSignTarget(value: unknown): value is SignTarget {
   return !!v && (v.kind === "atendimento" || v.kind === "documento") && typeof v.id === "string";
 }
 
+// Só voltamos para telas do prontuário, nunca para um endereço de fora.
+export function isSafeBack(value: unknown): value is string {
+  return typeof value === "string" && /^\/pacientes\/[\w-]+\/atendimentos\/[\w-]+(\/revisao)?$/.test(value);
+}
+
 // Carrega o que vai ser assinado e confere se quem pede é o autor.
 async function loadTarget(user: CurrentUser, target: SignTarget) {
   if (target.kind === "atendimento") {
@@ -27,7 +32,6 @@ async function loadTarget(user: CurrentUser, target: SignTarget) {
       include: {
         patient: true,
         professional: true,
-        template: true,
         signedPdf: { select: { id: true } },
         addenda: { include: { author: true }, orderBy: { createdAt: "asc" } },
       },
@@ -39,7 +43,7 @@ async function loadTarget(user: CurrentUser, target: SignTarget) {
       back: `/pacientes/${encounter.patientId}/atendimentos/${encounter.id}`,
       label: `Atendimento de ${encounter.patient.name}`,
       link: { encounterId: encounter.id },
-      input: encounterPdfInput(user.clinic.name, encounter, encounter.template?.name ?? null),
+      input: encounterPdfInput(user.clinic.name, encounter),
     };
   }
   const doc = await prisma.clinicalDocument.findFirst({
@@ -55,10 +59,6 @@ async function loadTarget(user: CurrentUser, target: SignTarget) {
     link: { documentId: doc.id },
     input: documentPdfInput(user.clinic.name, doc),
   };
-}
-
-export async function backUrl(user: CurrentUser, target: SignTarget) {
-  return (await loadTarget(user, target)).back;
 }
 
 // Devolve o certificado e a função que assina, conforme o provedor.

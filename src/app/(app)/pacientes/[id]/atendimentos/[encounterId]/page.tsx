@@ -7,7 +7,7 @@ import { canAddAddendum, canEditEncounter, canViewClinical } from "@/lib/permiss
 import { age, formatDate, formatDateTime } from "@/lib/format";
 import { documentHash, encounterHash, type Diagnosis, type TemplateField } from "@/lib/record";
 import { documentTypeLabel } from "@/lib/documents";
-import { addAddendum, autosaveEncounter, finalizeEncounter, issueDocument } from "../../actions";
+import { addAddendum, autosaveEncounter, issueDocument } from "../../actions";
 import { updateClinicalSummary } from "../../../actions";
 import type { Vitals } from "@/lib/vitals";
 import { DocumentForm } from "./document-form";
@@ -23,11 +23,11 @@ export default async function EncounterPage({
   searchParams,
 }: {
   params: Promise<{ id: string; encounterId: string }>;
-  searchParams: Promise<{ assinatura?: string }>;
+  searchParams: Promise<{ assinatura?: string; finalizado?: string }>;
 }) {
   const user = await requireUser("pacientes");
   const { id, encounterId } = await params;
-  const { assinatura } = await searchParams;
+  const { assinatura, finalizado } = await searchParams;
   if (!canViewClinical(user)) notFound();
 
   const encounter = await prisma.encounter.findFirst({
@@ -117,6 +117,13 @@ export default async function EncounterPage({
         </div>
       )}
 
+      {finalizado && encounter.status === "FINALIZADO" && (
+        <p className="no-print rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-800">
+          ✓ Atendimento finalizado.
+          {!encounter.signedPdf && providers.length > 0 && " Falta assinar o registro do atendimento: use o botão Assinar acima."}
+        </p>
+      )}
+
       {assinatura === "erro" && (
         <p className="no-print rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800">
           Não foi possível assinar. Confira se o seu CPF está certo em Assinatura digital e tente de novo.
@@ -162,7 +169,7 @@ export default async function EncounterPage({
                 : null
             }
             autosave={autosaveEncounter.bind(null, encounter.id)}
-            finalize={finalizeEncounter.bind(null, encounter.id)}
+            reviewHref={`/pacientes/${id}/atendimentos/${encounter.id}/revisao`}
           />
           <PatientHistory
             patientId={id}
