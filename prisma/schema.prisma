@@ -135,6 +135,9 @@ model Patient {
   email                 String?
   emergencyContactName  String?
   emergencyContactPhone String?
+  // Consentimento (LGPD) para a clínica mandar mensagens pelo WhatsApp, e quando foi dado.
+  whatsappOptIn         Boolean   @default(false)
+  whatsappOptInAt       DateTime?
 
   // Endereço
   cep        String?

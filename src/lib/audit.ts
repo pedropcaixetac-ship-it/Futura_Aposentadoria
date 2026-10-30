@@ -45,4 +45,7 @@ export const auditActionLabel: Record<string, string> = {
   DOCUMENTO_EMITIDO: "Emitiu receita/atestado/pedido",
   PDF_ATENDIMENTO_GERADO: "Gerou PDF do atendimento",
   PDF_DOCUMENTO_GERADO: "Gerou PDF de documento",
+  WHATSAPP_AUTORIZADO: "Registrou autorização do paciente para WhatsApp",
+  WHATSAPP_REVOGADO: "Registrou que o paciente retirou a autorização para WhatsApp",
+  WHATSAPP_ABERTO: "Abriu conversa no WhatsApp com o paciente",
 };

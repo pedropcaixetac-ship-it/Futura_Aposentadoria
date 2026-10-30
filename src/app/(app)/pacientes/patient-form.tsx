@@ -270,6 +270,13 @@ export function PatientForm({ action, patient, mode = "completo", submitLabel }:
             {p?.lgpdConsentAt && <span className="text-slate-400"> Autorizado em {p.lgpdConsentAt.toLocaleDateString("pt-BR")}.</span>}
           </span>
         </label>
+        <label className="flex items-start gap-2 text-sm sm:col-span-2 lg:col-span-3">
+          <input type="checkbox" name="whatsappOptIn" defaultChecked={p?.whatsappOptIn ?? false} className="mt-1" />
+          <span>
+            O paciente autoriza receber mensagens da clínica pelo WhatsApp (lembretes, confirmações e avisos de retorno).
+            {p?.whatsappOptInAt && <span className="text-slate-400"> Autorizado em {p.whatsappOptInAt.toLocaleDateString("pt-BR")}.</span>}
+          </span>
+        </label>
       </Section>
 
       {footer}
