@@ -433,6 +433,18 @@ async function seedAccountingDemo() {
 
 // Primeiro acesso ao Painel do dono do sistema. Em produção, defina PAINEL_EMAIL e PAINEL_SENHA
 // antes de publicar; sem elas, fica o acesso de demonstração (dono@futura.com / senha123).
+// Planos de exemplo para o Painel do dono. Nome, preço e módulos podem ser mudados em /painel/planos.
+async function seedPlans() {
+  if ((await prisma.plan.count()) > 0) return;
+  await prisma.plan.createMany({
+    data: [
+      { name: "Essencial", priceCents: 14900, maxUsers: 3, modules: ["financeiro"] },
+      { name: "Completo", priceCents: 29900, maxUsers: 10, modules: ["financeiro", "contabilidade", "assinatura"] },
+    ],
+  });
+  console.log("Planos de exemplo criados");
+}
+
 async function seedPlatformOwner() {
   if ((await prisma.platformUser.count()) > 0) return;
   const email = (process.env.PAINEL_EMAIL ?? "dono@futura.com").toLowerCase();
@@ -451,6 +463,7 @@ async function main() {
   await seedStaffDemo();
   await seedAccountingDemo();
   await seedPlatformOwner();
+  await seedPlans();
 }
 
 main().finally(() => prisma.$disconnect());

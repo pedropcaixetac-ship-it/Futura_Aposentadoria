@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "./db";
 import { PATIENT_SESSION_DAYS } from "./patient-app";
+import { clinicBlocked } from "./plans";
 
 // Sessão do paciente no aplicativo, separada da sessão da equipe (outro cookie, outra tabela).
 const COOKIE = "sessao_paciente";
@@ -38,9 +39,9 @@ export async function getCurrentPatient() {
   if (!token) return null;
   const session = await prisma.patientSession.findUnique({
     where: { id: hashToken(token) },
-    include: { patient: { select: { id: true, name: true, socialName: true, clinicId: true, clinic: { select: { name: true, active: true } } } } },
+    include: { patient: { select: { id: true, name: true, socialName: true, clinicId: true, clinic: { select: { name: true, active: true, paidUntil: true } } } } },
   });
-  if (!session || session.expiresAt < new Date() || !session.patient.clinic.active) return null;
+  if (!session || session.expiresAt < new Date() || clinicBlocked(session.patient.clinic)) return null;
   return session.patient;
 }
 

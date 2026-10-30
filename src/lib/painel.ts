@@ -137,4 +137,8 @@ export const platformActionLabel: Record<string, string> = {
   CLINICA_ALTERADA: "Alterou dados da clínica",
   CLINICA_SUSPENSA: "Suspendeu o acesso da clínica",
   CLINICA_REATIVADA: "Reativou o acesso da clínica",
+  PLANO_CRIADO: "Criou plano",
+  PLANO_ALTERADO: "Alterou plano",
+  CLINICA_PLANO: "Mudou o plano ou o vencimento da clínica",
+  PAGAMENTO_REGISTRADO: "Registrou pagamento da mensalidade",
 };

@@ -1,4 +1,5 @@
 import type { Role } from "@prisma/client";
+import { tabInPlan } from "./plans";
 import { canManageCharges, canManageTemplates, canViewClinical, canWorkClinical, RECEPTION_ROLES, type PermissionUser } from "./permissions";
 
 // Abas do sistema que o administrador pode liberar ou tirar de cada pessoa
@@ -17,7 +18,8 @@ export type TabKey =
   | "auditoria"
   | "servidores";
 
-export type TabUser = PermissionUser & { customTabs: boolean; allowedTabs: string[] };
+// modules: módulos do plano da clínica (só vem de quem está conectado; ausente = sem restrição de plano).
+export type TabUser = PermissionUser & { customTabs: boolean; allowedTabs: string[]; modules?: string[] | null };
 
 type Tab = {
   key: TabKey;
@@ -140,6 +142,8 @@ export function tabBlockedReason(user: PermissionUser, key: TabKey) {
 export function hasTab(user: TabUser, key: TabKey) {
   const tab = TABS.find((t) => t.key === key);
   if (!tab || tab.blockedReason?.(user)) return false;
+  // Módulo fora do plano da clínica: ninguém tem a aba, nem o gerente.
+  if (!tabInPlan(user.modules, key)) return false;
   if (user.role === "ADMIN") return true;
   return user.customTabs ? user.allowedTabs.includes(key) : tab.defaultRoles.includes(user.role);
 }

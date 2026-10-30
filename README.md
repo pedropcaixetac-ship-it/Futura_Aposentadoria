@@ -148,6 +148,12 @@ Este é o primeiro módulo: **Prontuário**.
   e nada é apagado
 - A equipe da empresa não vê pacientes nem prontuários (LGPD), só dados administrativos
 - Registro de tudo o que a equipe fez no painel, que não pode ser alterado nem apagado
+- Planos (`/painel/planos`): mensalidade, máximo de pessoas com acesso e módulos incluídos (Financeiro, Contabilidade,
+  Assinatura digital). Módulo fora do plano some do menu de todos da clínica, e o limite de usuários é conferido no cadastro de servidores
+- Mensalidade com controle manual: "pago até" de cada clínica e o botão "Registrar pagamento", que estende um mês.
+  O gerente da clínica é avisado 5 dias antes do vencimento e durante o atraso; com mais de 10 dias de atraso o acesso
+  (equipe e aplicativo do paciente) é suspenso sozinho e volta ao registrar o pagamento. Clínica sem plano ou sem data não tem controle
+- Números do negócio: receita mensal prevista e mensalidades atrasadas
 - Uma clínica nunca vê dados de outra: cada tela filtra pela clínica de quem está usando, e o próprio banco de dados
   recusa ligar um registro (consulta, atendimento, cobrança...) a paciente ou profissional de outra clínica.
   Um teste automático avisa se uma tela nova esquecer o filtro ou se uma ligação nova ficar sem a trava
