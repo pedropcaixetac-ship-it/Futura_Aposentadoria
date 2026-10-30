@@ -31,4 +31,7 @@ export const auditActionLabel: Record<string, string> = {
   ADENDO_CRIADO: "Adicionou adendo",
   MODELO_CRIADO: "Criou modelo de atendimento",
   MODELO_ALTERADO: "Alterou modelo de atendimento",
+  DOCUMENTO_EMITIDO: "Emitiu receita/atestado/pedido",
+  PDF_ATENDIMENTO_GERADO: "Gerou PDF do atendimento",
+  PDF_DOCUMENTO_GERADO: "Gerou PDF de documento",
 };

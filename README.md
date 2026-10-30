@@ -15,7 +15,9 @@ Este é o primeiro módulo: **Prontuário**.
 - Código de integridade em cada atendimento finalizado, que avisa se o conteúdo for adulterado
 - Recepção vê o cadastro, mas não o conteúdo clínico
 - Auditoria (LGPD): quem abriu ou alterou cada prontuário, quando e de onde. Esses registros também não podem ser apagados
-- Impressão do atendimento
+- Impressão do atendimento e PDF do atendimento finalizado
+- Receitas, atestados, pedidos de exame e relatórios emitidos dentro do atendimento, em PDF com o cabeçalho da clínica.
+  Depois de emitidos não podem ser alterados nem apagados. É sobre esses PDFs que entrará a assinatura digital ICP-Brasil
 - Barra lateral com a clínica, o usuário, o setor e o menu de cada perfil
 - "Usar modelo" ao lado de cada campo do atendimento, com os textos prontos de cada profissional
 
