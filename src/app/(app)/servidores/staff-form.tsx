@@ -7,7 +7,7 @@ import { councilTypes } from "@/lib/staff";
 import { ActionForm } from "../financeiro/action-form";
 import type { FormState } from "./actions";
 
-type Staff = Pick<User, "name" | "email" | "cpf" | "role" | "jobTitle" | "sector" | "specialty" | "councilType" | "councilNumber" | "councilUf">;
+type Staff = Pick<User, "name" | "systemAccess" | "email" | "cpf" | "role" | "jobTitle" | "sector" | "specialty" | "councilType" | "councilNumber" | "councilUf">;
 
 type Props = {
   action: (state: FormState, formData: FormData) => Promise<FormState>;
@@ -18,6 +18,9 @@ type Props = {
 export function StaffForm({ action, staff, isSelf }: Props) {
   const [cpf, setCpf] = useState(formatCpf(staff?.cpf));
   const [role, setRole] = useState<string>(staff?.role ?? "PROFISSIONAL");
+  const [access, setAccess] = useState(staff?.systemAccess ?? true);
+  // Quem passa a ter acesso agora precisa de uma senha.
+  const needsPassword = !staff?.systemAccess;
 
   return (
     <ActionForm action={action} submitLabel={staff ? "Salvar alterações" : "Cadastrar servidor"} resetOnSuccess={false}>
@@ -34,10 +37,27 @@ export function StaffForm({ action, staff, isSelf }: Props) {
             <p className="mt-1 text-xs text-slate-500">Com o CPF, a pessoa também pode entrar no sistema por ele.</p>
           </div>
           <div>
-            <label className="label" htmlFor="email">E-mail *</label>
-            <input className="input" id="email" name="email" type="email" defaultValue={staff?.email} required />
+            <label className="label" htmlFor="email">E-mail{access && " *"}</label>
+            <input className="input" id="email" name="email" type="email" defaultValue={staff?.email ?? ""} required={access} />
           </div>
         </div>
+        <label className={`flex items-start gap-3 rounded-md border border-slate-200 p-3 ${isSelf ? "cursor-not-allowed" : "cursor-pointer"}`}>
+          <input
+            type="checkbox"
+            name="systemAccess"
+            checked={access}
+            onChange={(e) => setAccess(e.target.checked)}
+            disabled={isSelf}
+            className="mt-1 h-4 w-4 accent-marinho-700"
+          />
+          {isSelf && <input type="hidden" name="systemAccess" value="on" />}
+          <span>
+            <span className="block font-medium text-marinho-800">Tem acesso ao sistema</span>
+            <span className="block text-sm text-slate-500">
+              Desmarque para quem faz parte da equipe mas não usa o sistema (ex.: limpeza, manutenção). A pessoa fica no cadastro, sem login.
+            </span>
+          </span>
+        </label>
       </section>
 
       <section className="space-y-3 border-t border-slate-100 pt-4">
@@ -47,7 +67,7 @@ export function StaffForm({ action, staff, isSelf }: Props) {
             <label className="label" htmlFor="jobTitle">Função / cargo</label>
             <input className="input" id="jobTitle" name="jobTitle" defaultValue={staff?.jobTitle ?? ""} placeholder="Ex.: Médica, Recepcionista, Auxiliar administrativo" />
           </div>
-          <div>
+          <div className={access ? "" : "hidden"}>
             <label className="label" htmlFor="role">Perfil de acesso *</label>
             <select className="input" id="role" name="role" value={role} onChange={(e) => setRole(e.target.value)} disabled={isSelf}>
               {Object.entries(roleLabel).map(([value, label]) => (
@@ -95,15 +115,17 @@ export function StaffForm({ action, staff, isSelf }: Props) {
         </div>
       </section>
 
-      <section className="space-y-3 border-t border-slate-100 pt-4">
-        <h2 className="font-semibold text-marinho-800">{staff ? "Trocar senha" : "Senha inicial *"}</h2>
-        <div className="max-w-sm">
-          <input className="input" id="password" name="password" type="password" autoComplete="new-password" minLength={8} required={!staff} />
-          <p className="mt-1 text-xs text-slate-500">
-            {staff ? "Deixe em branco para manter a senha atual." : "Pelo menos 8 caracteres. Passe para a pessoa entrar pela primeira vez."}
-          </p>
-        </div>
-      </section>
+      {access && (
+        <section className="space-y-3 border-t border-slate-100 pt-4">
+          <h2 className="font-semibold text-marinho-800">{needsPassword ? "Senha inicial *" : "Trocar senha"}</h2>
+          <div className="max-w-sm">
+            <input className="input" id="password" name="password" type="password" autoComplete="new-password" minLength={8} required={needsPassword} />
+            <p className="mt-1 text-xs text-slate-500">
+              {needsPassword ? "Pelo menos 8 caracteres. Passe para a pessoa entrar pela primeira vez." : "Deixe em branco para manter a senha atual."}
+            </p>
+          </div>
+        </section>
+      )}
     </ActionForm>
   );
 }

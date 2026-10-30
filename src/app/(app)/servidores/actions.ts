@@ -1,6 +1,7 @@
 "use server";
 
 import bcrypt from "bcryptjs";
+import { randomBytes } from "node:crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
@@ -30,29 +31,33 @@ function duplicateMessage(error: unknown) {
 export async function saveStaff(id: string | null, _: FormState, formData: FormData): Promise<FormState> {
   const admin = await requireUser("servidores");
   const input = parseStaff(formData);
-  const error = validateStaff(input, { isNew: !id });
+  const current = id ? await findStaff(admin.clinicId, id) : null;
+  const error = validateStaff(input, { needsPassword: !current?.systemAccess });
   if (error) return { error };
+  if (current?.id === admin.id && (input.role !== "ADMIN" || !input.systemAccess)) {
+    return { error: "Você não pode tirar o seu próprio acesso de administrador." };
+  }
 
   const { password, ...data } = input;
   // Profissional sem conselho perde os campos de conselho de vez, para não ficar meio preenchido.
   if (!data.councilNumber) Object.assign(data, { councilType: null, councilUf: null });
 
+  // Sem acesso ao sistema, a senha é aleatória e ninguém a conhece (o login também é bloqueado).
+  const passwordHash = password
+    ? await bcrypt.hash(password, 10)
+    : !data.systemAccess
+      ? await bcrypt.hash(randomBytes(32).toString("hex"), 10)
+      : undefined;
+
   let staffId = id;
   try {
     if (id) {
-      const staff = await findStaff(admin.clinicId, id);
-      if (staff.id === admin.id && data.role !== "ADMIN") {
-        return { error: "Você não pode tirar o seu próprio perfil de administrador." };
-      }
-      await prisma.user.update({
-        where: { id },
-        data: { ...data, ...(password && { passwordHash: await bcrypt.hash(password, 10) }) },
-      });
-      // Senha trocada pelo administrador: quem estava conectado com a senha antiga sai.
-      if (password && id !== admin.id) await prisma.session.deleteMany({ where: { userId: id } });
+      await prisma.user.update({ where: { id }, data: { ...data, ...(passwordHash && { passwordHash }) } });
+      // Senha trocada ou acesso retirado: quem estava conectado sai.
+      if (passwordHash && id !== admin.id) await prisma.session.deleteMany({ where: { userId: id } });
     } else {
       const created = await prisma.user.create({
-        data: { ...data, clinicId: admin.clinicId, passwordHash: await bcrypt.hash(password!, 10) },
+        data: { ...data, clinicId: admin.clinicId, passwordHash: passwordHash! },
       });
       staffId = created.id;
     }
@@ -68,7 +73,7 @@ export async function saveStaff(id: string | null, _: FormState, formData: FormD
     action: id ? "SERVIDOR_ALTERADO" : "SERVIDOR_CRIADO",
     entity: "User",
     entityId: staffId,
-    details: { name: data.name, role: data.role, ...(password && id && { senhaTrocada: true }) },
+    details: { name: data.name, role: data.role, acessoAoSistema: data.systemAccess, ...(password && id && { senhaTrocada: true }) },
   });
   revalidatePath("/servidores");
   redirect("/servidores");

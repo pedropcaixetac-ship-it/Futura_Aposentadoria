@@ -41,7 +41,7 @@ export async function getCurrentUser() {
     where: { id: hashToken(token) },
     include: { user: { include: { clinic: true } } },
   });
-  if (!session || session.expiresAt < new Date() || !session.user.active) return null;
+  if (!session || session.expiresAt < new Date() || !session.user.active || !session.user.systemAccess) return null;
   return session.user;
 }
 

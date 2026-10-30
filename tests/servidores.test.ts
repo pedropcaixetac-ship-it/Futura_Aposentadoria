@@ -40,18 +40,28 @@ function form(values: Record<string, string>) {
 }
 
 test("valida o cadastro de servidor", () => {
-  const base = { name: "Maria da Silva", email: "Maria@Clinica.com", role: "RECEPCAO", password: "senha1234" };
+  const base = { name: "Maria da Silva", email: "Maria@Clinica.com", role: "RECEPCAO", password: "senha1234", systemAccess: "on" };
   const ok = parseStaff(form({ ...base, cpf: "529.982.247-25" }));
   assert.equal(ok.email, "maria@clinica.com");
   assert.equal(ok.cpf, "52998224725");
-  assert.equal(validateStaff(ok, { isNew: true }), null);
+  assert.equal(validateStaff(ok, { needsPassword: true }), null);
 
-  assert.match(validateStaff(parseStaff(form({ ...base, name: "Maria" })), { isNew: true })!, /nome completo/);
-  assert.match(validateStaff(parseStaff(form({ ...base, cpf: "111.111.111-11" })), { isNew: true })!, /CPF/);
-  assert.match(validateStaff(parseStaff(form({ ...base, role: "DONO" })), { isNew: true })!, /perfil/);
-  assert.match(validateStaff(parseStaff(form({ ...base, password: "" })), { isNew: true })!, /senha/);
-  assert.equal(validateStaff(parseStaff(form({ ...base, password: "" })), { isNew: false }), null);
-  assert.match(validateStaff(parseStaff(form({ ...base, councilNumber: "123" })), { isNew: true })!, /conselho/);
+  assert.match(validateStaff(parseStaff(form({ ...base, name: "Maria" })), { needsPassword: true })!, /nome completo/);
+  assert.match(validateStaff(parseStaff(form({ ...base, cpf: "111.111.111-11" })), { needsPassword: true })!, /CPF/);
+  assert.match(validateStaff(parseStaff(form({ ...base, role: "DONO" })), { needsPassword: true })!, /perfil/);
+  assert.match(validateStaff(parseStaff(form({ ...base, password: "" })), { needsPassword: true })!, /senha/);
+  assert.equal(validateStaff(parseStaff(form({ ...base, password: "" })), { needsPassword: false }), null);
+  assert.match(validateStaff(parseStaff(form({ ...base, councilNumber: "123" })), { needsPassword: true })!, /conselho/);
+});
+
+test("quem não usa o sistema entra no cadastro sem e-mail nem senha", () => {
+  const limpeza = parseStaff(form({ name: "José Pereira", jobTitle: "Auxiliar de limpeza", role: "ADMIN", password: "qualquer1" }));
+  assert.equal(limpeza.systemAccess, false);
+  assert.equal(limpeza.role, "RECEPCAO");
+  assert.equal(limpeza.password, null);
+  assert.equal(validateStaff(limpeza, { needsPassword: true }), null);
+  const comAcesso = parseStaff(form({ name: "José Pereira", role: "RECEPCAO", password: "senha1234", systemAccess: "on" }));
+  assert.match(validateStaff(comAcesso, { needsPassword: true })!, /e-mail/);
 });
 
 test("coluna Função usa o cargo ou, sem ele, o perfil", () => {

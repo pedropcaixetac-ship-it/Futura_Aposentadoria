@@ -74,7 +74,8 @@ model User {
   clinicId          String
   clinic            Clinic   @relation(fields: [clinicId], references: [id])
   name              String
-  email             String
+  // Vazio para quem não usa o sistema (ex.: equipe de limpeza).
+  email             String?
   // CPF só com números. Serve para entrar no sistema no lugar do e-mail.
   cpf               String?
   passwordHash      String
@@ -94,6 +95,8 @@ model User {
   // padrão do perfil (ver src/lib/tabs.ts).
   customTabs        Boolean  @default(false)
   allowedTabs       String[] @default([])
+  // false para quem só está no cadastro da equipe e não entra no sistema.
+  systemAccess      Boolean  @default(true)
   // false bloqueia o login. No desligamento a pessoa perde o acesso, mas continua
   // no cadastro, porque é a autora de atendimentos antigos do prontuário.
   active            Boolean  @default(true)
