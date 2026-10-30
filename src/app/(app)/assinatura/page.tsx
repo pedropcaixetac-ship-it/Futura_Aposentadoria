@@ -7,7 +7,7 @@ import { availableProviders, providerLabel, isProviderId } from "@/lib/signature
 import { endSession, saveCpf } from "./actions";
 
 export default async function SignatureSettingsPage({ searchParams }: { searchParams: Promise<{ erro?: string }> }) {
-  const user = await requireUser();
+  const user = await requireUser("assinatura");
   if (!canViewClinical(user)) notFound();
   const { erro } = await searchParams;
 

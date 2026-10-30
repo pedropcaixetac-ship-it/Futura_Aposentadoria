@@ -3,7 +3,7 @@ import { canManageCharges, canManageFinance } from "@/lib/permissions";
 import { FinanceTabs } from "./finance-tabs";
 
 export default async function FinanceLayout({ children }: { children: React.ReactNode }) {
-  const user = await requireUser();
+  const user = await requireUser("financeiro");
   const admin = canManageFinance(user);
   const tabs = [
     ...(admin ? [{ href: "/financeiro", label: "Resumo" }] : []),

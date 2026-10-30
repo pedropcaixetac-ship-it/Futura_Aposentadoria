@@ -42,7 +42,7 @@ async function resolveOwner(user: CurrentUser, formData: FormData, current: stri
 }
 
 export async function saveTemplate(_: TemplateState, formData: FormData): Promise<TemplateState> {
-  const user = await requireUser();
+  const user = await requireUser("modelos");
   if (!canManageTemplates(user)) return { error: "Sem permissão." };
 
   const id = String(formData.get("id") ?? "") || null;
@@ -73,7 +73,7 @@ export async function saveTemplate(_: TemplateState, formData: FormData): Promis
 
 // O profissional copia um modelo da clínica para os seus e depois ajusta do jeito dele.
 export async function copyTemplate(id: string) {
-  const user = await requireUser();
+  const user = await requireUser("modelos");
   if (!canViewClinical(user)) throw new Error("Sem permissão");
   const source = await prisma.recordTemplate.findFirst({ where: { id, clinicId: user.clinicId } });
   if (!source || !canUseTemplate(user, source)) throw new Error("Modelo não encontrado");

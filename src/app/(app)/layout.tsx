@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/auth";
-import { canManageTemplates, canUseReception, canViewAudit, canViewClinical } from "@/lib/permissions";
+import { userTabs } from "@/lib/tabs";
 import { roleLabel } from "@/lib/format";
 import { logout } from "../login/actions";
 import { SidebarNav, type NavItem } from "./sidebar-nav";
@@ -16,19 +16,9 @@ function initials(name: string) {
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  const clinical = canViewClinical(user);
 
-  // Itens "em breve" são os próximos módulos do plano.
-  const items: NavItem[] = [
-    ...(canUseReception(user) ? [{ href: "/recepcao", label: "Recepção" }] : []),
-    { href: "/agenda", label: "Agenda" },
-    { href: "/pacientes", label: "Pacientes" },
-    ...(canManageTemplates(user) ? [{ href: "/modelos", label: "Modelos de atendimento" }] : []),
-    ...(clinical ? [{ href: "/textos-prontos", label: "Meus textos prontos" }] : []),
-    ...(clinical ? [{ href: "/assinatura", label: "Assinatura digital" }] : []),
-    { href: "/financeiro", label: "Financeiro" },
-    ...(canViewAudit(user) ? [{ href: "/auditoria", label: "Auditoria" }] : []),
-  ];
+  // Abas liberadas para a pessoa: padrão do perfil ou o que o administrador escolheu em "Editar permissões".
+  const items: NavItem[] = userTabs(user).map((tab) => ({ href: tab.href, label: tab.label }));
 
   return (
     <div className="min-h-screen md:flex">

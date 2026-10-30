@@ -7,7 +7,7 @@ import { dateInput, paymentMethodLabel, paymentMethods, today } from "@/lib/fina
 import { PurchaseForm } from "./purchase-form";
 
 export default async function NewPurchasePage() {
-  const user = await requireUser();
+  const user = await requireUser("financeiro");
   if (!canManageFinance(user)) notFound();
 
   // Fornecedores das notas anteriores, para sugerir o nome e preencher o CNPJ.

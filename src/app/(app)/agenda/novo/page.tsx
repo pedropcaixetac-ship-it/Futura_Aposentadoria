@@ -10,7 +10,7 @@ import { AppointmentForm } from "../appointment-form";
 type SearchParams = { profissional?: string; data?: string; hora?: string; duracao?: string; paciente?: string };
 
 export default async function NewAppointmentPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  const user = await requireUser();
+  const user = await requireUser("agenda");
   const params = await searchParams;
   const all = await listProfessionals(user.clinicId);
   const professionals = canSeeAllAgendas(user) ? all : all.filter((p) => p.id === user.id);

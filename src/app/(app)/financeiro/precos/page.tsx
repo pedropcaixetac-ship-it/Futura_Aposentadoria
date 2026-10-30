@@ -7,7 +7,7 @@ import { createPriceItem, updateClinicInfo, updatePriceItem } from "../actions";
 import { ActionForm } from "../action-form";
 
 export default async function PricesPage() {
-  const user = await requireUser();
+  const user = await requireUser("financeiro");
   if (!canManageFinance(user)) notFound();
   const [items, clinic] = await Promise.all([
     prisma.priceItem.findMany({ where: { clinicId: user.clinicId }, orderBy: [{ active: "desc" }, { name: "asc" }] }),

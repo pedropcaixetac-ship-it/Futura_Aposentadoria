@@ -27,10 +27,6 @@ export function canManageTemplates(user: PermissionUser) {
   return user.role === "ADMIN" || canViewClinical(user);
 }
 
-export function canViewAudit(user: PermissionUser) {
-  return user.role === "ADMIN";
-}
-
 // Agenda: recepção e administrador cuidam da agenda de todos;
 // o profissional vê e marca só na própria agenda.
 export function canSeeAllAgendas(user: PermissionUser) {

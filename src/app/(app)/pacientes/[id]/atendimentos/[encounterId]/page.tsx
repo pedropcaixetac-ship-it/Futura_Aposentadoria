@@ -25,7 +25,7 @@ export default async function EncounterPage({
   params: Promise<{ id: string; encounterId: string }>;
   searchParams: Promise<{ assinatura?: string }>;
 }) {
-  const user = await requireUser();
+  const user = await requireUser("pacientes");
   const { id, encounterId } = await params;
   const { assinatura } = await searchParams;
   if (!canViewClinical(user)) notFound();

@@ -8,7 +8,7 @@ import { launchCommissionExpense, updateCommission } from "../actions";
 import { MonthNav, SummaryCard } from "../ui";
 
 export default async function CommissionPage({ searchParams }: { searchParams: Promise<{ mes?: string }> }) {
-  const user = await requireUser();
+  const user = await requireUser("financeiro");
   const admin = canManageFinance(user);
   const { mes } = await searchParams;
   const range = monthRange(mes);

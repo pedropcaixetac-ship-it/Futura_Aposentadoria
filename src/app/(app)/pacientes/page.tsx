@@ -4,7 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { age, formatCpf, formatDate, formatPhone } from "@/lib/format";
 
 export default async function PatientsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const user = await requireUser();
+  const user = await requireUser("pacientes");
   const { q = "" } = await searchParams;
   const term = q.trim();
   const digits = term.replace(/\D/g, "");

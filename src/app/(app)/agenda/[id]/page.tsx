@@ -21,7 +21,7 @@ import { cancelAppointment, saveAppointment, startFromAppointment } from "../act
 import { AppointmentForm } from "../appointment-form";
 
 export default async function AppointmentPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ remarcar?: string }> }) {
-  const user = await requireUser();
+  const user = await requireUser("agenda");
   const { id } = await params;
   const { remarcar } = await searchParams;
   const appointment = await prisma.appointment.findFirst({

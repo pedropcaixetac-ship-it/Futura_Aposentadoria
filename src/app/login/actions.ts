@@ -26,7 +26,7 @@ export async function login(_: { error: string }, formData: FormData) {
 
   const clinic = await prisma.clinic.findUnique({ where: { slug } });
   const user = clinic ? await findUser(clinic.id, loginId) : null;
-  const ok = user?.active && (await bcrypt.compare(password, user.passwordHash));
+  const ok = user?.active && user.systemAccess && (await bcrypt.compare(password, user.passwordHash));
 
   if (!clinic || !user || !ok) {
     if (clinic) await audit({ clinicId: clinic.id, userId: user?.id, action: "LOGIN_FALHOU", entity: "User", details: { login: loginId } });
@@ -35,7 +35,7 @@ export async function login(_: { error: string }, formData: FormData) {
 
   await createSession(user.id);
   await audit({ clinicId: clinic.id, userId: user.id, action: "LOGIN", entity: "User", entityId: user.id });
-  redirect("/pacientes");
+  redirect("/");
 }
 
 export async function logout() {

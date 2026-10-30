@@ -14,7 +14,7 @@ import { documentHash, encounterHash, parseDiagnoses, sanitizeContent, type Temp
 import { parseVitals } from "@/lib/vitals";
 
 export async function startEncounter(patientId: string, formData: FormData) {
-  const user = await requireUser();
+  const user = await requireUser("pacientes");
   if (!canViewClinical(user)) throw new Error("Sem permissão");
 
   const patient = await prisma.patient.findFirst({ where: { id: patientId, clinicId: user.clinicId } });
@@ -25,7 +25,7 @@ export async function startEncounter(patientId: string, formData: FormData) {
 }
 
 async function loadEditable(encounterId: string) {
-  const user = await requireUser();
+  const user = await requireUser("pacientes");
   const encounter = await prisma.encounter.findFirst({ where: { id: encounterId, clinicId: user.clinicId } });
   if (!encounter) throw new Error("Atendimento não encontrado");
   if (!canEditEncounter(user, encounter)) throw new Error("Este atendimento não pode mais ser editado");
@@ -96,7 +96,7 @@ export async function finalizeEncounter(encounterId: string, formData: FormData)
 }
 
 export async function addAddendum(encounterId: string, formData: FormData) {
-  const user = await requireUser();
+  const user = await requireUser("pacientes");
   const encounter = await prisma.encounter.findFirst({ where: { id: encounterId, clinicId: user.clinicId } });
   if (!encounter || !canAddAddendum(user, encounter)) throw new Error("Sem permissão");
 
@@ -118,7 +118,7 @@ export async function addAddendum(encounterId: string, formData: FormData) {
 // Emite receita, atestado, pedido de exame ou relatório dentro do atendimento.
 // Só o profissional do atendimento emite; depois de emitido não muda mais.
 export async function issueDocument(encounterId: string, formData: FormData) {
-  const user = await requireUser();
+  const user = await requireUser("pacientes");
   const encounter = await prisma.encounter.findFirst({ where: { id: encounterId, clinicId: user.clinicId } });
   if (!encounter || !canViewClinical(user) || encounter.professionalId !== user.id) throw new Error("Sem permissão");
 

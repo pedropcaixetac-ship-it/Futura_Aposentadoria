@@ -7,7 +7,7 @@ import { TemplateForm } from "./template-form";
 import { TemplateList } from "./template-list";
 
 export default async function TemplatesPage() {
-  const user = await requireUser();
+  const user = await requireUser("modelos");
   if (!canManageTemplates(user)) notFound();
   const isAdmin = user.role === "ADMIN";
 

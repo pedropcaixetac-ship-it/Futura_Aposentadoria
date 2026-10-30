@@ -21,7 +21,7 @@ const buttonStyle: Partial<Record<AppointmentStatus, string>> = {
 };
 
 export default async function ReceptionPage({ searchParams }: { searchParams: Promise<{ data?: string }> }) {
-  const user = await requireUser();
+  const user = await requireUser("recepcao");
   if (!canUseReception(user)) notFound();
   const { data } = await searchParams;
   const todayDate = today();

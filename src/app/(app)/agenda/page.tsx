@@ -9,7 +9,7 @@ import { AgendaToolbar } from "./agenda-toolbar";
 type SearchParams = { data?: string; visao?: string; profissional?: string };
 
 export default async function AgendaPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  const user = await requireUser();
+  const user = await requireUser("agenda");
   const params = await searchParams;
   const todayDate = today();
   const date = isValidDate(params.data) ? params.data : todayDate;

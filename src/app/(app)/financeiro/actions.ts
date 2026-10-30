@@ -24,13 +24,13 @@ function method(formData: FormData) {
 }
 
 async function requireCharges() {
-  const user = await requireUser();
+  const user = await requireUser("financeiro");
   if (!canManageCharges(user)) throw new Error("Sem permissão");
   return user;
 }
 
 async function requireAdmin() {
-  const user = await requireUser();
+  const user = await requireUser("financeiro");
   if (!canManageFinance(user)) throw new Error("Sem permissão");
   return user;
 }
@@ -149,7 +149,7 @@ export async function receiveCharge(chargeId: string, formData: FormData) {
 }
 
 export async function cancelCharge(chargeId: string) {
-  const user = await requireUser();
+  const user = await requireUser("financeiro");
   const charge = await prisma.charge.findFirst({ where: { id: chargeId, clinicId: user.clinicId } });
   if (!charge || !canCancelCharge(user, charge)) throw new Error("Sem permissão");
   await prisma.charge.update({ where: { id: charge.id }, data: { status: "CANCELADO" } });

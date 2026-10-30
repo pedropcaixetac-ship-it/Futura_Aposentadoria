@@ -12,7 +12,7 @@ function formatInstant(date: Date) {
 }
 
 export default async function WorkHoursPage({ searchParams }: { searchParams: Promise<{ profissional?: string }> }) {
-  const user = await requireUser();
+  const user = await requireUser("agenda");
   const { profissional } = await searchParams;
   const all = await listProfessionals(user.clinicId);
   const professionals = canSeeAllAgendas(user) ? all : all.filter((p) => p.id === user.id);

@@ -35,7 +35,7 @@ const editableStatuses: AppointmentStatus[] = ["AGENDADO", "CONFIRMADO", "CHEGOU
 export type PatientOption = { id: string; name: string; phone: string | null; insurance: string | null };
 
 export async function searchPatients(query: string): Promise<PatientOption[]> {
-  const user = await requireUser();
+  const user = await requireUser("agenda");
   const term = query.trim();
   if (term.length < 2) return [];
   const digits = term.replace(/\D/g, "");
@@ -61,7 +61,7 @@ export async function saveAppointment(
   _: AppointmentFormState,
   formData: FormData,
 ): Promise<AppointmentFormState> {
-  const user = await requireUser();
+  const user = await requireUser("agenda");
 
   const existing = appointmentId
     ? await prisma.appointment.findFirst({ where: { id: appointmentId, clinicId: user.clinicId } })
@@ -154,7 +154,7 @@ export async function saveAppointment(
 }
 
 async function loadManageable(id: string) {
-  const user = await requireUser();
+  const user = await requireUser("agenda");
   const appointment = await prisma.appointment.findFirst({ where: { id, clinicId: user.clinicId } });
   if (!appointment || !canManageAgendaOf(user, appointment.professionalId)) throw new Error("Agendamento não encontrado");
   return { user, appointment };
@@ -162,7 +162,7 @@ async function loadManageable(id: string) {
 
 // Presença (confirmou, chegou, faltou) é marcada pela recepção.
 export async function setAppointmentStatus(id: string, status: AppointmentStatus) {
-  const user = await requireUser();
+  const user = await requireUser("agenda");
   if (!canUseReception(user)) throw new Error("Sem permissão");
   const appointment = await prisma.appointment.findFirst({ where: { id, clinicId: user.clinicId } });
   if (!appointment) throw new Error("Agendamento não encontrado");
@@ -206,7 +206,7 @@ export async function cancelAppointment(id: string, formData: FormData) {
 }
 
 export async function startFromAppointment(id: string, formData: FormData) {
-  const user = await requireUser();
+  const user = await requireUser("agenda");
   const appointment = await prisma.appointment.findFirst({ where: { id, clinicId: user.clinicId } });
   if (!appointment || !canStartFromAppointment(user, appointment)) throw new Error("Sem permissão");
   if (appointment.encounterId) redirect(`/pacientes/${appointment.patientId}/atendimentos/${appointment.encounterId}`);
@@ -226,7 +226,7 @@ export type HoursFormState = { error: string; saved?: boolean };
 
 // O formulário manda, para cada dia da semana, até dois períodos (manhã e tarde).
 export async function saveWorkHours(professionalId: string, _: HoursFormState, formData: FormData): Promise<HoursFormState> {
-  const user = await requireUser();
+  const user = await requireUser("agenda");
   if (!canManageAgendaOf(user, professionalId) || !(await findProfessional(user.clinicId, professionalId))) {
     return { error: "Sem permissão." };
   }
@@ -264,7 +264,7 @@ export async function saveWorkHours(professionalId: string, _: HoursFormState, f
 }
 
 export async function createBlock(professionalId: string, _: HoursFormState, formData: FormData): Promise<HoursFormState> {
-  const user = await requireUser();
+  const user = await requireUser("agenda");
   if (!canManageAgendaOf(user, professionalId) || !(await findProfessional(user.clinicId, professionalId))) {
     return { error: "Sem permissão." };
   }
@@ -289,7 +289,7 @@ export async function createBlock(professionalId: string, _: HoursFormState, for
 }
 
 export async function deleteBlock(id: string) {
-  const user = await requireUser();
+  const user = await requireUser("agenda");
   const block = await prisma.scheduleBlock.findFirst({ where: { id, clinicId: user.clinicId } });
   if (!block || !canManageAgendaOf(user, block.professionalId)) throw new Error("Bloqueio não encontrado");
   await prisma.scheduleBlock.delete({ where: { id } });

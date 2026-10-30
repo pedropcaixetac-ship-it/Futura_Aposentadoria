@@ -20,7 +20,7 @@ function ExpiryBadge({ date }: { date: Date | null }) {
 }
 
 export default async function PurchasePage({ params }: { params: Promise<{ id: string }> }) {
-  const user = await requireUser();
+  const user = await requireUser("financeiro");
   if (!canManageFinance(user)) notFound();
   const { id } = await params;
   const purchase = await prisma.purchase.findFirst({

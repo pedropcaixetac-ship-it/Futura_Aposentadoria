@@ -10,7 +10,7 @@ import { signTarget, type SignTarget } from "@/lib/signature/service";
 import { beginAuthorization, redirectUri } from "@/lib/signature/flow";
 
 export async function startSigning(target: SignTarget, formData: FormData) {
-  const user = await requireUser();
+  const user = await requireUser("assinatura");
   const provider = formData.get("provider");
   if (!isProviderId(provider) || !availableProviders().some((p) => p.id === provider)) throw new Error("Provedor indisponível");
 
@@ -26,7 +26,7 @@ export async function startSigning(target: SignTarget, formData: FormData) {
 }
 
 export async function saveCpf(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireUser("assinatura");
   const cpf = String(formData.get("cpf") ?? "").replace(/\D/g, "");
   if (cpf && !isValidCpf(cpf)) redirect("/assinatura?erro=cpf");
   // O CPF também serve para entrar no sistema, então não pode repetir na clínica.
@@ -37,7 +37,7 @@ export async function saveCpf(formData: FormData) {
 }
 
 export async function endSession(provider: string) {
-  const user = await requireUser();
+  const user = await requireUser("assinatura");
   await prisma.signatureSession.deleteMany({ where: { userId: user.id, provider } });
   revalidatePath("/assinatura");
 }

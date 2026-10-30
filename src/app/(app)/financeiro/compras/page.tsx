@@ -10,7 +10,7 @@ import { formatCnpj } from "@/lib/purchase";
 import { MonthNav, SummaryCard } from "../ui";
 
 export default async function PurchasesPage({ searchParams }: { searchParams: Promise<{ mes?: string; q?: string }> }) {
-  const user = await requireUser();
+  const user = await requireUser("financeiro");
   if (!canManageFinance(user)) notFound();
   const { mes, q = "" } = await searchParams;
   const range = monthRange(mes);
