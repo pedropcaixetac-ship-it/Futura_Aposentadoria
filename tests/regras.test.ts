@@ -101,6 +101,16 @@ test("ficha completa: particular limpa os dados do convênio; convênio exige o 
   assert.match(validatePatient(semNome, "completo"), /convênio/);
 });
 
+test("ficha completa: convênio cadastrado guarda o vínculo; 'outro' e particular não", () => {
+  const cadastrado = parsePatient(ficha({ ...obrigatorios, insuranceType: "convenio", healthPlanId: "plano1" }), "completo");
+  assert.equal("healthPlanId" in cadastrado && cadastrado.healthPlanId, "plano1");
+  const outro = parsePatient(ficha({ ...obrigatorios, insuranceType: "convenio", healthPlanId: "outro", insurance: "Amil" }), "completo");
+  assert.equal("healthPlanId" in outro && outro.healthPlanId, null);
+  assert.equal(validatePatient(outro, "completo"), "");
+  const particular = parsePatient(ficha({ ...obrigatorios, insuranceType: "particular", healthPlanId: "plano1" }), "completo");
+  assert.equal("healthPlanId" in particular && particular.healthPlanId, null);
+});
+
 test("mesmo nome com acento ou espaço diferente conta como possível duplicado", () => {
   assert.equal(sameNameKey("José  da Silva"), sameNameKey("jose da silva"));
 });

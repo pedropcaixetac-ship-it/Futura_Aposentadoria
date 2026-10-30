@@ -250,6 +250,10 @@ model Patient {
 
   // Convênio ("Particular" quando não há convênio)
   insurance           String?
+  // Convênio cadastrado em Financeiro > Convênios (vazio para particular ou convênio não cadastrado).
+  // O nome dele também fica em "insurance", que é o que as telas mostram.
+  healthPlanId        String?
+  healthPlan          HealthPlan? @relation(fields: [healthPlanId], references: [id])
   insuranceNumber     String?
   insuranceValidUntil DateTime?
 
@@ -818,7 +822,8 @@ model HealthPlan {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  prices HealthPlanPrice[]
+  prices   HealthPlanPrice[]
+  patients Patient[]
 
   @@unique([clinicId, name])
 }
