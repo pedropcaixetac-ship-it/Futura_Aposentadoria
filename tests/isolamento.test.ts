@@ -94,6 +94,7 @@ const REVIEWED = new Map([
   ["src/app/(app)/pacientes/[id]/actions.ts|appointment.updateMany", "pelo atendimento já conferido na clínica"],
   ["src/app/(app)/financeiro/repasse/page.tsx|charge.groupBy", "filtro 'paidInMonth' com clinicId"],
   ["src/app/(app)/financeiro/receitas/page.tsx|charge.findMany", "filtro 'where' montado com clinicId"],
+  ["src/app/(app)/financeiro/receitas/page.tsx|charge.groupBy", "filtro 'where' montado com clinicId"],
   ["src/lib/templates.ts|recordTemplate.findMany", "usableWhere() com clinicId"],
   ["src/lib/teleconsulta-sala.ts|teleconsultation.updateMany", "pela teleconsulta já achada na clínica"],
   ["src/app/(app)/financeiro/faturamento/actions.ts|insuranceClaim.findFirst", "pelo atendimento já conferido na clínica"],
