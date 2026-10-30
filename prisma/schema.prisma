@@ -578,6 +578,7 @@ model Charge {
   notes          String?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
+  claim          InsuranceClaim?
 
   @@unique([clinicId, receiptNumber])
   @@index([clinicId, dueDate])
@@ -941,6 +942,12 @@ model InsuranceClaim {
   // Lote em que a guia foi enviada ao convênio. Guia em lote não pode ser cancelada.
   batchId            String?
   batch              ClaimBatch? @relation(fields: [batchId], references: [id])
+  // Conferência do pagamento: quanto o convênio pagou e, se pagou menos, o motivo da glosa.
+  paidCents          Int?
+  glossReason        String?
+  // Receita lançada no Financeiro com o valor pago.
+  chargeId           String?     @unique
+  charge             Charge?     @relation(fields: [chargeId], references: [id])
   createdAt          DateTime    @default(now())
 
   @@unique([clinicId, number])
@@ -995,6 +1002,10 @@ model ClaimBatch {
   number       Int
   tissVersion  String
   createdAt    DateTime         @default(now())
+  // Número de protocolo que o portal do convênio deu ao receber o arquivo.
+  protocol     String?
+  // Dia em que o convênio pagou o lote (preenchido na conferência do pagamento).
+  paidAt       DateTime?        @db.Date
 
   claims InsuranceClaim[]
 

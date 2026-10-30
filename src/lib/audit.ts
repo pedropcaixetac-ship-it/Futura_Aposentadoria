@@ -60,6 +60,8 @@ export const auditActionLabel: Record<string, string> = {
   LOTE_FECHADO: "Fechou lote de guias",
   LOTE_DESFEITO: "Desfez lote de guias",
   LOTE_BAIXADO: "Baixou o arquivo do lote de guias",
+  LOTE_PROTOCOLO: "Anotou o protocolo do lote de guias",
+  LOTE_PAGO: "Registrou o pagamento do lote de guias",
   REPASSE_ALTERADO: "Alterou porcentagem de repasse",
   CLINICA_ALTERADA: "Alterou dados da clínica",
   DOCUMENTO_EMITIDO: "Emitiu receita/atestado/pedido",
