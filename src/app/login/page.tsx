@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { LoginForm } from "./login-form";
 
 export default async function LoginPage() {
-  if (await getCurrentUser()) redirect("/pacientes");
+  if (await getCurrentUser()) redirect("/");
   return (
     <main className="flex min-h-screen items-center justify-center bg-marinho-900 p-4">
       <div className="card w-full max-w-sm border-t-4 border-t-dourado-500">

@@ -11,10 +11,36 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum AppointmentType {
+  CONSULTA
+  RETORNO
+  PROCEDIMENTO
+}
+
+enum AppointmentStatus {
+  AGENDADO
+  CONFIRMADO
+  CHEGOU
+  EM_ATENDIMENTO
+  ATENDIDO
+  FALTOU
+  DESMARCADO
+}
+
 enum Role {
   ADMIN
   PROFISSIONAL
   RECEPCAO
+  // Auxiliar administrativo: cuida da contabilidade e da parte trabalhista.
+  ADMINISTRATIVO
+}
+
+// Tipo de vínculo de trabalho de um servidor.
+enum EmploymentType {
+  CLT
+  PJ
+  ESTAGIO
+  AUTONOMO
 }
 
 enum EncounterStatus {
@@ -22,46 +48,124 @@ enum EncounterStatus {
   FINALIZADO
 }
 
-model Clinic {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  createdAt DateTime @default(now())
+// Situação de uma cobrança ou despesa no financeiro.
+enum FinanceStatus {
+  PENDENTE
+  PAGO
+  CANCELADO
+}
 
-  users     User[]
-  patients  Patient[]
-  templates RecordTemplate[]
-  encounters Encounter[]
-  auditLogs AuditLog[]
+enum PaymentMethod {
+  PIX
+  DINHEIRO
+  CARTAO_CREDITO
+  CARTAO_DEBITO
+  TRANSFERENCIA
+  BOLETO
+  CONVENIO
+}
+
+enum DocumentType {
+  RECEITA
+  ATESTADO
+  PEDIDO_EXAME
+  RELATORIO
+}
+
+model Clinic {
+  id                String   @id @default(cuid())
+  name              String
+  slug              String   @unique
+  createdAt         DateTime @default(now())
+  // Dados que aparecem no recibo.
+  cnpj              String?
+  address           String?
+  phone             String?
+  // Último número de recibo emitido (os recibos seguem uma sequência por clínica).
+  lastReceiptNumber Int      @default(0)
+  // Contabilidade: regime de impostos e contato do escritório de contabilidade.
+  taxRegime         String?
+  accountantName    String?
+  accountantEmail   String?
+  accountantPhone   String?
+
+  users          User[]
+  patients       Patient[]
+  templates      RecordTemplate[]
+  encounters     Encounter[]
+  auditLogs      AuditLog[]
+  priceItems     PriceItem[]
+  charges        Charge[]
+  expenses       Expense[]
+  purchases      Purchase[]
+  documents      ClinicalDocument[]
+  workHours      WorkHours[]
+  scheduleBlocks ScheduleBlock[]
+  appointments   Appointment[]
+  signedPdfs     SignedPdf[]
+  contracts      EmploymentContract[]
+  vacations      Vacation[]
+  payrollEntries PayrollEntry[]
+  obligations    TaxObligation[]
+  obligationDone ObligationEntry[]
   teleconsultations Teleconsultation[]
 }
 
 model User {
-  id            String   @id @default(cuid())
-  clinicId      String
-  clinic        Clinic   @relation(fields: [clinicId], references: [id])
-  name          String
-  email         String
-  passwordHash  String
-  role          Role
+  id                String    @id @default(cuid())
+  clinicId          String
+  clinic            Clinic    @relation(fields: [clinicId], references: [id])
+  name              String
+  // Vazio para quem não usa o sistema (ex.: equipe de limpeza).
+  email             String?
+  // CPF só com números. Serve para entrar no sistema no lugar do e-mail.
+  cpf               String?
+  passwordHash      String
+  role              Role
   // Registro no conselho profissional (CRM, CRP, CRN, CRO...), exigido no prontuário.
-  councilType   String?
-  councilNumber String?
-  councilUf     String?
-  specialty     String?
+  councilType       String?
+  councilNumber     String?
+  councilUf         String?
+  specialty         String?
   // Setor onde a pessoa trabalha (ex.: Recepção, Consultório 2), mostrado na barra lateral.
-  sector        String?
-  active        Boolean  @default(true)
-  createdAt     DateTime @default(now())
+  sector            String?
+  // Porcentagem do valor recebido que fica com o profissional (repasse).
+  commissionPercent Int?
+  // Função ou cargo mostrado no cadastro de servidores (ex.: Médica, Recepcionista).
+  jobTitle          String?
+  // Abas liberadas para a pessoa. Enquanto customTabs for false, valem as abas
+  // padrão do perfil (ver src/lib/tabs.ts).
+  customTabs        Boolean   @default(false)
+  allowedTabs       String[]  @default([])
+  // false para quem só está no cadastro da equipe e não entra no sistema.
+  systemAccess      Boolean   @default(true)
+  // false bloqueia o login. No desligamento a pessoa perde o acesso, mas continua
+  // no cadastro, porque é a autora de atendimentos antigos do prontuário.
+  active            Boolean   @default(true)
+  terminatedAt      DateTime? @db.Date
+  terminationReason String?
+  createdAt         DateTime  @default(now())
 
-  sessions   Session[]
-  encounters Encounter[]
-  addenda    Addendum[]
-  auditLogs  AuditLog[]
-  snippets   TextSnippet[]
-  teleconsultations Teleconsultation[]
+  sessions            Session[]
+  encounters          Encounter[]
+  addenda             Addendum[]
+  auditLogs           AuditLog[]
+  snippets            TextSnippet[]
+  templates           RecordTemplate[]
+  charges             Charge[]
+  documents           ClinicalDocument[]
+  workHours           WorkHours[]
+  scheduleBlocks      ScheduleBlock[]
+  appointments        Appointment[]      @relation("AppointmentProfessional")
+  appointmentsCreated Appointment[]      @relation("AppointmentCreator")
+  signatureSessions   SignatureSession[]
+  teleconsultations   Teleconsultation[]
+  signedPdfs          SignedPdf[]
+  // Dados de contrato de trabalho (aba Contabilidade). Vazio para quem não é funcionário da clínica.
+  contract            EmploymentContract?
 
   @@unique([clinicId, email])
+  @@unique([clinicId, cpf])
 }
 
 model Session {
@@ -73,22 +177,63 @@ model Session {
 }
 
 model Patient {
-  id        String    @id @default(cuid())
-  clinicId  String
-  clinic    Clinic    @relation(fields: [clinicId], references: [id])
-  name      String
-  socialName String?
-  birthDate DateTime?
-  sex       String?
-  cpf       String?
-  phone     String?
-  email     String?
-  address   String?
-  insurance String?
-  insuranceNumber String?
-  guardianName String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id                   String  @id @default(cuid())
+  clinicId             String
+  clinic               Clinic  @relation(fields: [clinicId], references: [id])
+  // false quando veio do cadastro rápido da recepção e ainda falta completar.
+  registrationComplete Boolean @default(true)
+
+  // Identificação
+  name          String
+  socialName    String?
+  birthDate     DateTime?
+  sex           String?
+  cpf           String?
+  rg            String?
+  cns           String?
+  motherName    String?
+  maritalStatus String?
+  occupation    String?
+  photo         String? // imagem pequena (data URL), reduzida no navegador
+
+  // Contato (telefones guardados só com os números)
+  phone                 String?
+  phoneWhatsapp         Boolean   @default(true)
+  landline              String?
+  email                 String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  // Consentimento (LGPD) para a clínica mandar mensagens pelo WhatsApp, e quando foi dado.
+  whatsappOptIn         Boolean   @default(false)
+  whatsappOptInAt       DateTime?
+
+  // Endereço
+  cep        String?
+  street     String?
+  number     String?
+  complement String?
+  district   String?
+  city       String?
+  state      String?
+
+  // Convênio ("Particular" quando não há convênio)
+  insurance           String?
+  insuranceNumber     String?
+  insuranceValidUntil DateTime?
+
+  // Responsável legal
+  guardianName         String?
+  guardianCpf          String?
+  guardianRelationship String?
+  guardianPhone        String?
+
+  // Outros
+  referralSource String?
+  notes          String?
+  lgpdConsentAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Resumo clínico, sempre visível no topo do prontuário.
   allergies          String?
@@ -96,26 +241,38 @@ model Patient {
   personalHistory    String?
   familyHistory      String?
 
-  encounters Encounter[]
+  encounters   Encounter[]
+  charges      Charge[]
+  documents    ClinicalDocument[]
+  appointments Appointment[]
+  signedPdfs   SignedPdf[]
   teleconsultations Teleconsultation[]
 
-  @@index([clinicId, name])
   @@unique([clinicId, cpf])
+  @@unique([clinicId, cns])
+  @@index([clinicId, name])
 }
 
 // Modelo de atendimento (ex.: "Consulta clínica geral", "Psicologia - sessão").
 // fields é uma lista de campos: [{ key, label, type: "text" | "textarea" }]
+// Cada modelo pertence a um profissional (ownerId), que monta o formulário do seu jeito.
+// Sem ownerId, é um modelo da clínica, que todos os profissionais podem usar.
 model RecordTemplate {
   id        String   @id @default(cuid())
   clinicId  String
   clinic    Clinic   @relation(fields: [clinicId], references: [id])
+  ownerId   String?
+  owner     User?    @relation(fields: [ownerId], references: [id])
   name      String
+  // Não é mais usado nas telas (os modelos agora são por profissional).
   specialty String?
   fields    Json
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 
   encounters Encounter[]
+
+  @@index([clinicId, ownerId])
 }
 
 // Um atendimento no prontuário. Enquanto RASCUNHO pode ser editado;
@@ -135,6 +292,8 @@ model Encounter {
   fields         Json
   content        Json            @default("{}")
   diagnoses      Json            @default("[]")
+  // Sinais vitais (PA, FC, peso, altura...). Vazio em atendimentos antigos.
+  vitals         Json?
   status         EncounterStatus @default(RASCUNHO)
   startedAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
@@ -142,10 +301,78 @@ model Encounter {
   // Impressão digital (SHA-256) do conteúdo finalizado, para detectar adulteração.
   contentHash    String?
 
-  addenda Addendum[]
+  addenda     Addendum[]
+  documents   ClinicalDocument[]
+  charges     Charge[]
+  appointment Appointment?
+  signedPdf   SignedPdf?
   teleconsultation Teleconsultation?
 
   @@index([clinicId, patientId, startedAt])
+}
+
+// Receita, atestado, pedido de exame ou relatório emitido num atendimento.
+// Depois de emitido não pode ser alterado nem apagado (o banco bloqueia).
+// É este texto que vira PDF e, mais à frente, recebe a assinatura ICP-Brasil.
+model ClinicalDocument {
+  id          String       @id @default(cuid())
+  clinicId    String
+  clinic      Clinic       @relation(fields: [clinicId], references: [id])
+  encounterId String
+  encounter   Encounter    @relation(fields: [encounterId], references: [id])
+  patientId   String
+  patient     Patient      @relation(fields: [patientId], references: [id])
+  authorId    String
+  author      User         @relation(fields: [authorId], references: [id])
+  type        DocumentType
+  body        String
+  createdAt   DateTime     @default(now())
+  // Impressão digital (SHA-256) do texto emitido, como nos atendimentos.
+  contentHash String
+
+  signedPdf SignedPdf?
+
+  @@index([encounterId])
+}
+
+// Autorização que o profissional deu no app do certificado (BirdID, VIDaaS)
+// para o sistema assinar por algumas horas sem pedir confirmação a cada documento.
+model SignatureSession {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider         String
+  // Guardado cifrado: quem ler o banco não consegue assinar.
+  accessToken      String
+  certificateAlias String
+  // Certificado do profissional e cadeia, em base64, separados por vírgula.
+  certificateChain String
+  expiresAt        DateTime
+  createdAt        DateTime @default(now())
+
+  @@unique([userId, provider])
+}
+
+// PDF assinado com certificado ICP-Brasil. Não pode ser alterado nem apagado.
+model SignedPdf {
+  id                String            @id @default(cuid())
+  clinicId          String
+  clinic            Clinic            @relation(fields: [clinicId], references: [id])
+  patientId         String
+  patient           Patient           @relation(fields: [patientId], references: [id])
+  encounterId       String?           @unique
+  encounter         Encounter?        @relation(fields: [encounterId], references: [id])
+  documentId        String?           @unique
+  document          ClinicalDocument? @relation(fields: [documentId], references: [id])
+  signerId          String
+  signer            User              @relation(fields: [signerId], references: [id])
+  provider          String
+  signerName        String
+  signerCpf         String?
+  certificateSerial String
+  pdf               Bytes
+  sha256            String
+  signedAt          DateTime          @default(now())
 }
 
 // Atendimento por vídeo (Resolução CFM 2.314/2022). Cada teleconsulta é ligada
@@ -224,9 +451,298 @@ model TextSnippet {
   @@index([ownerId, fieldKey])
 }
 
+// Tabela de preços: quanto custa cada consulta ou procedimento.
+// Valores sempre em centavos, para não haver erro de arredondamento.
+model PriceItem {
+  id         String   @id @default(cuid())
+  clinicId   String
+  clinic     Clinic   @relation(fields: [clinicId], references: [id])
+  name       String
+  priceCents Int
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  charges Charge[]
+}
+
+// Receita: uma cobrança feita a um paciente, normalmente ligada a um atendimento.
+model Charge {
+  id             String         @id @default(cuid())
+  clinicId       String
+  clinic         Clinic         @relation(fields: [clinicId], references: [id])
+  patientId      String
+  patient        Patient        @relation(fields: [patientId], references: [id])
+  // Profissional que fez o atendimento; é a base do repasse.
+  professionalId String?
+  professional   User?          @relation(fields: [professionalId], references: [id])
+  encounterId    String?
+  encounter      Encounter?     @relation(fields: [encounterId], references: [id])
+  priceItemId    String?
+  priceItem      PriceItem?     @relation(fields: [priceItemId], references: [id])
+  description    String
+  amountCents    Int
+  dueDate        DateTime       @db.Date
+  status         FinanceStatus  @default(PENDENTE)
+  paymentMethod  PaymentMethod?
+  paidAt         DateTime?      @db.Date
+  receiptNumber  Int?
+  notes          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([clinicId, receiptNumber])
+  @@index([clinicId, dueDate])
+  @@index([clinicId, paidAt])
+  @@index([encounterId])
+}
+
+// Despesa: conta a pagar da clínica (aluguel, salários, materiais, repasses...).
+model Expense {
+  id            String         @id @default(cuid())
+  clinicId      String
+  clinic        Clinic         @relation(fields: [clinicId], references: [id])
+  description   String
+  category      String
+  amountCents   Int
+  dueDate       DateTime       @db.Date
+  status        FinanceStatus  @default(PENDENTE)
+  paymentMethod PaymentMethod?
+  paidAt        DateTime?      @db.Date
+  notes         String?
+  // Parcela de uma nota fiscal de compra (aba Compras), quando houver.
+  purchaseId    String?
+  purchase      Purchase?      @relation(fields: [purchaseId], references: [id])
+  installment   Int?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([clinicId, dueDate])
+  @@index([clinicId, paidAt])
+  @@index([purchaseId])
+}
+
+// Nota fiscal de compra (material, medicamento, insumo...). O pagamento vira uma ou mais
+// despesas (parcelas) na aba Despesas.
+model Purchase {
+  id            String         @id @default(cuid())
+  clinicId      String
+  clinic        Clinic         @relation(fields: [clinicId], references: [id])
+  kind          String
+  supplierName  String
+  supplierCnpj  String?
+  invoiceNumber String
+  invoiceSeries String?
+  accessKey     String?
+  issueDate     DateTime       @db.Date
+  totalCents    Int
+  notes         String?
+  status        PurchaseStatus @default(ATIVA)
+  createdById   String
+  createdAt     DateTime       @default(now())
+
+  items    PurchaseItem[]
+  expenses Expense[]
+
+  @@index([clinicId, issueDate])
+  @@index([clinicId, supplierCnpj, invoiceNumber])
+}
+
+enum PurchaseStatus {
+  ATIVA
+  CANCELADA
+}
+
+model PurchaseItem {
+  id             String    @id @default(cuid())
+  purchaseId     String
+  purchase       Purchase  @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  position       Int
+  description    String
+  unit           String?
+  quantity       Decimal   @db.Decimal(12, 3)
+  unitPriceCents Int
+  totalCents     Int
+  // Lote e validade (importante para medicamentos e insumos).
+  batch          String?
+  expiresAt      DateTime? @db.Date
+}
+
+// Horário de atendimento de um profissional num dia da semana (0 = domingo).
+// Um profissional pode ter mais de um período no mesmo dia (manhã e tarde).
+// Horários em minutos desde a meia-noite, no horário de Brasília.
+model WorkHours {
+  id             String @id @default(cuid())
+  clinicId       String
+  clinic         Clinic @relation(fields: [clinicId], references: [id])
+  professionalId String
+  professional   User   @relation(fields: [professionalId], references: [id])
+  weekday        Int
+  startMinute    Int
+  endMinute      Int
+  // Duração padrão de cada consulta neste período.
+  slotMinutes    Int
+
+  @@index([clinicId, professionalId])
+}
+
+// Período em que o profissional não atende (almoço, férias, congresso...).
+model ScheduleBlock {
+  id             String   @id @default(cuid())
+  clinicId       String
+  clinic         Clinic   @relation(fields: [clinicId], references: [id])
+  professionalId String
+  professional   User     @relation(fields: [professionalId], references: [id])
+  startsAt       DateTime
+  endsAt         DateTime
+  reason         String?
+  createdAt      DateTime @default(now())
+
+  @@index([clinicId, professionalId, startsAt])
+}
+
+model Appointment {
+  id             String            @id @default(cuid())
+  clinicId       String
+  clinic         Clinic            @relation(fields: [clinicId], references: [id])
+  professionalId String
+  professional   User              @relation("AppointmentProfessional", fields: [professionalId], references: [id])
+  patientId      String
+  patient        Patient           @relation(fields: [patientId], references: [id])
+  startsAt       DateTime
+  endsAt         DateTime
+  type           AppointmentType   @default(CONSULTA)
+  // Vazio = particular; preenchido = nome do convênio.
+  insurance      String?
+  notes          String?
+  status         AppointmentStatus @default(AGENDADO)
+  arrivedAt      DateTime?
+  cancelReason   String?
+  // WhatsApp: quando a recepção pediu a confirmação desta consulta.
+  confirmationSentAt DateTime?
+  // Retorno previsto depois desta consulta e quando o paciente foi avisado.
+  returnDueOn        DateTime?         @db.Date
+  returnNoticeSentAt DateTime?
+  // Atendimento do prontuário aberto a partir deste agendamento.
+  encounterId    String?           @unique
+  encounter      Encounter?        @relation(fields: [encounterId], references: [id])
+  createdById    String
+  createdBy      User              @relation("AppointmentCreator", fields: [createdById], references: [id])
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([clinicId, startsAt])
+  @@index([clinicId, professionalId, startsAt])
+  @@index([clinicId, patientId])
+  @@index([clinicId, returnDueOn])
+}
+
 model Cid10 {
   code        String @id
   description String
 
   @@index([description])
+}
+
+// ---------- Contabilidade e parte trabalhista ----------
+
+// Dados de contrato de trabalho de um servidor. A pessoa em si (nome, CPF, função, setor,
+// desligamento) está no cadastro de servidores (User); aqui fica só o que é trabalhista.
+model EmploymentContract {
+  id            String         @id @default(cuid())
+  clinicId      String
+  clinic        Clinic         @relation(fields: [clinicId], references: [id])
+  userId        String         @unique
+  user          User           @relation(fields: [userId], references: [id])
+  type          EmploymentType @default(CLT)
+  admissionDate DateTime       @db.Date
+  salaryCents   Int
+  weeklyHours   Int?
+  pis           String?
+  // Chave Pix ou dados bancários para o pagamento do salário.
+  paymentInfo   String?
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  vacations      Vacation[]
+  payrollEntries PayrollEntry[]
+
+  @@index([clinicId])
+}
+
+// Férias tiradas (ou marcadas) por um funcionário.
+model Vacation {
+  id         String             @id @default(cuid())
+  clinicId   String
+  clinic     Clinic             @relation(fields: [clinicId], references: [id])
+  contractId String
+  contract   EmploymentContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  startDate  DateTime           @db.Date
+  endDate    DateTime           @db.Date
+  notes      String?
+  createdAt  DateTime           @default(now())
+
+  @@index([contractId, startDate])
+}
+
+// Uma linha da folha do mês: o que aconteceu com o funcionário no mês (faltas, horas extras...),
+// para enviar ao contador, e o valor líquido que o contador devolve.
+model PayrollEntry {
+  id              String             @id @default(cuid())
+  clinicId        String
+  clinic          Clinic             @relation(fields: [clinicId], references: [id])
+  contractId      String
+  contract        EmploymentContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  // Mês de competência, no formato aaaa-mm.
+  month           String
+  baseCents       Int
+  absenceDays     Int                @default(0)
+  overtimeHours   Int                @default(0)
+  additionsCents  Int                @default(0)
+  deductionsCents Int                @default(0)
+  netCents        Int?
+  notes           String?
+  // Despesa criada no Financeiro quando o salário foi lançado.
+  expenseId       String?
+  updatedAt       DateTime           @updatedAt
+
+  @@unique([contractId, month])
+  @@index([clinicId, month])
+}
+
+// Obrigação que se repete todo mês (ou todo ano): impostos, FGTS, eSocial, salários...
+model TaxObligation {
+  id          String   @id @default(cuid())
+  clinicId    String
+  clinic      Clinic   @relation(fields: [clinicId], references: [id])
+  name        String
+  // "Imposto", "Trabalhista" ou "Envio" (declarações e documentos, sem valor a pagar).
+  kind        String
+  dueDay      Int
+  // true: dueDay é o n-ésimo dia útil (ex.: salário até o 5º dia útil).
+  businessDay Boolean  @default(false)
+  // Só para obrigações anuais: o mês (1 a 12) em que vencem.
+  onlyMonth   Int?
+  hint        String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  entries ObligationEntry[]
+}
+
+// Registro de que a obrigação de um mês foi cumprida.
+model ObligationEntry {
+  id           String        @id @default(cuid())
+  clinicId     String
+  clinic       Clinic        @relation(fields: [clinicId], references: [id])
+  obligationId String
+  obligation   TaxObligation @relation(fields: [obligationId], references: [id], onDelete: Cascade)
+  month        String
+  doneAt       DateTime      @db.Date
+  amountCents  Int?
+  expenseId    String?
+  notes        String?
+  createdAt    DateTime      @default(now())
+
+  @@unique([obligationId, month])
 }

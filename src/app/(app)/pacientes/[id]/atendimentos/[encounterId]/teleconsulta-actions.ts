@@ -11,7 +11,7 @@ import { deleteRoom, joinUrl } from "@/lib/video";
 
 // Só o profissional responsável entra na chamada e a encerra.
 async function loadOwn(teleconsultationId: string) {
-  const user = await requireUser();
+  const user = await requireUser("pacientes");
   const t = await prisma.teleconsultation.findFirst({
     where: { id: teleconsultationId, clinicId: user.clinicId, professionalId: user.id },
   });
@@ -21,7 +21,7 @@ async function loadOwn(teleconsultationId: string) {
 
 // Consultado a cada poucos segundos pela tela do profissional.
 export async function teleconsultationStatus(teleconsultationId: string) {
-  const user = await requireUser();
+  const user = await requireUser("pacientes");
   if (!canViewClinical(user)) throw new Error("Sem permissão");
   const t = await prisma.teleconsultation.findFirst({
     where: { id: teleconsultationId, clinicId: user.clinicId },

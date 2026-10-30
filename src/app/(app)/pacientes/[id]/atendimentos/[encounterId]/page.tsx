@@ -5,19 +5,35 @@ import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { canAddAddendum, canEditEncounter, canViewClinical } from "@/lib/permissions";
 import { age, formatDate, formatDateTime } from "@/lib/format";
-import { encounterHash, type Diagnosis, type TemplateField } from "@/lib/record";
-import { addAddendum, finalizeEncounter, saveEncounter } from "../../actions";
+import { documentHash, encounterHash, type Diagnosis, type TemplateField } from "@/lib/record";
+import { documentTypeLabel } from "@/lib/documents";
+import { addAddendum, autosaveEncounter, finalizeEncounter, issueDocument } from "../../actions";
+import { updateClinicalSummary } from "../../../actions";
+import type { Vitals } from "@/lib/vitals";
+import { DocumentForm } from "./document-form";
+import { SignBox } from "./sign-box";
+import { availableProviders } from "@/lib/signature/providers";
 import { EncounterEditor } from "./encounter-editor";
 import { PrintButton } from "./print-button";
+import { PatientHistory } from "./patient-history";
+import { VitalsView } from "./vitals-view";
 import { TeleconsultaPanel } from "./teleconsulta-panel";
+import { TeleconsultaRecord } from "./teleconsulta-record";
 import { endTeleconsultation, joinTeleconsultation, teleconsultationStatus } from "./teleconsulta-actions";
 import { teleconsultationPath, teleconsultationState } from "@/lib/teleconsulta";
 import { siteOrigin } from "@/lib/teleconsulta-sala";
 import { videoConfigured } from "@/lib/video";
 
-export default async function EncounterPage({ params }: { params: Promise<{ id: string; encounterId: string }> }) {
-  const user = await requireUser();
+export default async function EncounterPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string; encounterId: string }>;
+  searchParams: Promise<{ assinatura?: string }>;
+}) {
+  const user = await requireUser("pacientes");
   const { id, encounterId } = await params;
+  const { assinatura } = await searchParams;
   if (!canViewClinical(user)) notFound();
 
   const encounter = await prisma.encounter.findFirst({
@@ -28,6 +44,8 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
       template: true,
       teleconsultation: true,
       addenda: { include: { author: true }, orderBy: { createdAt: "asc" } },
+      signedPdf: { select: { id: true, signerName: true, signedAt: true, provider: true } },
+      documents: { include: { author: true, signedPdf: { select: { id: true, signerName: true, signedAt: true, provider: true } } }, orderBy: { createdAt: "asc" } },
     },
   });
   if (!encounter) notFound();
@@ -42,6 +60,8 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
   });
 
   const editable = canEditEncounter(user, encounter);
+  const canIssueDocuments = encounter.professionalId === user.id;
+  const providers = encounter.professionalId === user.id ? availableProviders() : [];
   const snippets = editable
     ? await prisma.textSnippet.findMany({
         where: { ownerId: user.id },
@@ -50,9 +70,22 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
       })
     : [];
 
+  const history = editable
+    ? await prisma.encounter.findMany({
+        where: { patientId: id, clinicId: user.clinicId, status: "FINALIZADO", id: { not: encounter.id } },
+        include: { professional: true, template: true },
+        orderBy: { startedAt: "desc" },
+        take: 30,
+      })
+    : [];
+
+  // "Copiar da última consulta" usa a última do próprio profissional; se não houver, a última de qualquer um.
+  const last = history.find((e) => e.professionalId === user.id) ?? history[0];
+
   const fields = encounter.fields as TemplateField[];
   const content = encounter.content as Record<string, string>;
   const diagnoses = encounter.diagnoses as Diagnosis[];
+  const vitals = encounter.vitals as Vitals | null;
   const { patient, professional } = encounter;
   const intact =
     encounter.status !== "FINALIZADO" ||
@@ -61,56 +94,67 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
   const tele = encounter.teleconsultation;
   const teleState = tele && teleconsultationState(tele);
   // O painel do vídeo aparece só para o profissional responsável, enquanto o link vale.
-  const showPanel = !!tele && tele.professionalId === user.id && (teleState === "AGUARDANDO_TERMO" || teleState === "LIBERADA");
+  const telePanel =
+    tele && tele.professionalId === user.id && (teleState === "AGUARDANDO_TERMO" || teleState === "LIBERADA") ? (
+      <TeleconsultaPanel
+        link={`${await siteOrigin()}${teleconsultationPath(tele.token)}`}
+        patientName={patient.socialName || patient.name}
+        phone={patient.phone}
+        initialConsentAt={tele.consentAt?.toISOString() ?? null}
+        initialPatientJoinedAt={tele.patientJoinedAt?.toISOString() ?? null}
+        configured={videoConfigured()}
+        status={teleconsultationStatus.bind(null, tele.id)}
+        join={joinTeleconsultation.bind(null, tele.id)}
+        end={endTeleconsultation.bind(null, tele.id)}
+      />
+    ) : null;
 
-  const main = (
-    <div className="space-y-4">
+  return (
+    <div className={editable ? "space-y-4" : "mx-auto max-w-3xl space-y-4"}>
       <div className="no-print flex items-center justify-between">
         <Link href={`/pacientes/${id}`} className="text-sm text-marinho-700 hover:underline">← Voltar ao prontuário</Link>
-        {encounter.status === "FINALIZADO" && <PrintButton />}
+        {encounter.status === "FINALIZADO" && (
+          <div className="flex flex-wrap justify-end gap-2">
+            <SignBox
+              target={{ kind: "atendimento", id: encounter.id }}
+              signed={encounter.signedPdf}
+              canSign={encounter.professionalId === user.id}
+              providers={providers}
+            />
+            <a href={`/api/pdf/atendimento/${encounter.id}`} target="_blank" className="btn-secondary">Baixar PDF</a>
+            <PrintButton />
+          </div>
+        )}
       </div>
 
-      <div className="card space-y-1">
-        <p className="text-xs uppercase tracking-wide text-slate-500">{encounter.template?.name ?? "Evolução livre"}</p>
-        <h1 className="text-xl font-semibold">
-          {patient.name}
-          {patient.birthDate && <span className="font-normal text-slate-500"> · {age(patient.birthDate)} anos ({formatDate(patient.birthDate)})</span>}
-        </h1>
-        <p className="text-sm text-slate-600">
-          {formatDateTime(encounter.startedAt)} · {professional.name}
-          {professional.councilNumber && ` · ${professional.councilType} ${professional.councilNumber}/${professional.councilUf}`}
-        </p>
-        {patient.allergies && <p className="text-sm font-semibold text-red-700">Alergias: {patient.allergies}</p>}
-      </div>
-
-      {tele && (
-        <div className="card space-y-1 text-sm">
-          <h2 className="font-semibold">Atendimento por teleconsulta</h2>
-          <p className="text-slate-600">Realizado a distância, por vídeo, conforme a Resolução CFM nº 2.314/2022. A chamada não foi gravada.</p>
-          <p className="text-slate-600">
-            {tele.consentAt
-              ? `Termo de consentimento aceito pelo paciente em ${formatDateTime(tele.consentAt)}${tele.consentIp ? ` (IP ${tele.consentIp})` : ""}.`
-              : "O paciente ainda não aceitou o termo de consentimento."}
+      {!editable && (
+        <div className="card space-y-1">
+          <p className="text-xs uppercase tracking-wide text-slate-500">{encounter.template?.name ?? "Evolução livre"}</p>
+          <h1 className="text-xl font-semibold">
+            {patient.name}
+            {patient.birthDate && <span className="font-normal text-slate-500"> · {age(patient.birthDate)} anos ({formatDate(patient.birthDate)})</span>}
+          </h1>
+          <p className="text-sm text-slate-600">
+            {formatDateTime(encounter.startedAt)} · {professional.name}
+            {professional.councilNumber && ` · ${professional.councilType} ${professional.councilNumber}/${professional.councilUf}`}
           </p>
-          {(tele.professionalJoinedAt || tele.patientJoinedAt || tele.endedAt) && (
-            <p className="text-slate-600">
-              {[
-                tele.professionalJoinedAt && `Profissional entrou: ${formatDateTime(tele.professionalJoinedAt)}`,
-                tele.patientJoinedAt && `Paciente entrou: ${formatDateTime(tele.patientJoinedAt)}`,
-                tele.endedAt && `Encerrada: ${formatDateTime(tele.endedAt)}`,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            </p>
-          )}
-          {tele.consentText && (
-            <details className="no-print">
-              <summary className="cursor-pointer text-marinho-700">Ver o termo aceito</summary>
-              <p className="mt-2 whitespace-pre-wrap rounded bg-slate-50 p-3 text-xs text-slate-600">{tele.consentText}</p>
-            </details>
-          )}
+          {patient.allergies && <p className="text-sm font-semibold text-red-700">Alergias: {patient.allergies}</p>}
         </div>
       )}
+
+      {assinatura === "erro" && (
+        <p className="no-print rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800">
+          Não foi possível assinar. Confira se o seu CPF está certo em Assinatura digital e tente de novo.
+        </p>
+      )}
+      {assinatura === "cancelada" && (
+        <p className="no-print rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+          A assinatura foi cancelada no app do certificado.
+        </p>
+      )}
+
+      {tele && <TeleconsultaRecord tele={tele} />}
+      {!editable && telePanel}
 
       {!intact && (
         <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800">
@@ -119,14 +163,54 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
       )}
 
       {editable ? (
-        <EncounterEditor
-          fields={fields}
-          content={content}
-          diagnoses={diagnoses}
-          snippets={snippets}
-          save={saveEncounter.bind(null, encounter.id)}
-          finalize={finalizeEncounter.bind(null, encounter.id)}
-        />
+        <div className={`grid grid-cols-1 gap-4 lg:items-start ${telePanel ? "lg:grid-cols-[minmax(0,1fr)_420px]" : "lg:grid-cols-[minmax(0,1fr)_320px]"}`}>
+          <EncounterEditor
+            patient={{
+              name: patient.socialName || patient.name,
+              ageLine: patient.birthDate ? `${age(patient.birthDate)} anos (${formatDate(patient.birthDate)})` : null,
+              insurance: patient.insurance,
+              allergies: patient.allergies,
+            }}
+            startedAt={encounter.startedAt.toISOString()}
+            heading={`${encounter.template?.name ?? "Evolução livre"} · ${professional.name}`}
+            fields={fields}
+            content={content}
+            diagnoses={diagnoses}
+            vitals={vitals}
+            snippets={snippets}
+            lastEncounter={
+              last
+                ? {
+                    when: formatDateTime(last.startedAt),
+                    professionalName: last.professional.name,
+                    fields: last.fields as TemplateField[],
+                    content: last.content as Record<string, string>,
+                    diagnoses: last.diagnoses as Diagnosis[],
+                  }
+                : null
+            }
+            autosave={autosaveEncounter.bind(null, encounter.id)}
+            finalize={finalizeEncounter.bind(null, encounter.id)}
+          />
+          <div className="space-y-4">
+          {telePanel}
+          <PatientHistory
+            patientId={id}
+            summary={patient}
+            updateSummary={updateClinicalSummary.bind(null, id)}
+            encounters={history.map((e) => ({
+              id: e.id,
+              startedAt: e.startedAt,
+              templateName: e.template?.name ?? null,
+              professionalName: e.professional.name,
+              fields: e.fields as TemplateField[],
+              content: e.content as Record<string, string>,
+              diagnoses: e.diagnoses as Diagnosis[],
+              vitals: e.vitals as Vitals | null,
+            }))}
+          />
+          </div>
+        </div>
       ) : (
         <div className="card space-y-4">
           {encounter.status === "RASCUNHO" && (
@@ -134,6 +218,7 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
               Rascunho em andamento. Só {professional.name} pode editar e finalizar.
             </p>
           )}
+          <VitalsView vitals={vitals} />
           {fields.map((f) => (
             <section key={f.key}>
               <h2 className="text-sm font-semibold text-slate-700">{f.label}</h2>
@@ -175,6 +260,40 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
         </div>
       )}
 
+      {(encounter.documents.length > 0 || canIssueDocuments) && (
+        <div className="no-print card space-y-3">
+          <h2 className="font-semibold">Receitas, atestados e pedidos</h2>
+          {encounter.documents.length > 0 && (
+            <ul className="divide-y divide-slate-100">
+              {encounter.documents.map((d) => (
+                <li key={d.id} className="flex items-start justify-between gap-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">
+                      {documentTypeLabel[d.type]}
+                      <span className="font-normal text-slate-500"> · {formatDateTime(d.createdAt)} · {d.author.name}</span>
+                    </p>
+                    <p className="truncate text-sm text-slate-600">{d.body.split("\n").find((l) => l.trim())}</p>
+                    {d.contentHash !== documentHash(d) && (
+                      <p className="text-xs font-semibold text-red-700">Atenção: este documento não confere com o emitido.</p>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                    <SignBox
+                      target={{ kind: "documento", id: d.id }}
+                      signed={d.signedPdf}
+                      canSign={d.authorId === user.id}
+                      providers={providers}
+                    />
+                    <a href={`/api/pdf/documento/${d.id}`} target="_blank" className="btn-secondary">PDF</a>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          {canIssueDocuments && <DocumentForm issue={issueDocument.bind(null, encounter.id)} />}
+        </div>
+      )}
+
       {canAddAddendum(user, encounter) && (
         <form action={addAddendum.bind(null, encounter.id)} className="no-print card space-y-2">
           <label className="label" htmlFor="text">Adicionar adendo</label>
@@ -185,25 +304,6 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
           <button className="btn-secondary">Adicionar adendo</button>
         </form>
       )}
-    </div>
-  );
-
-  if (!showPanel) return <div className="mx-auto max-w-3xl">{main}</div>;
-
-  return (
-    <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-      {main}
-      <TeleconsultaPanel
-        link={`${await siteOrigin()}${teleconsultationPath(tele.token)}`}
-        patientName={patient.socialName || patient.name}
-        phone={patient.phone}
-        initialConsentAt={tele.consentAt?.toISOString() ?? null}
-        initialPatientJoinedAt={tele.patientJoinedAt?.toISOString() ?? null}
-        configured={videoConfigured()}
-        status={teleconsultationStatus.bind(null, tele.id)}
-        join={joinTeleconsultation.bind(null, tele.id)}
-        end={endTeleconsultation.bind(null, tele.id)}
-      />
     </div>
   );
 }

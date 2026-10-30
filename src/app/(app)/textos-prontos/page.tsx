@@ -3,20 +3,21 @@ import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { canViewClinical } from "@/lib/permissions";
 import type { TemplateField } from "@/lib/record";
+import { listUsableTemplates } from "@/lib/templates";
 import { createSnippetFromForm, deleteSnippet } from "./actions";
 
 export default async function SnippetsPage() {
-  const user = await requireUser();
+  const user = await requireUser("textos-prontos");
   if (!canViewClinical(user)) notFound();
 
   const [snippets, templates] = await Promise.all([
     prisma.textSnippet.findMany({ where: { ownerId: user.id }, orderBy: [{ fieldKey: "asc" }, { title: "asc" }] }),
-    prisma.recordTemplate.findMany({ where: { clinicId: user.clinicId, active: true } }),
+    listUsableTemplates(user),
   ]);
 
-  // Lista de campos existentes nos modelos da clínica, sem repetição.
+  // Lista de campos existentes nos modelos que o profissional usa, sem repetição.
   const fieldLabels = new Map<string, string>([["evolucao", "Evolução"]]);
-  for (const t of templates) for (const f of t.fields as TemplateField[]) fieldLabels.set(f.key, f.label);
+  for (const t of [...templates.mine, ...templates.clinic]) for (const f of t.fields as TemplateField[]) fieldLabels.set(f.key, f.label);
   const fields = [...fieldLabels].sort((a, b) => a[1].localeCompare(b[1]));
 
   return (

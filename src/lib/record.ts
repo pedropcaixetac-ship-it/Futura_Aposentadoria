@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { DocumentType } from "@prisma/client";
 
 export type TemplateField = { key: string; label: string; type: "text" | "textarea" };
 export type Diagnosis = { code: string; description: string };
@@ -25,9 +26,10 @@ export function encounterHash(data: {
   fields: unknown;
   content: unknown;
   diagnoses: unknown;
+  vitals?: unknown;
   finalizedAt: Date;
 }) {
-  const payload = canonicalJson([
+  const items: unknown[] = [
     data.id,
     data.patientId,
     data.professionalId,
@@ -35,7 +37,23 @@ export function encounterHash(data: {
     data.content,
     data.diagnoses,
     data.finalizedAt.toISOString(),
-  ]);
+  ];
+  // Sinais vitais entram só quando existem, para não mudar o código dos atendimentos antigos.
+  if (data.vitals) items.push(data.vitals);
+  const payload = canonicalJson(items);
+  return createHash("sha256").update(payload).digest("hex");
+}
+
+// Impressão digital do documento emitido, para detectar adulteração.
+export function documentHash(data: {
+  id: string;
+  patientId: string;
+  authorId: string;
+  type: DocumentType;
+  body: string;
+  createdAt: Date;
+}) {
+  const payload = JSON.stringify([data.id, data.patientId, data.authorId, data.type, data.body, data.createdAt.toISOString()]);
   return createHash("sha256").update(payload).digest("hex");
 }
 
