@@ -246,7 +246,7 @@ async function seedStaffDemo() {
 }
 
 // Exemplos da aba Contabilidade: auxiliar administrativo, contratos de trabalho com férias e experiência.
-// Quem trabalha na clínica mas não usa o sistema (limpeza, estágio) entra no cadastro de servidores sem nenhuma aba liberada.
+// Quem trabalha na clínica mas não usa o sistema (limpeza, estágio) entra no cadastro de servidores sem acesso ao sistema.
 async function seedAccountingDemo() {
   const clinic = await prisma.clinic.findUnique({ where: { slug: "demo" } });
   if (!clinic || (await prisma.employmentContract.count({ where: { clinicId: clinic.id } })) > 0) return;
@@ -256,18 +256,18 @@ async function seedAccountingDemo() {
     return new Date(new Date(`${iso}T00:00:00Z`).getTime() + offset * 86400000);
   };
   const passwordHash = await bcrypt.hash("senha123", 10);
-  const person = async (email: string, data: { name: string; role: "ADMINISTRATIVO" | "RECEPCAO"; jobTitle: string; sector: string; noAccess?: boolean }) =>
-    (await prisma.user.findFirst({ where: { clinicId: clinic.id, email } })) ??
+  const person = async (name: string, data: { email: string | null; role: "ADMINISTRATIVO" | "RECEPCAO"; jobTitle: string; sector: string }) =>
+    (await prisma.user.findFirst({ where: { clinicId: clinic.id, name } })) ??
     prisma.user.create({
       data: {
-        clinicId: clinic.id, email, passwordHash, name: data.name, role: data.role, jobTitle: data.jobTitle, sector: data.sector,
-        ...(data.noAccess && { customTabs: true, allowedTabs: [] }),
+        clinicId: clinic.id, name, passwordHash, email: data.email, role: data.role, jobTitle: data.jobTitle, sector: data.sector,
+        systemAccess: !!data.email,
       },
     });
 
-  const paula = await person("administrativo@demo.com", { name: "Paula Administrativo", role: "ADMINISTRATIVO", jobTitle: "Auxiliar administrativo", sector: "Administrativo" });
-  const marcos = await person("marcos@demo.com", { name: "Marcos Silva", role: "RECEPCAO", jobTitle: "Auxiliar de limpeza", sector: "Serviços gerais", noAccess: true });
-  const renata = await person("renata@demo.com", { name: "Renata Costa", role: "RECEPCAO", jobTitle: "Estagiária de enfermagem", sector: "Enfermagem", noAccess: true });
+  const paula = await person("Paula Administrativo", { email: "administrativo@demo.com", role: "ADMINISTRATIVO", jobTitle: "Auxiliar administrativo", sector: "Administrativo" });
+  const marcos = await person("Marcos Silva", { email: null, role: "RECEPCAO", jobTitle: "Auxiliar de limpeza", sector: "Serviços gerais" });
+  const renata = await person("Renata Costa", { email: null, role: "RECEPCAO", jobTitle: "Estagiária de enfermagem", sector: "Enfermagem" });
   const julia = await prisma.user.findFirst({ where: { clinicId: clinic.id, email: "recepcao@demo.com" } });
   if (!julia) return;
 

@@ -44,7 +44,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
       where,
       select: {
         id: true, name: true, email: true, role: true, jobTitle: true, sector: true, specialty: true,
-        councilType: true, councilNumber: true, councilUf: true, active: true, terminatedAt: true, customTabs: true,
+        councilType: true, councilNumber: true, councilUf: true, systemAccess: true, active: true, terminatedAt: true, customTabs: true,
       },
       orderBy: [{ active: "desc" }, { name: "asc" }],
     }),
@@ -124,7 +124,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
               <tr key={s.id} className={`border-t border-slate-100 ${s.active ? "" : "bg-slate-50/60 text-slate-500"}`}>
                 <td className="px-4 py-2">
                   <p className={`font-medium ${s.active ? "text-marinho-800" : ""}`}>{s.name}</p>
-                  <p className="text-xs text-slate-400">{s.email}</p>
+                  <p className="text-xs text-slate-400">{s.systemAccess ? s.email : "Sem acesso ao sistema"}</p>
                 </td>
                 <td className="px-4 py-2">
                   <p>{staffFunction(s)}</p>
@@ -145,14 +145,14 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
                       Desligado{s.terminatedAt && ` em ${formatDate(s.terminatedAt)}`}
                     </span>
                   )}
-                  {s.customTabs && s.role !== "ADMIN" && (
+                  {s.systemAccess && s.customTabs && s.role !== "ADMIN" && (
                     <span className="ml-1 rounded bg-dourado-100 px-2 py-0.5 text-xs text-dourado-700" title="Abas diferentes do padrão do perfil">
                       Acesso personalizado
                     </span>
                   )}
                 </td>
                 <td className="px-2 py-2 text-right">
-                  <RowMenu id={s.id} name={s.name} active={s.active} isSelf={s.id === user.id} reactivate={reactivateStaff.bind(null, s.id)} />
+                  <RowMenu id={s.id} name={s.name} active={s.active} systemAccess={s.systemAccess} isSelf={s.id === user.id} reactivate={reactivateStaff.bind(null, s.id)} />
                 </td>
               </tr>
             ))}
