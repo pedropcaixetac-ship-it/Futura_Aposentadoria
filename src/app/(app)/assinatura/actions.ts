@@ -2,9 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { isValidCpf } from "@/lib/format";
 import { authorizeUrl, availableProviders, isProviderId } from "@/lib/signature/providers";
 import { isSafeBack, signTarget, type SignTarget } from "@/lib/signature/service";
 import { beginAuthorization, redirectUri } from "@/lib/signature/flow";
@@ -40,21 +38,4 @@ async function signMany(targets: SignTarget[], formData: FormData) {
   if (provider === "TESTE") throw new Error("Falha no certificado de teste");
   const { state, codeChallenge } = await beginAuthorization(provider, targets, back);
   redirect(authorizeUrl(provider, { redirectUri: await redirectUri(), state, codeChallenge, cpf: user.cpf }));
-}
-
-export async function saveCpf(formData: FormData) {
-  const user = await requireUser("assinatura");
-  const cpf = String(formData.get("cpf") ?? "").replace(/\D/g, "");
-  if (cpf && !isValidCpf(cpf)) redirect("/assinatura?erro=cpf");
-  // O CPF também serve para entrar no sistema, então não pode repetir na clínica.
-  const taken = cpf && (await prisma.user.findFirst({ where: { clinicId: user.clinicId, cpf, NOT: { id: user.id } } }));
-  if (taken) redirect("/assinatura?erro=cpf-em-uso");
-  await prisma.user.update({ where: { id: user.id }, data: { cpf: cpf || null } });
-  revalidatePath("/assinatura");
-}
-
-export async function endSession(provider: string) {
-  const user = await requireUser("assinatura");
-  await prisma.signatureSession.deleteMany({ where: { userId: user.id, provider } });
-  revalidatePath("/assinatura");
 }

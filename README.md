@@ -77,6 +77,12 @@ Este é o primeiro módulo: **Prontuário**.
 - Desligamento com data e motivo: a pessoa perde o acesso na hora, mas continua no cadastro, porque assina atendimentos antigos
 - Tudo fica na auditoria
 
+### Meu cadastro (todos os perfis)
+
+- Cada pessoa vê os próprios dados do cadastro de servidores, só para leitura (quem corrige é o administrador)
+- Pode trocar a própria senha (pede a senha atual) e cuidar do certificado digital (antes ficava na aba "Assinatura digital")
+- A permissão "Assinatura digital" continua em "Editar permissões"; ela decide se a pessoa assina e vê o certificado aqui
+
 ### Contabilidade e trabalhista
 
 - Aba para o administrador e para o novo perfil "Auxiliar administrativo" (e para quem o administrador liberar em "Editar permissões")

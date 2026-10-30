@@ -207,3 +207,11 @@ export function displayName(user: NamedUser) {
 export function stripHonorific(name: string) {
   return name.replace(/^\s*(dr|dra)\.?\s+/i, "").trim();
 }
+
+// Troca de senha pela própria pessoa em "Meu cadastro".
+export function validateNewPassword(current: string, next: string, confirm: string) {
+  if (next.length < 8) return "A nova senha precisa ter pelo menos 8 caracteres.";
+  if (next !== confirm) return "A confirmação não é igual à nova senha.";
+  if (next === current) return "A nova senha precisa ser diferente da atual.";
+  return null;
+}

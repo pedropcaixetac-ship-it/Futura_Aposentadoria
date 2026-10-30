@@ -70,7 +70,7 @@ export default async function ReviewPage({
 
       {assinatura === "erro" && (
         <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800">
-          Não foi possível assinar. Confira se o seu CPF está certo em Assinatura digital e tente de novo.
+          Não foi possível assinar. Confira em Meu cadastro se o seu CPF é o mesmo do certificado (se estiver errado, peça ao administrador) e tente de novo.
         </p>
       )}
       {assinatura === "cancelada" && (
