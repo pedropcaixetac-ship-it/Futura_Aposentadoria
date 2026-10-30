@@ -40,7 +40,7 @@ export async function saveStaff(id: string | null, _: FormState, formData: FormD
 
   const { password, ...data } = input;
   // Profissional sem conselho perde os campos de conselho de vez, para não ficar meio preenchido.
-  if (!data.councilNumber) Object.assign(data, { councilType: null, councilUf: null });
+  if (!data.councilNumber) Object.assign(data, { councilType: null, councilUf: null, rqe: null });
 
   // Sem acesso ao sistema, a senha é aleatória e ninguém a conhece (o login também é bloqueado).
   const passwordHash = password

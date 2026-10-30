@@ -319,6 +319,16 @@ export function StaffForm({ action, staff, isSelf }: Props) {
         </div>
         <Field label="Número" name="councilNumber" defaultValue={s?.councilNumber ?? ""} />
         <Select label="UF do registro" name="councilUf" options={UFS} defaultValue={s?.councilUf} />
+        {councilType === "CRM" && (
+          <Field
+            label="RQE (especialista)"
+            name="rqe"
+            inputMode="numeric"
+            defaultValue={s?.rqe ?? ""}
+            placeholder="Ex.: 12345"
+            hint="Registro de Qualificação de Especialista. Sai junto com o CRM nos PDFs. Se tiver mais de um, separe por vírgula."
+          />
+        )}
       </Section>
 
       {access && (

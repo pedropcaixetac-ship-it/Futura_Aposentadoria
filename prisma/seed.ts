@@ -367,6 +367,8 @@ async function seedStaffDemo() {
   for (const [email, jobTitle] of Object.entries(jobTitles)) {
     await prisma.user.updateMany({ where: { clinicId: clinic.id, email, jobTitle: null }, data: { jobTitle } });
   }
+  // Exemplo de médica especialista: o RQE sai junto com o CRM nos PDFs.
+  await prisma.user.updateMany({ where: { clinicId: clinic.id, email: "ana@demo.com", rqe: null }, data: { rqe: "54321" } });
 }
 
 // Exemplos da aba Contabilidade: auxiliar administrativo, contratos de trabalho com férias e experiência.

@@ -18,7 +18,7 @@ import { EncounterEditor } from "./encounter-editor";
 import { PrintButton } from "./print-button";
 import { PatientHistory } from "./patient-history";
 import { VitalsView } from "./vitals-view";
-import { displayName } from "@/lib/staff";
+import { displayName, councilLabel } from "@/lib/staff";
 import { TeleconsultaPanel } from "./teleconsulta-panel";
 import { TeleconsultaRecord } from "./teleconsulta-record";
 import { endTeleconsultation, joinTeleconsultation, teleconsultationStatus } from "./teleconsulta-actions";
@@ -147,7 +147,7 @@ export default async function EncounterPage({
           </h1>
           <p className="text-sm text-slate-600">
             {formatDateTime(encounter.startedAt)} · {displayName(professional)}
-            {professional.councilNumber && ` · ${professional.councilType} ${professional.councilNumber}/${professional.councilUf}`}
+            {professional.councilNumber && ` · ${councilLabel(professional)}`}
           </p>
           {patient.allergies && <p className="text-sm font-semibold text-red-700">Alergias: {patient.allergies}</p>}
         </div>
@@ -270,7 +270,7 @@ export default async function EncounterPage({
             <div key={a.id} className="border-l-2 border-dourado-500 pl-3">
               <p className="text-xs text-slate-500">
                 {formatDateTime(a.createdAt)} · {displayName(a.author)}
-                {a.author.councilNumber && ` · ${a.author.councilType} ${a.author.councilNumber}/${a.author.councilUf}`}
+                {a.author.councilNumber && ` · ${councilLabel(a.author)}`}
               </p>
               <p className="whitespace-pre-wrap text-sm">{a.text}</p>
             </div>

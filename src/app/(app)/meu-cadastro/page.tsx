@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { canViewClinical } from "@/lib/permissions";
 import { age, formatCep, formatCpf, formatDate, formatDateTime, formatPhone, masks, roleLabel } from "@/lib/format";
-import { displayName, ROLE_HELP, staffFunction } from "@/lib/staff";
+import { displayName, ROLE_HELP, staffFunction, councilLabel } from "@/lib/staff";
 import { hasTab, userTabs } from "@/lib/tabs";
 import { availableProviders, isProviderId, providerLabel } from "@/lib/signature/providers";
 import { ActionForm } from "../financeiro/action-form";
@@ -38,7 +38,7 @@ export default async function MyProfilePage() {
   const sessions = canSign
     ? await prisma.signatureSession.findMany({ where: { userId: user.id, expiresAt: { gt: new Date() } }, select: { provider: true, expiresAt: true } })
     : [];
-  const council = me.councilNumber ? `${me.councilType} ${me.councilNumber}/${me.councilUf}` : null;
+  const council = councilLabel(me);
   const address = [me.street, me.number, me.complement, me.district].filter(Boolean).join(", ");
   const cityState = [me.city, me.state].filter(Boolean).join(" / ");
 

@@ -50,7 +50,4 @@ export function consentText(p: { clinicName: string; professionalName: string; c
   ].join("\n");
 }
 
-export function councilLabel(u: { councilType: string | null; councilNumber: string | null; councilUf: string | null }) {
-  if (!u.councilNumber) return null;
-  return `${u.councilType ?? ""} ${u.councilNumber}${u.councilUf ? `/${u.councilUf}` : ""}`.trim();
-}
+export { councilLabel } from "./staff";
