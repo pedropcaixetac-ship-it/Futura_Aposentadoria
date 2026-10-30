@@ -35,11 +35,19 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
     patientId: id,
   });
 
+  const editable = canEditEncounter(user, encounter);
+  const snippets = editable
+    ? await prisma.textSnippet.findMany({
+        where: { ownerId: user.id },
+        select: { id: true, fieldKey: true, title: true, text: true },
+        orderBy: { title: "asc" },
+      })
+    : [];
+
   const fields = encounter.fields as TemplateField[];
   const content = encounter.content as Record<string, string>;
   const diagnoses = encounter.diagnoses as Diagnosis[];
   const { patient, professional } = encounter;
-  const editable = canEditEncounter(user, encounter);
   const intact =
     encounter.status !== "FINALIZADO" ||
     (encounter.finalizedAt && encounter.contentHash === encounterHash({ ...encounter, finalizedAt: encounter.finalizedAt }));
@@ -75,6 +83,7 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
           fields={fields}
           content={content}
           diagnoses={diagnoses}
+          snippets={snippets}
           save={saveEncounter.bind(null, encounter.id)}
           finalize={finalizeEncounter.bind(null, encounter.id)}
         />

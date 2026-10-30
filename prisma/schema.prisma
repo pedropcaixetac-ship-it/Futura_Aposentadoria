@@ -48,6 +48,8 @@ model User {
   councilNumber String?
   councilUf     String?
   specialty     String?
+  // Setor onde a pessoa trabalha (ex.: Recepção, Consultório 2), mostrado na barra lateral.
+  sector        String?
   active        Boolean  @default(true)
   createdAt     DateTime @default(now())
 
@@ -55,6 +57,7 @@ model User {
   encounters Encounter[]
   addenda    Addendum[]
   auditLogs  AuditLog[]
+  snippets   TextSnippet[]
 
   @@unique([clinicId, email])
 }
@@ -168,6 +171,20 @@ model AuditLog {
 
   @@index([clinicId, createdAt])
   @@index([clinicId, patientId])
+}
+
+// Texto pronto de cada profissional ("usar modelo" ao lado de cada campo).
+// fieldKey vazio: o texto aparece em todos os campos.
+model TextSnippet {
+  id        String   @id @default(cuid())
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id])
+  fieldKey  String?
+  title     String
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([ownerId, fieldKey])
 }
 
 model Cid10 {

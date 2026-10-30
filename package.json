@@ -9,7 +9,9 @@
     "lint": "eslint",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma db seed",
-    "test": "node --import tsx --test tests/*.test.ts"
+    "test": "node --import tsx --test tests/*.test.ts",
+    "postinstall": "prisma generate",
+    "vercel-build": "sh scripts/vercel-build.sh"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

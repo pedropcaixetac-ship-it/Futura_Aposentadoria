@@ -51,7 +51,7 @@ async function seedDemo() {
 
   await prisma.user.createMany({
     data: [
-      { clinicId: clinic.id, name: "Administrador", email: "admin@demo.com", passwordHash, role: "ADMIN" },
+      { clinicId: clinic.id, name: "Administrador", email: "admin@demo.com", passwordHash, role: "ADMIN", sector: "Administração" },
       {
         clinicId: clinic.id,
         name: "Dra. Ana Souza",
@@ -62,6 +62,7 @@ async function seedDemo() {
         councilNumber: "123456",
         councilUf: "SP",
         specialty: "Clínica médica",
+        sector: "Consultório 1",
       },
       {
         clinicId: clinic.id,
@@ -73,8 +74,9 @@ async function seedDemo() {
         councilNumber: "06/98765",
         councilUf: "SP",
         specialty: "Psicologia",
+        sector: "Consultório 2",
       },
-      { clinicId: clinic.id, name: "Júlia Recepção", email: "recepcao@demo.com", passwordHash, role: "RECEPCAO" },
+      { clinicId: clinic.id, name: "Júlia Recepção", email: "recepcao@demo.com", passwordHash, role: "RECEPCAO", sector: "Recepção" },
     ],
   });
 
@@ -83,6 +85,25 @@ async function seedDemo() {
       { clinicId: clinic.id, name: "Consulta (primeira vez)", fields: consultaGeral },
       { clinicId: clinic.id, name: "Retorno", fields: retorno },
       { clinicId: clinic.id, name: "Sessão de psicologia", specialty: "Psicologia", fields: psicologia },
+    ],
+  });
+
+  const ana = await prisma.user.findFirstOrThrow({ where: { clinicId: clinic.id, email: "ana@demo.com" } });
+  await prisma.textSnippet.createMany({
+    data: [
+      {
+        ownerId: ana.id,
+        fieldKey: "exameFisico",
+        title: "Exame físico normal",
+        text: "Bom estado geral, corada, hidratada, acianótica, anictérica, afebril.\nACV: ritmo cardíaco regular em 2 tempos, bulhas normofonéticas, sem sopros.\nAR: murmúrio vesicular presente bilateralmente, sem ruídos adventícios.\nAbdome: plano, flácido, indolor à palpação, sem visceromegalias.",
+      },
+      {
+        ownerId: ana.id,
+        fieldKey: "conduta",
+        title: "Orientações gerais e retorno",
+        text: "Orientada quanto a sinais de alarme. Retorno em 30 dias ou antes, se necessário.",
+      },
+      { ownerId: ana.id, fieldKey: null, title: "Nega queixas", text: "Paciente nega queixas no momento." },
     ],
   });
 
