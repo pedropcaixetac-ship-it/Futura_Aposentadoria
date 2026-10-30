@@ -18,7 +18,9 @@ function patientLines(patient: Patient) {
   return lines;
 }
 
-type EncounterForPdf = Encounter & { professional: User; addenda: { text: string; createdAt: Date; author: User }[] };
+// Usuário sem os segredos do login (o banco não os devolve; ver db.ts).
+type StaffUser = Omit<User, "passwordHash" | "totpSecret" | "totpRecoveryCodes">;
+type EncounterForPdf = Encounter & { professional: StaffUser; addenda: { text: string; createdAt: Date; author: StaffUser }[] };
 
 // Sinais vitais, campos do modelo, diagnósticos e adendos de um atendimento.
 function encounterSections(encounter: EncounterForPdf): PdfSection[] {
@@ -54,7 +56,7 @@ export function encounterPdfInput(clinicName: string, encounter: EncounterForPdf
   };
 }
 
-export function documentPdfInput(clinicName: string, doc: ClinicalDocument & { patient: Patient; author: User }): PdfInput {
+export function documentPdfInput(clinicName: string, doc: ClinicalDocument & { patient: Patient; author: StaffUser }): PdfInput {
   return {
     clinicName,
     title: documentTypeLabel[doc.type],

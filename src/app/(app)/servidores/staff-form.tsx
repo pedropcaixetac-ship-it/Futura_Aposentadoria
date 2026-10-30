@@ -5,11 +5,12 @@ import type { Role, User } from "@prisma/client";
 import { formatCep, formatCpf, formatPhone, masks, onlyDigits, roleLabel } from "@/lib/format";
 import { MARITAL_STATUS, UFS } from "@/lib/patient";
 import { CLINICAL_ROLES, JOB_TITLES, ROLE_HELP, SECTORS, SPECIALTIES, councilTypes, displayName, hasClinicalLogin, jobTitleInfo, stripHonorific } from "@/lib/staff";
+import { PASSWORD_MIN, PASSWORD_RULES } from "@/lib/password";
 import type { FormState } from "./actions";
 
 type Props = {
   action: (state: FormState, formData: FormData) => Promise<FormState>;
-  staff?: Omit<User, "passwordHash">;
+  staff?: Omit<User, "passwordHash" | "totpSecret" | "totpRecoveryCodes">;
   isSelf?: boolean;
   // Só o gerente do sistema dá o perfil de gerente e cria ou altera o login de profissionais de saúde.
   canGrantAdmin?: boolean;
@@ -358,9 +359,9 @@ export function StaffForm({ action, staff, isSelf, canGrantAdmin = false }: Prop
             name="password"
             type="password"
             autoComplete="new-password"
-            minLength={8}
+            minLength={PASSWORD_MIN}
             required={needsPassword}
-            hint={needsPassword ? "Pelo menos 8 caracteres. Passe para a pessoa entrar pela primeira vez." : "Deixe em branco para manter a senha atual."}
+            hint={`${PASSWORD_RULES} ${needsPassword ? "Vale só para o primeiro acesso: a pessoa cria a própria senha ao entrar." : "Deixe em branco para manter a senha atual. Se trocar, a pessoa cria uma nova no próximo acesso."}`}
           />
         </Section>
       )}
