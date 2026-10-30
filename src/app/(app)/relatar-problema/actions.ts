@@ -2,7 +2,8 @@
 
 import { getCurrentUser, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { cleanPage, parseReport, recordError, validateReport } from "@/lib/problems";
+import { sendProblemAlert } from "@/lib/alerts";
+import { alertOf, cleanPage, parseReport, problemNames, recordError, validateReport } from "@/lib/problems";
 
 export type FormState = { error: string; ok?: string };
 
@@ -12,9 +13,11 @@ export async function reportProblem(_: FormState, formData: FormData): Promise<F
   const report = parseReport(formData);
   const error = validateReport(report);
   if (error) return { error };
-  await prisma.problemReport.create({
+  const created = await prisma.problemReport.create({
     data: { kind: "RELATO", ...report, clinicId: user.clinicId, userId: user.id },
+    include: problemNames,
   });
+  await sendProblemAlert(alertOf(created));
   return { error: "", ok: "Recebemos o seu relato. Obrigado! Vamos olhar e, se precisar, entramos em contato." };
 }
 
