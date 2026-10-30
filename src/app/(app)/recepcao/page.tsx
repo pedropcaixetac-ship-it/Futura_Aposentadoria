@@ -145,6 +145,15 @@ export default async function ReceptionPage({ searchParams }: { searchParams: Pr
                   <p className="text-xs text-slate-500">
                     {[formatPhone(a.patient.phone), appointmentTypeLabel[a.type], a.insurance ?? "Particular"].filter(Boolean).join(" · ")}
                   </p>
+                  {a.teleconsultation && (
+                    <p className={`text-xs ${a.teleconsultation.consentAt ? "text-emerald-700" : "text-slate-500"}`}>
+                      {a.teleconsultation.patientJoinedAt
+                        ? `Vídeo: paciente na sala desde ${formatTime(a.teleconsultation.patientJoinedAt)}`
+                        : a.teleconsultation.consentAt
+                          ? "Vídeo: paciente aceitou o termo"
+                          : "Vídeo: paciente ainda não abriu o link"}
+                    </p>
+                  )}
                 </td>
                 <td className="px-4 py-2">{name.get(a.professionalId)}</td>
                 <td className="px-4 py-2">

@@ -106,6 +106,7 @@ export default async function EncounterPage({
         initialConsentAt={tele.consentAt?.toISOString() ?? null}
         initialPatientJoinedAt={tele.patientJoinedAt?.toISOString() ?? null}
         configured={videoConfigured()}
+        expiresLabel={formatDateTime(tele.expiresAt)}
         status={teleconsultationStatus.bind(null, tele.id)}
         join={joinTeleconsultation.bind(null, tele.id)}
         end={endTeleconsultation.bind(null, tele.id)}

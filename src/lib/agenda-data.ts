@@ -30,7 +30,10 @@ export async function loadAgenda(clinicId: string, professionalIds: string[], fi
     }),
     prisma.appointment.findMany({
       where: { clinicId, professionalId: { in: professionalIds }, startsAt: { lt: to }, endsAt: { gt: from } },
-      include: { patient: { select: { id: true, name: true, socialName: true, phone: true, phoneWhatsapp: true, whatsappOptIn: true } } },
+      include: {
+        patient: { select: { id: true, name: true, socialName: true, phone: true, phoneWhatsapp: true, whatsappOptIn: true } },
+        teleconsultation: { select: { consentAt: true, patientJoinedAt: true } },
+      },
       orderBy: { startsAt: "asc" },
     }),
   ]);

@@ -15,6 +15,7 @@ enum AppointmentType {
   CONSULTA
   RETORNO
   PROCEDIMENTO
+  TELECONSULTA
 }
 
 enum AppointmentStatus {
@@ -401,8 +402,9 @@ model SignedPdf {
   signedAt          DateTime          @default(now())
 }
 
-// Atendimento por vídeo (Resolução CFM 2.314/2022). Cada teleconsulta é ligada
-// a um atendimento do prontuário, onde o profissional escreve normalmente.
+// Atendimento por vídeo (Resolução CFM 2.314/2022). A teleconsulta nasce na agenda
+// (tipo "Teleconsulta") ou direto no prontuário, e fica ligada ao atendimento do
+// prontuário onde o profissional escreve normalmente.
 // O paciente entra por um link secreto, sem senha, e precisa aceitar o termo
 // de consentimento antes de ver a chamada. O vídeo não é gravado.
 model Teleconsultation {
@@ -413,8 +415,11 @@ model Teleconsultation {
   patient        Patient   @relation(fields: [patientId], references: [id])
   professionalId String
   professional   User      @relation(fields: [professionalId], references: [id])
-  encounterId    String    @unique
-  encounter      Encounter @relation(fields: [encounterId], references: [id])
+  // Vazio enquanto a consulta marcada na agenda ainda não começou.
+  encounterId    String?    @unique
+  encounter      Encounter? @relation(fields: [encounterId], references: [id])
+  appointmentId  String?     @unique
+  appointment    Appointment? @relation(fields: [appointmentId], references: [id])
   // Código do link enviado ao paciente.
   token          String    @unique
   expiresAt      DateTime
@@ -651,6 +656,7 @@ model Appointment {
   // Atendimento do prontuário aberto a partir deste agendamento.
   encounterId    String?           @unique
   encounter      Encounter?        @relation(fields: [encounterId], references: [id])
+  teleconsultation Teleconsultation?
   createdById    String
   createdBy      User              @relation("AppointmentCreator", fields: [createdById], references: [id])
   createdAt      DateTime          @default(now())

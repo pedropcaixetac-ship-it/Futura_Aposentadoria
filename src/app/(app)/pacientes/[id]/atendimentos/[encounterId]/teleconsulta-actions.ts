@@ -73,5 +73,5 @@ export async function endTeleconsultation(teleconsultationId: string) {
     entityId: t.id,
     patientId: t.patientId,
   });
-  revalidatePath(`/pacientes/${t.patientId}/atendimentos/${t.encounterId}`);
+  if (t.encounterId) revalidatePath(`/pacientes/${t.patientId}/atendimentos/${t.encounterId}`);
 }

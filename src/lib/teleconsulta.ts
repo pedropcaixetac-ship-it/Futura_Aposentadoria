@@ -3,6 +3,14 @@ import { randomBytes } from "node:crypto";
 // Por quanto tempo o link enviado ao paciente funciona.
 export const LINK_HOURS = 24;
 
+// Teleconsulta marcada na agenda: o link funciona desde a marcação até 12 horas
+// depois do fim do horário (cobre atrasos e consultas que se estendem).
+export const SCHEDULED_EXTRA_HOURS = 12;
+
+export function scheduledLinkExpiry(endsAt: Date) {
+  return new Date(endsAt.getTime() + SCHEDULED_EXTRA_HOURS * 3600 * 1000);
+}
+
 export function newTeleconsultationToken() {
   return randomBytes(24).toString("base64url");
 }

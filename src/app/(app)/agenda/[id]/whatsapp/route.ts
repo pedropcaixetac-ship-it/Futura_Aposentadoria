@@ -7,6 +7,8 @@ import { appointmentTypeLabel, clinicParts, formatTime, weekdayName } from "@/li
 import { displayName } from "@/lib/staff";
 import { canMessage, fillMessage, whatsappUrl } from "@/lib/whatsapp";
 import { loadMessages } from "@/lib/whatsapp-data";
+import { teleconsultationPath, teleconsultationState } from "@/lib/teleconsulta";
+import { siteOrigin } from "@/lib/teleconsulta-sala";
 
 // Abre o WhatsApp com a confirmação da consulta (?modelo=confirmacao) ou o aviso
 // de retorno (?modelo=retorno), anota na consulta que a mensagem foi enviada e
@@ -17,7 +19,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const modelo = new URL(request.url).searchParams.get("modelo");
   const appointment = await prisma.appointment.findFirst({
     where: { id, clinicId: user.clinicId },
-    include: { patient: true, professional: true },
+    include: { patient: true, professional: true, teleconsultation: true },
   });
   if (!appointment || !canManageAgendaOf(user, appointment.professionalId) || (modelo !== "confirmacao" && modelo !== "retorno")) {
     return new NextResponse("Não encontrado.", { status: 404 });
@@ -38,7 +40,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     dia: `${day}/${month} (${weekdayName(weekday).toLowerCase()})`,
     hora: formatTime(appointment.startsAt),
   });
-  const link = whatsappUrl(patient.phone, text);
+  // Teleconsulta: a confirmação já leva o link da chamada.
+  const tele = appointment.teleconsultation;
+  const withVideo =
+    modelo === "confirmacao" && tele && ["AGUARDANDO_TERMO", "LIBERADA"].includes(teleconsultationState(tele))
+      ? `${text}\n\nSua consulta será por vídeo. No dia e horário marcados, entre por este link (não precisa instalar nada): ${await siteOrigin()}${teleconsultationPath(tele.token)}`
+      : text;
+  const link = whatsappUrl(patient.phone, withVideo);
   if (!link) return new NextResponse("Celular inválido.", { status: 400 });
 
   await prisma.appointment.update({

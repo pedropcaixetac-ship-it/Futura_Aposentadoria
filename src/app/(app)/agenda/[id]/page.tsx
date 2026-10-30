@@ -22,6 +22,9 @@ import { WhatsappLink } from "../whatsapp-link";
 import { cancelAppointment, saveAppointment, setReturnDue } from "../actions";
 import { StartEncounterForm } from "../start-encounter-form";
 import { AppointmentForm } from "../appointment-form";
+import { CopyLink } from "../copy-link";
+import { teleconsultationPath, teleconsultationState } from "@/lib/teleconsulta";
+import { siteOrigin } from "@/lib/teleconsulta-sala";
 import { displayName } from "@/lib/staff";
 
 export default async function AppointmentPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ remarcar?: string }> }) {
@@ -30,7 +33,7 @@ export default async function AppointmentPage({ params, searchParams }: { params
   const { remarcar } = await searchParams;
   const appointment = await prisma.appointment.findFirst({
     where: { id, clinicId: user.clinicId },
-    include: { patient: true, professional: true, createdBy: true },
+    include: { patient: true, professional: true, createdBy: true, teleconsultation: true },
   });
   if (!appointment || !canManageAgendaOf(user, appointment.professionalId)) notFound();
 
@@ -116,6 +119,28 @@ export default async function AppointmentPage({ params, searchParams }: { params
           ) : (
             <StartEncounterForm appointment={appointment} templates={templates} />
           )}
+        </div>
+      )}
+
+      {appointment.teleconsultation && appointment.status !== "DESMARCADO" && (
+        <div className="card space-y-2">
+          <h2 className="font-semibold">Teleconsulta (vídeo)</h2>
+          {["AGUARDANDO_TERMO", "LIBERADA"].includes(teleconsultationState(appointment.teleconsultation)) ? (
+            <>
+              <p className="text-sm text-slate-500">
+                Este é o link da chamada. Ele já vai junto com o pedido de confirmação pelo WhatsApp. No horário, o paciente
+                abre o link, aceita o termo e espera o profissional entrar.
+              </p>
+              <CopyLink link={`${await siteOrigin()}${teleconsultationPath(appointment.teleconsultation.token)}`} />
+            </>
+          ) : (
+            <p className="text-sm text-slate-500">O link desta teleconsulta não funciona mais (encerrada ou expirada).</p>
+          )}
+          <p className={`text-sm ${appointment.teleconsultation.consentAt ? "text-emerald-700" : "text-slate-500"}`}>
+            {appointment.teleconsultation.consentAt
+              ? `Paciente aceitou o termo em ${formatDateTime(appointment.teleconsultation.consentAt)}.`
+              : "O paciente ainda não abriu o link."}
+          </p>
         </div>
       )}
 
