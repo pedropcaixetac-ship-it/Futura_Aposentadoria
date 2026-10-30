@@ -30,3 +30,22 @@ export function canManageTemplates(user: PermissionUser) {
 export function canViewAudit(user: PermissionUser) {
   return user.role === "ADMIN";
 }
+
+// Financeiro: o administrador vê tudo; a recepção lança cobranças e recebe pagamentos;
+// cada profissional vê apenas o próprio repasse.
+export function canManageCharges(user: PermissionUser) {
+  return user.role === "ADMIN" || user.role === "RECEPCAO";
+}
+
+export function canManageFinance(user: PermissionUser) {
+  return user.role === "ADMIN";
+}
+
+export function canCancelCharge(user: PermissionUser, charge: { status: "PENDENTE" | "PAGO" | "CANCELADO" }) {
+  if (charge.status === "CANCELADO") return false;
+  return charge.status === "PENDENTE" ? canManageCharges(user) : canManageFinance(user);
+}
+
+export function canViewCommission(user: PermissionUser, professionalId: string) {
+  return canManageFinance(user) || user.id === professionalId;
+}

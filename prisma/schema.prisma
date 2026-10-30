@@ -22,17 +22,43 @@ enum EncounterStatus {
   FINALIZADO
 }
 
+// Situação de uma cobrança ou despesa no financeiro.
+enum FinanceStatus {
+  PENDENTE
+  PAGO
+  CANCELADO
+}
+
+enum PaymentMethod {
+  PIX
+  DINHEIRO
+  CARTAO_CREDITO
+  CARTAO_DEBITO
+  TRANSFERENCIA
+  BOLETO
+  CONVENIO
+}
+
 model Clinic {
   id        String   @id @default(cuid())
   name      String
   slug      String   @unique
   createdAt DateTime @default(now())
+  // Dados que aparecem no recibo.
+  cnpj      String?
+  address   String?
+  phone     String?
+  // Último número de recibo emitido (os recibos seguem uma sequência por clínica).
+  lastReceiptNumber Int @default(0)
 
-  users     User[]
-  patients  Patient[]
-  templates RecordTemplate[]
+  users      User[]
+  patients   Patient[]
+  templates  RecordTemplate[]
   encounters Encounter[]
-  auditLogs AuditLog[]
+  auditLogs  AuditLog[]
+  priceItems PriceItem[]
+  charges    Charge[]
+  expenses   Expense[]
 }
 
 model User {
@@ -50,6 +76,8 @@ model User {
   specialty     String?
   // Setor onde a pessoa trabalha (ex.: Recepção, Consultório 2), mostrado na barra lateral.
   sector        String?
+  // Porcentagem do valor recebido que fica com o profissional (repasse).
+  commissionPercent Int?
   active        Boolean  @default(true)
   createdAt     DateTime @default(now())
 
@@ -58,6 +86,7 @@ model User {
   addenda    Addendum[]
   auditLogs  AuditLog[]
   snippets   TextSnippet[]
+  charges    Charge[]
 
   @@unique([clinicId, email])
 }
@@ -95,6 +124,7 @@ model Patient {
   familyHistory      String?
 
   encounters Encounter[]
+  charges    Charge[]
 
   @@index([clinicId, name])
   @@unique([clinicId, cpf])
@@ -140,6 +170,7 @@ model Encounter {
   contentHash    String?
 
   addenda Addendum[]
+  charges Charge[]
 
   @@index([clinicId, patientId, startedAt])
 }
@@ -185,6 +216,71 @@ model TextSnippet {
   createdAt DateTime @default(now())
 
   @@index([ownerId, fieldKey])
+}
+
+// Tabela de preços: quanto custa cada consulta ou procedimento.
+// Valores sempre em centavos, para não haver erro de arredondamento.
+model PriceItem {
+  id         String   @id @default(cuid())
+  clinicId   String
+  clinic     Clinic   @relation(fields: [clinicId], references: [id])
+  name       String
+  priceCents Int
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  charges Charge[]
+}
+
+// Receita: uma cobrança feita a um paciente, normalmente ligada a um atendimento.
+model Charge {
+  id             String         @id @default(cuid())
+  clinicId       String
+  clinic         Clinic         @relation(fields: [clinicId], references: [id])
+  patientId      String
+  patient        Patient        @relation(fields: [patientId], references: [id])
+  // Profissional que fez o atendimento; é a base do repasse.
+  professionalId String?
+  professional   User?          @relation(fields: [professionalId], references: [id])
+  encounterId    String?
+  encounter      Encounter?     @relation(fields: [encounterId], references: [id])
+  priceItemId    String?
+  priceItem      PriceItem?     @relation(fields: [priceItemId], references: [id])
+  description    String
+  amountCents    Int
+  dueDate        DateTime       @db.Date
+  status         FinanceStatus  @default(PENDENTE)
+  paymentMethod  PaymentMethod?
+  paidAt         DateTime?      @db.Date
+  receiptNumber  Int?
+  notes          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([clinicId, dueDate])
+  @@index([clinicId, paidAt])
+  @@index([encounterId])
+  @@unique([clinicId, receiptNumber])
+}
+
+// Despesa: conta a pagar da clínica (aluguel, salários, materiais, repasses...).
+model Expense {
+  id            String         @id @default(cuid())
+  clinicId      String
+  clinic        Clinic         @relation(fields: [clinicId], references: [id])
+  description   String
+  category      String
+  amountCents   Int
+  dueDate       DateTime       @db.Date
+  status        FinanceStatus  @default(PENDENTE)
+  paymentMethod PaymentMethod?
+  paidAt        DateTime?      @db.Date
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([clinicId, dueDate])
+  @@index([clinicId, paidAt])
 }
 
 model Cid10 {

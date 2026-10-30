@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
-import { canViewClinical } from "@/lib/permissions";
+import { canManageCharges, canViewClinical } from "@/lib/permissions";
 import { age, formatCpf, formatDate, formatDateTime } from "@/lib/format";
 import type { Diagnosis, TemplateField } from "@/lib/record";
 import { updateClinicalSummary } from "../actions";
@@ -49,7 +49,12 @@ export default async function PatientRecordPage({ params }: { params: Promise<{ 
               .join(" · ")}
           </p>
         </div>
-        <Link href={`/pacientes/${id}/editar`} className="btn-secondary">Editar cadastro</Link>
+        <div className="flex flex-wrap gap-2">
+          {canManageCharges(user) && (
+            <Link href={`/financeiro/receitas/nova?paciente=${id}`} className="btn-secondary">Nova cobrança</Link>
+          )}
+          <Link href={`/pacientes/${id}/editar`} className="btn-secondary">Editar cadastro</Link>
+        </div>
       </div>
 
       {!clinical && (
