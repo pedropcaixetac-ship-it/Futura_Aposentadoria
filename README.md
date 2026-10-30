@@ -39,6 +39,7 @@ Este é o primeiro módulo: **Prontuário**.
   (almoço, férias), cadastro rápido de paciente, aviso de horário ocupado com opção de encaixe,
   situação da consulta em cores e sala de espera. O profissional inicia o atendimento direto da agenda,
   e a consulta vira "Atendido" quando o atendimento é finalizado
+- Atender: a tela do profissional, com a sala de espera dele e a agenda dele do dia, de onde inicia o atendimento
 - Recepção: lista das consultas do dia, onde a recepcionista marca quem confirmou, chegou ou faltou,
   e a sala de espera com o tempo de espera de cada paciente
 - WhatsApp (primeira etapa): botão "Enviar no WhatsApp" na ficha do paciente, que abre o WhatsApp da recepção com o

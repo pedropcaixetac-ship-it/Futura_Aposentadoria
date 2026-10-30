@@ -74,3 +74,10 @@ test("só recepção e administrador marcam presença", () => {
   assert.equal(canUseReception(recepcao), true);
   assert.equal(canUseReception(medica), false);
 });
+
+test("aba Atender é só para quem atende", async () => {
+  const { hasTab } = await import("../src/lib/tabs");
+  const comAbas = <T extends object>(u: T) => ({ ...u, customTabs: false, allowedTabs: [] as string[] });
+  assert.equal(hasTab(comAbas(medica), "atender"), true);
+  assert.equal(hasTab(comAbas(recepcao), "atender"), false);
+});

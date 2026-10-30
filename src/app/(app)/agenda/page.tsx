@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { canManageAgendaOf, canSeeAllAgendas, canStartFromAppointment } from "@/lib/permissions";
+import { canManageAgendaOf, canSeeAllAgendas } from "@/lib/permissions";
 import { addDays, clinicParts, formatDayLabel, formatTime, isValidDate, startOfWeek, statusLabel, today, weekdayOf } from "@/lib/agenda";
 import { columnFor, listProfessionals, loadAgenda } from "@/lib/agenda-data";
 import { AgendaGrid, StatusLegend, type GridColumn } from "./agenda-grid";
@@ -58,8 +58,6 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
           data: columnFor(data, p.id, date),
         }));
 
-  // Sala de espera: quem já chegou e aguarda ser chamado.
-  const waiting = view === "dia" ? data.appointments.filter((a) => a.status === "CHEGOU").sort((a, b) => +(a.arrivedAt ?? 0) - +(b.arrivedAt ?? 0)) : [];
   const cancelled = columns.flatMap((c) => c.data.cancelled);
   const name = new Map(all.map((p) => [p.id, p.name]));
   const step = view === "semana" ? 7 : 1;
@@ -96,28 +94,6 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
         nextDate={addDays(date, step)}
         todayDate={todayDate}
       />
-
-      {waiting.length > 0 && (
-        <div className="card border-amber-300 bg-amber-50/60">
-          <h2 className="mb-2 font-semibold text-amber-900">Sala de espera</h2>
-          <ul className="divide-y divide-amber-200">
-            {waiting.map((a) => (
-              <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-                <span>
-                  <span className="font-medium">{a.patient.socialName || a.patient.name}</span>
-                  <span className="text-slate-600">
-                    {" "}· marcado às {formatTime(a.startsAt)} com {name.get(a.professionalId)}
-                    {a.arrivedAt && ` · chegou às ${formatTime(a.arrivedAt)}`}
-                  </span>
-                </span>
-                <Link href={`/agenda/${a.id}`} className={canStartFromAppointment(user, a) ? "btn-primary py-1!" : "btn-secondary py-1!"}>
-                  {canStartFromAppointment(user, a) ? "Atender" : "Abrir"}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
 
       <AgendaGrid columns={columns} canCreate={(id) => canManageAgendaOf(user, id)} />
 

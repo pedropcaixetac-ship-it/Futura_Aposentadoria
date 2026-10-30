@@ -5,6 +5,7 @@ import { canManageTemplates, canUseReception, canViewClinical, canWorkClinical, 
 // em "Cadastro de servidores > Editar permissões".
 export type TabKey =
   | "recepcao"
+  | "atender"
   | "agenda"
   | "pacientes"
   | "modelos"
@@ -42,6 +43,14 @@ export const TABS: Tab[] = [
     description: "Chegada e falta dos pacientes do dia.",
     defaultRoles: ["ADMIN", "RECEPCAO"],
     blockedReason: (u) => (canUseReception(u) ? null : "Só para recepção e administradores."),
+  },
+  {
+    key: "atender",
+    label: "Atender",
+    href: "/atender",
+    description: "Sala de espera e agenda do dia do próprio profissional, de onde ele inicia o atendimento.",
+    defaultRoles: allRoles,
+    blockedReason: (u) => (canWorkClinical(u) ? null : "Só para profissionais de saúde."),
   },
   {
     key: "agenda",
