@@ -10,8 +10,8 @@ export default async function EditPatientPage({ params }: { params: Promise<{ id
   const patient = await prisma.patient.findFirst({ where: { id, clinicId: user.clinicId } });
   if (!patient) notFound();
   return (
-    <div className="max-w-3xl space-y-4">
-      <h1 className="text-2xl font-semibold">Editar cadastro</h1>
+    <div className="max-w-5xl space-y-4">
+      <h1 className="text-2xl font-semibold">{patient.registrationComplete ? "Editar cadastro" : "Completar cadastro"}</h1>
       <PatientForm action={updatePatient.bind(null, id)} patient={patient} submitLabel="Salvar alterações" />
     </div>
   );

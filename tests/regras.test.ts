@@ -2,7 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { canAddAddendum, canEditEncounter, canViewClinical } from "../src/lib/permissions";
 import { encounterHash, parseDiagnoses, sanitizeContent } from "../src/lib/record";
-import { isValidCpf } from "../src/lib/format";
+import { isValidCns, isValidCpf } from "../src/lib/format";
+import { parsePatient, sameNameKey, validatePatient } from "../src/lib/patient";
 
 const medica = { id: "m1", role: "PROFISSIONAL" as const, councilNumber: "123" };
 const outraMedica = { id: "m2", role: "PROFISSIONAL" as const, councilNumber: "456" };
@@ -58,4 +59,48 @@ test("validação de CPF", () => {
   assert.equal(isValidCpf("111.444.777-35"), true);
   assert.equal(isValidCpf("111.444.777-36"), false);
   assert.equal(isValidCpf("00000000000"), false);
+});
+
+test("cartão SUS (CNS): confere os dígitos", () => {
+  assert.equal(isValidCns("700000000000005"), true);
+  assert.equal(isValidCns("700000000000006"), false);
+  assert.equal(isValidCns("300000000000005"), false);
+  assert.equal(isValidCns("12345"), false);
+});
+
+const ficha = (values: Record<string, string>) => (key: string) => values[key]?.trim() || null;
+const obrigatorios = { name: "Maria da Silva", birthDate: "1980-05-10", phone: "(62) 99999-1234", cpf: "111.444.777-35" };
+
+test("ficha completa exige nome completo, CPF, celular e data de nascimento", () => {
+  const ok = parsePatient(ficha(obrigatorios), "completo");
+  assert.equal(validatePatient(ok, "completo"), "");
+  assert.equal(ok.cpf, "11144477735");
+  assert.equal(ok.phone, "62999991234");
+
+  for (const campo of ["name", "birthDate", "phone", "cpf"] as const) {
+    const semCampo = parsePatient(ficha({ ...obrigatorios, [campo]: "" }), "completo");
+    assert.notEqual(validatePatient(semCampo, "completo"), "", `deveria exigir ${campo}`);
+  }
+  const soPrimeiroNome = parsePatient(ficha({ ...obrigatorios, name: "Maria" }), "completo");
+  assert.match(validatePatient(soPrimeiroNome, "completo"), /nome completo/);
+});
+
+test("cadastro rápido não exige CPF, mas exige celular e nascimento", () => {
+  const rapido = parsePatient(ficha({ name: "João Souza", birthDate: "2001-01-01", phone: "62988887777" }), "rapido");
+  assert.equal(validatePatient(rapido, "rapido"), "");
+  assert.equal(rapido.registrationComplete, false);
+  const semCelular = parsePatient(ficha({ name: "João Souza", birthDate: "2001-01-01" }), "rapido");
+  assert.notEqual(validatePatient(semCelular, "rapido"), "");
+});
+
+test("ficha completa: particular limpa os dados do convênio; convênio exige o nome", () => {
+  const particular = parsePatient(ficha({ ...obrigatorios, insuranceType: "particular", insuranceNumber: "123" }), "completo");
+  assert.equal("insurance" in particular && particular.insurance, "Particular");
+  assert.equal("insuranceNumber" in particular && particular.insuranceNumber, null);
+  const semNome = parsePatient(ficha({ ...obrigatorios, insuranceType: "convenio" }), "completo");
+  assert.match(validatePatient(semNome, "completo"), /convênio/);
+});
+
+test("mesmo nome com acento ou espaço diferente conta como possível duplicado", () => {
+  assert.equal(sameNameKey("José  da Silva"), sameNameKey("jose da silva"));
 });

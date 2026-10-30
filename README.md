@@ -6,7 +6,12 @@ Este é o primeiro módulo: **Prontuário**.
 ## O que já funciona
 
 - Login por clínica, com perfis de administrador, profissional de saúde e recepção
-- Cadastro e busca de pacientes (nome, CPF, telefone)
+- Cadastro de pacientes completo, em blocos: identificação (com foto, RG, Cartão SUS), contato, endereço
+  (o CEP preenche rua, bairro e cidade), convênio, responsável legal e consentimento LGPD.
+  Obrigatórios: nome completo, CPF, celular (WhatsApp) e data de nascimento
+- Cadastro rápido para a recepção (nome, nascimento e celular), marcado como "cadastro incompleto" até ser completado
+- Confere CPF e Cartão SUS e avisa sobre paciente já cadastrado (mesmo CPF, mesmo cartão, ou mesmo nome e nascimento)
+- Busca de pacientes por nome, CPF, telefone, carteirinha ou Cartão SUS
 - Resumo clínico do paciente: alergias (em destaque), medicamentos em uso e antecedentes
 - Atendimentos com modelos personalizáveis por especialidade, ou evolução livre
 - Diagnóstico com busca na tabela CID-10 oficial do DATASUS
