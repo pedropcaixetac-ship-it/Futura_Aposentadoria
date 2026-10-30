@@ -48,7 +48,8 @@ test("lista colada aponta as linhas com erro", () => {
 test("guia TISS: códigos de conselho, UF e o que falta no cadastro", () => {
   assert.equal(councilCode("CRM"), "06");
   assert.equal(councilCode("CRP"), "09");
-  assert.equal(councilCode("CRBM"), "10");
+  assert.equal(councilCode("CRBM"), "12");
+  assert.equal(councilCode("CRAS"), "10");
   assert.equal(ufCode("GO"), "52");
   assert.equal(ufCode("SP"), "35");
   assert.equal(ufCode("XX"), null);

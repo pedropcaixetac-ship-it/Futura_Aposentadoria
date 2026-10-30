@@ -1,9 +1,9 @@
 // Tabelas e regras do padrão TISS (ANS) usadas nas guias de convênio.
 // Os códigos seguem as tabelas de domínio da TISS; conferir na versão vigente ao mudar algo.
 
-// Tabela 26 (conselho profissional).
+// Tabela 26 (conselho profissional), como na versão 4.03.00.
 const COUNCIL_CODES: Record<string, string> = {
-  CRAS: "01",
+  CRESS: "01",
   COREN: "02",
   CRF: "03",
   CRFA: "04",
@@ -12,6 +12,11 @@ const COUNCIL_CODES: Record<string, string> = {
   CRN: "07",
   CRO: "08",
   CRP: "09",
+  CRBIO: "11",
+  CRBM: "12",
+  CREF: "13",
+  CRMV: "14",
+  CRTR: "15",
 };
 
 export function councilCode(councilType: string | null | undefined) {
@@ -29,6 +34,11 @@ const UF_CODES: Record<string, string> = {
 
 export function ufCode(uf: string | null | undefined) {
   return uf ? (UF_CODES[uf.toUpperCase()] ?? null) : null;
+}
+
+// Regime de atendimento: 01 ambulatorial (consultório) e 05 telessaúde (teleconsulta).
+export function careRegime(teleconsultation: boolean) {
+  return teleconsultation ? "05" : "01";
 }
 
 // Tabela 52 (tipo de consulta).
