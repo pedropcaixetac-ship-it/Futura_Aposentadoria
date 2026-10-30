@@ -103,6 +103,13 @@ Este é o primeiro módulo: **Prontuário**.
   Com o valor pago, a guia entra como despesa no Financeiro. A lista pode ser ajustada para cada clínica
 - Dados do contador e planilha do mês (abre no Excel) com receitas, despesas, folha e obrigações, para enviar ao contador
 
+### No celular
+
+- O sistema pode ser "instalado" no celular: no Android, menu do Chrome > "Instalar app";
+  no iPhone, botão Compartilhar do Safari > "Adicionar à Tela de Início"
+- Abre em tela cheia, sem a barra do navegador, com ícone e cores da clínica (azul-marinho e dourado)
+- Todas as telas cabem na largura do celular; o menu lateral vira uma gaveta aberta pelo botão ☰
+
 ## Usuários de demonstração
 
 Código da clínica: `demo`. Senha de todos: `senha123`. Dá para entrar pelo e-mail, pelo CPF ou pelo conselho.
