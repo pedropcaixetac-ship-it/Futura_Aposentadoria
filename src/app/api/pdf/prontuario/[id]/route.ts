@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { canViewClinical } from "@/lib/permissions";
 import { hasTab } from "@/lib/tabs";
 import { buildPdf } from "@/lib/pdf";
 import { pdfFileName, recordPdfInput } from "@/lib/pdf-content";
+import { loadRecordForPdf } from "@/lib/prontuario";
 
 // PDF do prontuário inteiro do paciente. Só quem tem acesso completo ao prontuário,
 // e só atendimentos finalizados (rascunhos ainda podem mudar).
@@ -14,18 +14,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (!user || !hasTab(user, "pacientes") || !canViewClinical(user)) return new NextResponse("Sem permissão", { status: 403 });
 
   const { id } = await params;
-  const patient = await prisma.patient.findFirst({ where: { id, clinicId: user.clinicId } });
-  if (!patient) return new NextResponse("Paciente não encontrado", { status: 404 });
-
-  const encounters = await prisma.encounter.findMany({
-    where: { patientId: id, clinicId: user.clinicId, status: "FINALIZADO" },
-    include: {
-      professional: true,
-      addenda: { include: { author: true }, orderBy: { createdAt: "asc" } },
-      documents: { orderBy: { createdAt: "asc" } },
-    },
-    orderBy: { startedAt: "asc" },
-  });
+  const record = await loadRecordForPdf(user.clinicId, id);
+  if (!record) return new NextResponse("Paciente não encontrado", { status: 404 });
+  const { patient, encounters } = record;
 
   const bytes = await buildPdf(recordPdfInput(user.clinic.name, patient, encounters, user));
   await audit({
