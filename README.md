@@ -6,7 +6,7 @@ Este é o primeiro módulo: **Prontuário**.
 ## O que já funciona
 
 - Login por clínica, com perfis de administrador, profissional de saúde e recepção. No campo de login vale
-  o e-mail, o CPF ou o número do conselho (CRM, CRP...), como "123456" ou "CRM 123456/SP"
+  o e-mail, o CPF ou o número do conselho (CRM, CRP...) junto com a UF do registro
 - Cadastro de pacientes completo, em blocos: identificação (com foto, RG, Cartão SUS), contato, endereço
   (o CEP preenche rua, bairro e cidade), convênio, responsável legal e consentimento LGPD.
   Obrigatórios: nome completo, CPF, celular (WhatsApp) e data de nascimento
