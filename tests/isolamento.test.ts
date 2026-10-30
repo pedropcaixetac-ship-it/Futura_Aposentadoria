@@ -96,6 +96,7 @@ const REVIEWED = new Map([
   ["src/app/(app)/financeiro/receitas/page.tsx|charge.findMany", "filtro 'where' montado com clinicId"],
   ["src/lib/templates.ts|recordTemplate.findMany", "usableWhere() com clinicId"],
   ["src/lib/teleconsulta-sala.ts|teleconsultation.updateMany", "pela teleconsulta já achada na clínica"],
+  ["src/app/(app)/financeiro/faturamento/actions.ts|insuranceClaim.findFirst", "pelo atendimento já conferido na clínica"],
 ]);
 
 function sourceFiles(dir: string): string[] {
