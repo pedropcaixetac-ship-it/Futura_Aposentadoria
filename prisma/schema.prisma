@@ -75,6 +75,8 @@ model User {
   clinic            Clinic   @relation(fields: [clinicId], references: [id])
   name              String
   email             String
+  // CPF só com números. Serve para entrar no sistema no lugar do e-mail.
+  cpf               String?
   passwordHash      String
   role              Role
   // Registro no conselho profissional (CRM, CRP, CRN, CRO...), exigido no prontuário.
@@ -98,6 +100,7 @@ model User {
   documents  ClinicalDocument[]
 
   @@unique([clinicId, email])
+  @@unique([clinicId, cpf])
 }
 
 model Session {

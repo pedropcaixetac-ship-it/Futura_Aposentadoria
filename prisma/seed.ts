@@ -213,10 +213,26 @@ async function seedFinanceDemo() {
   console.log("Exemplos do financeiro criados");
 }
 
+// CPFs de exemplo (válidos, mas fictícios) para testar o login por CPF. Também preenche bancos já criados.
+async function seedLoginDemo() {
+  const clinic = await prisma.clinic.findUnique({ where: { slug: "demo" } });
+  if (!clinic) return;
+  const cpfs: Record<string, string> = {
+    "admin@demo.com": "12345678909",
+    "ana@demo.com": "52998224725",
+    "carlos@demo.com": "39053344705",
+    "recepcao@demo.com": "11144477735",
+  };
+  for (const [email, cpf] of Object.entries(cpfs)) {
+    await prisma.user.updateMany({ where: { clinicId: clinic.id, email, cpf: null }, data: { cpf } });
+  }
+}
+
 async function main() {
   await seedCid10();
   await seedDemo();
   await seedFinanceDemo();
+  await seedLoginDemo();
 }
 
 main().finally(() => prisma.$disconnect());
