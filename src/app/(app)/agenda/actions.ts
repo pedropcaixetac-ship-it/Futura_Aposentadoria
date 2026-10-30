@@ -11,6 +11,7 @@ import { canManageAgendaOf, canStartFromAppointment, canUseReception } from "@/l
 import { findProfessional } from "@/lib/agenda-data";
 import { onlyDigits } from "@/lib/format";
 import {
+  addDays,
   canCancel,
   clinicParts,
   clinicTime,
@@ -295,4 +296,34 @@ export async function deleteBlock(id: string) {
   await prisma.scheduleBlock.delete({ where: { id } });
   await audit({ clinicId: user.clinicId, userId: user.id, action: "BLOQUEIO_EXCLUIDO", entity: "ScheduleBlock", entityId: id });
   revalidatePath("/agenda", "layout");
+}
+
+// Anota (ou apaga) a data prevista do retorno, que aparece em "Retornos para avisar" na Recepção.
+export async function setReturnDue(id: string, formData: FormData) {
+  const user = await requireUser("agenda");
+  const appointment = await prisma.appointment.findFirst({ where: { id, clinicId: user.clinicId } });
+  if (!appointment || !canManageAgendaOf(user, appointment.professionalId)) return;
+
+  const days = Number(formData.get("days"));
+  const date = text(formData, "date");
+  let returnDueOn: Date | null = null;
+  if (formData.get("clear")) {
+    returnDueOn = null;
+  } else if (Number.isInteger(days) && days > 0) {
+    returnDueOn = new Date(`${addDays(clinicParts(appointment.startsAt).date, days)}T00:00:00Z`);
+  } else if (isValidDate(date ?? undefined)) {
+    returnDueOn = new Date(`${date}T00:00:00Z`);
+  }
+  await prisma.appointment.update({ where: { id }, data: { returnDueOn, returnNoticeSentAt: null } });
+  await audit({
+    clinicId: user.clinicId,
+    userId: user.id,
+    action: "RETORNO_PREVISTO",
+    entity: "Appointment",
+    entityId: id,
+    patientId: appointment.patientId,
+    details: { retorno: returnDueOn?.toISOString().slice(0, 10) ?? null },
+  });
+  revalidatePath(`/agenda/${id}`);
+  revalidatePath("/recepcao", "layout");
 }
