@@ -36,6 +36,11 @@ export async function login(_: { error: string }, formData: FormData) {
     return { error: "Clínica, login ou senha incorretos." };
   }
 
+  if (!clinic.active) {
+    await audit({ clinicId: clinic.id, userId: user.id, action: "LOGIN_FALHOU", entity: "User", details: { login: loginId, motivo: "clínica suspensa" } });
+    return { error: "O acesso desta clínica está suspenso. Fale com o suporte do sistema." };
+  }
+
   await createSession(user.id);
   await audit({ clinicId: clinic.id, userId: user.id, action: "LOGIN", entity: "User", entityId: user.id });
   redirect("/");

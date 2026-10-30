@@ -125,6 +125,18 @@ Este é o primeiro módulo: **Prontuário**.
 - A sessão do paciente é separada da equipe: não abre nenhuma tela do sistema da clínica
 - Demonstração: clínica `demo`, CPF 111.444.777-35, nascimento 12/04/1975 (Maria Oliveira)
 
+### Painel do dono do sistema (`/painel`)
+
+Área só da empresa que vende o sistema, com login próprio, separado do login das clínicas.
+
+- Cadastro de clínicas: nome, código de acesso, CNPJ (ou CPF), endereço e responsável pelo contrato.
+  Junto, cria o primeiro gerente do sistema da clínica e os modelos de atendimento iniciais. Depois o gerente cadastra a equipe
+- Lista das clínicas com números de uso (usuários, pacientes, consultas do mês, último acesso) e totais do negócio
+- Suspender e reativar o acesso de uma clínica (ex.: mensalidade em atraso). Ninguém da clínica entra enquanto estiver suspensa,
+  e nada é apagado
+- A equipe da empresa não vê pacientes nem prontuários (LGPD), só dados administrativos
+- Registro de tudo o que a equipe fez no painel, que não pode ser alterado nem apagado
+
 ## Usuários de demonstração
 
 Código da clínica: `demo`. Senha de todos: `senha123`. Dá para entrar pelo e-mail, pelo CPF ou pelo conselho.
@@ -136,6 +148,9 @@ Código da clínica: `demo`. Senha de todos: `senha123`. Dá para entrar pelo e-
 | recepcao@demo.com | 111.444.777-35 | | Recepção |
 | admin@demo.com | 123.456.789-09 | | Administrador |
 | administrativo@demo.com | | | Auxiliar administrativo |
+
+Painel do dono (`/painel`): `dono@futura.com` / `senha123`. Em produção, defina `PAINEL_EMAIL` e `PAINEL_SENHA`
+antes da primeira publicação (ver `.env.example`).
 
 ## Para quem for rodar o código
 
