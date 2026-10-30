@@ -46,6 +46,7 @@ test("quem pode fazer o quê no financeiro", () => {
   assert.equal(canManageCharges(medica), false);
   assert.equal(canManageFinance(admin), true);
   assert.equal(canManageFinance(recepcao), false);
+  assert.equal(canManageFinance({ id: "ad1", role: "ADMINISTRATIVO" as const, councilNumber: null }), true);
   // A recepção cancela cobrança pendente, mas só o administrador cancela uma já paga.
   assert.equal(canCancelCharge(recepcao, { status: "PENDENTE" }), true);
   assert.equal(canCancelCharge(recepcao, { status: "PAGO" }), false);

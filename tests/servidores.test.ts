@@ -8,11 +8,23 @@ const padrao = { customTabs: false, allowedTabs: [] as string[] };
 const medica = { id: "m1", role: "PROFISSIONAL" as const, councilNumber: "123", ...padrao };
 const recepcao = { id: "r1", role: "RECEPCAO" as const, councilNumber: null, ...padrao };
 const admin = { id: "a1", role: "ADMIN" as const, councilNumber: null, ...padrao };
+const administrativo = { id: "ad1", role: "ADMINISTRATIVO" as const, councilNumber: null, ...padrao };
 
 test("sem permissões personalizadas valem as abas padrão do perfil", () => {
-  assert.deepEqual(userTabs(medica).map((t) => t.key), ["atender", "agenda", "pacientes", "modelos", "textos-prontos", "assinatura", "financeiro"]);
+  assert.deepEqual(userTabs(medica).map((t) => t.key), ["atender", "agenda", "pacientes", "modelos", "textos-prontos", "assinatura", "meu-financeiro"]);
   assert.deepEqual(userTabs(recepcao).map((t) => t.key), ["recepcao", "agenda", "pacientes", "financeiro"]);
   assert.deepEqual(userTabs(admin).map((t) => t.key), ["recepcao", "agenda", "pacientes", "modelos", "financeiro", "contabilidade", "auditoria", "servidores"]);
+});
+
+test("Financeiro é da administração; Meu financeiro é dos profissionais", () => {
+  assert.equal(hasTab(administrativo, "financeiro"), true);
+  assert.equal(hasTab(administrativo, "meu-financeiro"), false);
+  // Mesmo liberada à mão, a aba Financeiro não aparece para o profissional de saúde.
+  assert.equal(hasTab({ ...medica, customTabs: true, allowedTabs: ["financeiro"] }, "financeiro"), false);
+  // O administrador que também atende (tem conselho) fica com as duas.
+  const adminMedico = { ...admin, councilNumber: "999" };
+  assert.equal(hasTab(adminMedico, "financeiro"), true);
+  assert.equal(hasTab(adminMedico, "meu-financeiro"), true);
 });
 
 test("o administrador escolhe as abas de cada pessoa", () => {

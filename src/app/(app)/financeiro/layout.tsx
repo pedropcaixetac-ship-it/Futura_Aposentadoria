@@ -10,7 +10,7 @@ export default async function FinanceLayout({ children }: { children: React.Reac
     ...(canManageCharges(user) ? [{ href: "/financeiro/receitas", label: "Receitas" }] : []),
     ...(admin ? [{ href: "/financeiro/despesas", label: "Despesas" }] : []),
     ...(admin ? [{ href: "/financeiro/compras", label: "Compras" }] : []),
-    { href: "/financeiro/repasse", label: admin ? "Repasse" : "Meu repasse" },
+    ...(admin ? [{ href: "/financeiro/repasse", label: "Repasse" }] : []),
     ...(admin ? [{ href: "/financeiro/precos", label: "Preços e recibo" }] : []),
   ];
   return (

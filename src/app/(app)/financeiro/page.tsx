@@ -30,7 +30,7 @@ function Bars({ rows }: { rows: { label: string; cents: number }[] }) {
 
 export default async function FinanceSummaryPage({ searchParams }: { searchParams: Promise<{ mes?: string }> }) {
   const user = await requireUser("financeiro");
-  if (!canManageFinance(user)) redirect(canManageCharges(user) ? "/financeiro/receitas" : "/financeiro/repasse");
+  if (!canManageFinance(user)) redirect(canManageCharges(user) ? "/financeiro/receitas" : "/");
   const { mes } = await searchParams;
   const range = monthRange(mes);
   const clinicId = user.clinicId;
