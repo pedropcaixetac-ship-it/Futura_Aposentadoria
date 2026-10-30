@@ -52,6 +52,8 @@ export default async function ChargesPage({ searchParams }: { searchParams: Prom
         status: "FINALIZADO",
         finalizedAt: { gte: ninetyDaysAgo },
         charges: { none: { status: { not: "CANCELADO" } } },
+        // Atendimento cobrado do convênio (com guia) não é cobrado do paciente.
+        claims: { none: { status: "ABERTA" } },
       },
       select: { id: true, finalizedAt: true, patient: { select: { name: true, insurance: true } }, professional: { select: { name: true, jobTitle: true, sex: true } } },
       orderBy: { finalizedAt: "desc" },

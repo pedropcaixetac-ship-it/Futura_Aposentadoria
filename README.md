@@ -62,6 +62,9 @@ Este é o primeiro módulo: **Prontuário**.
   O CNES da clínica, que vai nas guias, também fica nesta aba
 - Na ficha do paciente, o convênio é escolhido na lista dos convênios cadastrados (ou "Outro", digitando o nome).
   Se o convênio for renomeado, a ficha dos pacientes acompanha
+- Faturamento: guia de consulta no padrão TISS gerada a partir do atendimento finalizado de paciente com convênio,
+  com valor da tabela do convênio, numeração própria da clínica, impressão e cancelamento. Avisa o que falta no
+  cadastro (registro ANS, CNES, conselho do profissional) antes de gerar. Atendimento com guia não aparece para cobrança particular
 - Repasse por profissional (porcentagem do valor recebido), que pode ser lançado como despesa
 - Recibo numerado, com valor por extenso, para imprimir ou salvar em PDF
 - O administrador vê tudo; a recepção lança cobranças e recebe pagamentos; cada profissional vê só o próprio repasse

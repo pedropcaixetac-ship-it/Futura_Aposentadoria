@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { formatTussCode, normalizeAnsCode, normalizeCnes, normalizeTussCode, parseDays, parsePriceList } from "../src/lib/convenios";
+import { claimNumberLabel, councilCode, defaultConsultationType, missingForClaim, normalizeCbo, ufCode } from "../src/lib/tiss";
 
 test("códigos do convênio: ANS, CNES e TUSS", () => {
   assert.equal(normalizeAnsCode("005711"), "005711");
@@ -42,4 +43,30 @@ test("lista colada aponta as linhas com erro", () => {
     "Linha 4: código 10101012 repetido na lista.",
     "Linha 5: separe código, descrição e valor com ponto e vírgula.",
   ]);
+});
+
+test("guia TISS: códigos de conselho, UF e o que falta no cadastro", () => {
+  assert.equal(councilCode("CRM"), "06");
+  assert.equal(councilCode("CRP"), "09");
+  assert.equal(councilCode("CRBM"), "10");
+  assert.equal(ufCode("GO"), "52");
+  assert.equal(ufCode("SP"), "35");
+  assert.equal(ufCode("XX"), null);
+  assert.equal(normalizeCbo("2251-25"), "225125");
+  assert.equal(normalizeCbo("2251"), null);
+  assert.equal(defaultConsultationType("RETORNO"), 2);
+  assert.equal(defaultConsultationType(undefined), 1);
+  assert.equal(claimNumberLabel(42), "00000042");
+
+  const ok = {
+    clinic: { cnes: "1234567", cnpj: null },
+    plan: { ansCode: "005711", providerCode: "998877" },
+    professional: { councilType: "CRM", councilNumber: "12345", councilUf: "GO" },
+  };
+  assert.deepEqual(missingForClaim(ok), []);
+  const faltando = missingForClaim({ ...ok, clinic: { cnes: null, cnpj: null }, plan: { ansCode: null, providerCode: null } });
+  assert.equal(faltando.length, 3);
+  assert.match(faltando.join(" "), /ANS/);
+  assert.match(faltando.join(" "), /CNES/);
+  assert.equal(missingForClaim({ ...ok, professional: { councilType: "CRM", councilNumber: "1", councilUf: null } }).length, 1);
 });
