@@ -11,6 +11,7 @@ export type TabKey =
   | "textos-prontos"
   | "assinatura"
   | "financeiro"
+  | "contabilidade"
   | "auditoria"
   | "servidores";
 
@@ -84,6 +85,13 @@ export const TABS: Tab[] = [
     href: "/financeiro",
     description: "Recepção lança cobranças e recebe pagamentos; profissionais veem o próprio repasse. Inclui Compras.",
     defaultRoles: allRoles,
+  },
+  {
+    key: "contabilidade",
+    label: "Contabilidade e trabalhista",
+    href: "/contabilidade",
+    description: "Contratos, férias, folha do mês, impostos e planilha para o contador.",
+    defaultRoles: ["ADMIN", "ADMINISTRATIVO"],
   },
   {
     key: "auditoria",
