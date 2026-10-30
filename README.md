@@ -6,7 +6,9 @@ Este é o primeiro módulo: **Prontuário**.
 ## O que já funciona
 
 - Login por clínica, com perfis de administrador, profissional de saúde e recepção
-- Cadastro e busca de pacientes (nome, CPF, telefone)
+- Cadastro e busca de pacientes enquanto se digita (nome, CPF, telefone, data de nascimento ou convênio), com a data da última consulta
+- Histórico de atendimentos por ano, com filtros (profissional, tipo, período, CID), busca por palavra com destaque e consulta aberta na própria tela
+- Impressão do histórico completo ou filtrado (só atendimentos finalizados)
 - Resumo clínico do paciente: alergias (em destaque), medicamentos em uso e antecedentes
 - Atendimentos com modelos personalizáveis por especialidade, ou evolução livre
 - Diagnóstico com busca na tabela CID-10 oficial do DATASUS

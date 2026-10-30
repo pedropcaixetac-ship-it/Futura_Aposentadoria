@@ -35,3 +35,17 @@ export function isValidCpf(value: string) {
 }
 
 export const roleLabel = { ADMIN: "Administrador", PROFISSIONAL: "Profissional de saúde", RECEPCAO: "Recepção" } as const;
+
+// "31/12/1990" vira a data; qualquer outra coisa, null.
+export function parseBrDate(value: string) {
+  const m = value.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!m) return null;
+  const date = new Date(Date.UTC(Number(m[3]), Number(m[2]) - 1, Number(m[1])));
+  return date.getUTCDate() === Number(m[1]) && date.getUTCMonth() === Number(m[2]) - 1 ? date : null;
+}
+
+// Dia de um momento (data e hora), no horário de Brasília.
+export function formatDay(date: Date | null | undefined) {
+  if (!date) return "";
+  return date.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+}

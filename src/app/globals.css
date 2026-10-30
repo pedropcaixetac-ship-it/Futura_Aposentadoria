@@ -66,4 +66,9 @@ body {
     box-shadow: none;
     padding: 0;
   }
+  /* Separa cada atendimento no histórico impresso. */
+  article.card {
+    border-top: 1px solid #cbd5e1;
+    padding-top: 0.75rem;
+  }
 }
