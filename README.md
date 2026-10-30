@@ -12,7 +12,9 @@ Este é o primeiro módulo: **Prontuário**.
   Obrigatórios: nome completo, CPF, celular (WhatsApp) e data de nascimento
 - Cadastro rápido para a recepção (nome, nascimento e celular), marcado como "cadastro incompleto" até ser completado
 - Confere CPF e Cartão SUS e avisa sobre paciente já cadastrado (mesmo CPF, mesmo cartão, ou mesmo nome e nascimento)
-- Busca de pacientes por nome, CPF, telefone, carteirinha ou Cartão SUS
+- Busca de pacientes enquanto se digita (nome, CPF, telefone, data de nascimento, convênio, carteirinha ou Cartão SUS), com a data da última consulta
+- Histórico de atendimentos por ano, com filtros (profissional, tipo, período, CID), busca por palavra com destaque e consulta aberta na própria tela
+- Impressão do histórico completo ou filtrado (só atendimentos finalizados)
 - Resumo clínico do paciente: alergias (em destaque), medicamentos em uso e antecedentes
 - Atendimentos com modelos personalizáveis por especialidade, ou evolução livre
 - Diagnóstico com busca na tabela CID-10 oficial do DATASUS

@@ -23,6 +23,8 @@ export const auditActionLabel: Record<string, string> = {
   PACIENTE_CRIADO: "Cadastrou paciente",
   PACIENTE_ALTERADO: "Alterou cadastro do paciente",
   PRONTUARIO_VISUALIZADO: "Abriu o prontuário",
+  HISTORICO_PESQUISADO: "Pesquisou no histórico do prontuário",
+  HISTORICO_IMPRESSO: "Imprimiu o histórico do prontuário",
   RESUMO_CLINICO_ALTERADO: "Alterou alergias/medicamentos/antecedentes",
   ATENDIMENTO_INICIADO: "Iniciou atendimento",
   ATENDIMENTO_VISUALIZADO: "Abriu atendimento",
