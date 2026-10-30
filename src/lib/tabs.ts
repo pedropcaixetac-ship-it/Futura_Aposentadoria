@@ -1,5 +1,5 @@
 import type { Role } from "@prisma/client";
-import { canManageTemplates, canUseReception, canViewClinical, type PermissionUser } from "./permissions";
+import { canManageTemplates, canUseReception, canViewClinical, canWorkClinical, type PermissionUser } from "./permissions";
 
 // Abas do sistema que o administrador pode liberar ou tirar de cada pessoa
 // em "Cadastro de servidores > Editar permissões".
@@ -29,7 +29,7 @@ type Tab = {
   blockedReason?: (user: PermissionUser) => string | null;
 };
 
-const allRoles: Role[] = ["ADMIN", "PROFISSIONAL", "RECEPCAO"];
+const allRoles: Role[] = ["ADMIN", "PROFISSIONAL", "TECNICO", "RECEPCAO"];
 
 // A ordem desta lista é a ordem do menu lateral.
 export const TABS: Tab[] = [
@@ -61,7 +61,7 @@ export const TABS: Tab[] = [
     href: "/modelos",
     description: "Criar e alterar os modelos de atendimento.",
     defaultRoles: allRoles,
-    blockedReason: (u) => (canManageTemplates(u) ? null : "Só para profissionais de saúde com registro em conselho."),
+    blockedReason: (u) => (canManageTemplates(u) ? null : "Só para profissionais de saúde."),
   },
   {
     key: "textos-prontos",
@@ -69,7 +69,7 @@ export const TABS: Tab[] = [
     href: "/textos-prontos",
     description: "Textos prontos da própria pessoa para usar no atendimento.",
     defaultRoles: allRoles,
-    blockedReason: (u) => (canViewClinical(u) ? null : "Só para profissionais de saúde com registro em conselho."),
+    blockedReason: (u) => (canWorkClinical(u) ? null : "Só para profissionais de saúde."),
   },
   {
     key: "assinatura",
@@ -77,7 +77,7 @@ export const TABS: Tab[] = [
     href: "/assinatura",
     description: "Certificado ICP-Brasil para assinar receitas, atestados e atendimentos.",
     defaultRoles: allRoles,
-    blockedReason: (u) => (canViewClinical(u) ? null : "Só para profissionais de saúde com registro em conselho."),
+    blockedReason: (u) => (canViewClinical(u) ? null : "Só para profissionais de saúde com acesso completo e registro em conselho."),
   },
   {
     key: "financeiro",

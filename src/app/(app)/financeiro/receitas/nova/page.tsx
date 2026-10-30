@@ -6,6 +6,7 @@ import { canManageCharges } from "@/lib/permissions";
 import { formatCpf, formatDate, formatDateTime } from "@/lib/format";
 import { dateInput, paymentMethodLabel, paymentMethods, today } from "@/lib/finance";
 import { ChargeForm } from "./charge-form";
+import { displayName } from "@/lib/staff";
 
 export default async function NewChargePage({ searchParams }: {
   searchParams: Promise<{ atendimento?: string; paciente?: string; q?: string }>;
@@ -18,7 +19,7 @@ export default async function NewChargePage({ searchParams }: {
   const encounter = atendimento
     ? await prisma.encounter.findFirst({
         where: { id: atendimento, clinicId, status: "FINALIZADO" },
-        select: { id: true, finalizedAt: true, patientId: true, professional: { select: { id: true, name: true } } },
+        select: { id: true, finalizedAt: true, patientId: true, professional: { select: { id: true, name: true, jobTitle: true, sex: true } } },
       })
     : null;
   const patientId = encounter?.patientId ?? paciente;
@@ -69,7 +70,7 @@ export default async function NewChargePage({ searchParams }: {
     prisma.priceItem.findMany({ where: { clinicId, active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, priceCents: true } }),
     encounter
       ? null
-      : prisma.user.findMany({ where: { clinicId, active: true, councilNumber: { not: null } }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+      : prisma.user.findMany({ where: { clinicId, active: true, councilNumber: { not: null } }, orderBy: { name: "asc" }, select: { id: true, name: true, jobTitle: true, sex: true } }).then((list) => list.map((p) => ({ id: p.id, name: displayName(p) }))),
   ]);
 
   return (
@@ -82,7 +83,7 @@ export default async function NewChargePage({ searchParams }: {
         </p>
         {encounter && (
           <p className="mt-1 text-sm text-slate-600">
-            Atendimento de {formatDateTime(encounter.finalizedAt)} com {encounter.professional.name}
+            Atendimento de {formatDateTime(encounter.finalizedAt)} com {displayName(encounter.professional)}
           </p>
         )}
       </div>

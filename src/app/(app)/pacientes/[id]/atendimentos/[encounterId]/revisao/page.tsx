@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { canEditEncounter, canViewClinical } from "@/lib/permissions";
+import { canEditEncounter, canViewClinical, canWorkClinical } from "@/lib/permissions";
+import { displayName } from "@/lib/staff";
 import { age, formatDate, formatDateTime } from "@/lib/format";
 import { documentTypeLabel } from "@/lib/documents";
 import type { Diagnosis, TemplateField } from "@/lib/record";
@@ -25,7 +26,9 @@ export default async function ReviewPage({
   const user = await requireUser("pacientes");
   const { id, encounterId } = await params;
   const { assinatura } = await searchParams;
-  if (!canViewClinical(user)) notFound();
+  if (!canWorkClinical(user)) notFound();
+  // Acesso restrito finaliza o próprio atendimento, mas não emite documentos.
+  const full = canViewClinical(user);
 
   const encounter = await prisma.encounter.findFirst({
     where: { id: encounterId, patientId: id, clinicId: user.clinicId },
@@ -62,7 +65,7 @@ export default async function ReviewPage({
           {patient.socialName || patient.name}
           {patient.birthDate && <span className="font-normal text-marinho-100"> · {age(patient.birthDate)} anos ({formatDate(patient.birthDate)})</span>}
         </p>
-        <p className="text-sm text-marinho-100">{formatDateTime(encounter.startedAt)} · {encounter.professional.name}</p>
+        <p className="text-sm text-marinho-100">{formatDateTime(encounter.startedAt)} · {displayName(encounter.professional)}</p>
       </div>
 
       {assinatura === "erro" && (
@@ -100,42 +103,44 @@ export default async function ReviewPage({
         )}
       </div>
 
-      <div className="card space-y-3">
-        <h2 className="font-semibold">Documentos emitidos</h2>
-        {encounter.documents.length === 0 ? (
-          <p className="text-sm text-slate-500">
-            Nenhuma receita, atestado ou pedido neste atendimento. Para emitir, use{" "}
-            <Link href={editHref} className="text-marinho-700 hover:underline">Voltar e editar</Link>.
-          </p>
-        ) : (
-          <>
-            <ul className="divide-y divide-slate-100">
-              {encounter.documents.map((d) => (
-                <li key={d.id} className="flex flex-wrap items-center justify-between gap-3 py-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">
-                      {documentTypeLabel[d.type]}
-                      <span className="font-normal text-slate-500"> · {formatDateTime(d.createdAt)}</span>
-                    </p>
-                    <p className="truncate text-sm text-slate-600">{d.body.split("\n").find((l) => l.trim())}</p>
-                  </div>
-                  <div className="flex shrink-0 flex-wrap justify-end gap-2">
-                    <SignBox target={{ kind: "documento", id: d.id }} signed={d.signedPdf} canSign providers={providers} back={back} />
-                    <a href={`/api/pdf/documento/${d.id}`} target="_blank" className="btn-secondary">PDF</a>
-                  </div>
-                </li>
-              ))}
-            </ul>
-            {unsigned.length > 0 ? (
-              <div className="border-t border-slate-100 pt-3">
-                <SignAllBox targets={unsigned} providers={providers} back={back} />
-              </div>
-            ) : (
-              <p className="border-t border-slate-100 pt-3 text-right text-sm text-emerald-700">✓ Todos os documentos estão assinados.</p>
-            )}
-          </>
-        )}
-      </div>
+      {full && (
+        <div className="card space-y-3">
+          <h2 className="font-semibold">Documentos emitidos</h2>
+          {encounter.documents.length === 0 ? (
+            <p className="text-sm text-slate-500">
+              Nenhuma receita, atestado ou pedido neste atendimento. Para emitir, use{" "}
+              <Link href={editHref} className="text-marinho-700 hover:underline">Voltar e editar</Link>.
+            </p>
+          ) : (
+            <>
+              <ul className="divide-y divide-slate-100">
+                {encounter.documents.map((d) => (
+                  <li key={d.id} className="flex flex-wrap items-center justify-between gap-3 py-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">
+                        {documentTypeLabel[d.type]}
+                        <span className="font-normal text-slate-500"> · {formatDateTime(d.createdAt)}</span>
+                      </p>
+                      <p className="truncate text-sm text-slate-600">{d.body.split("\n").find((l) => l.trim())}</p>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                      <SignBox target={{ kind: "documento", id: d.id }} signed={d.signedPdf} canSign providers={providers} back={back} />
+                      <a href={`/api/pdf/documento/${d.id}`} target="_blank" className="btn-secondary">PDF</a>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              {unsigned.length > 0 ? (
+                <div className="border-t border-slate-100 pt-3">
+                  <SignAllBox targets={unsigned} providers={providers} back={back} />
+                </div>
+              ) : (
+                <p className="border-t border-slate-100 pt-3 text-right text-sm text-emerald-700">✓ Todos os documentos estão assinados.</p>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       <div className="card flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-slate-600">

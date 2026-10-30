@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
-import { canEditEncounter, canManageCharges, canViewClinical } from "@/lib/permissions";
+import { canEditEncounter, canManageCharges, canViewClinical, canWorkClinical } from "@/lib/permissions";
 import { age, formatCpf, formatDate, formatDateTime, formatPhone } from "@/lib/format";
 import { canMessage } from "@/lib/whatsapp";
 import { listUsableTemplates } from "@/lib/templates";
@@ -24,6 +24,7 @@ import { ClinicalSummary } from "./clinical-summary";
 import { EncounterContent, Marked } from "./encounter-content";
 import { PatientDetails } from "./patient-details";
 import { WhatsappButton } from "./whatsapp-button";
+import { displayName } from "@/lib/staff";
 
 export default async function PatientRecordPage({
   params,
@@ -39,12 +40,15 @@ export default async function PatientRecordPage({
   const patient = await prisma.patient.findFirst({ where: { id, clinicId: user.clinicId } });
   if (!patient) notFound();
 
-  const clinical = canViewClinical(user);
+  // full: acesso completo ao prontuário. clinical: completo ou restrito (técnico/auxiliar de enfermagem),
+  // que só vê os próprios atendimentos.
+  const full = canViewClinical(user);
+  const clinical = canWorkClinical(user);
   const canWhatsapp = canMessage(patient);
   const [encounters, templates] = clinical
     ? await Promise.all([
         prisma.encounter.findMany({
-          where: { patientId: id, clinicId: user.clinicId },
+          where: { patientId: id, clinicId: user.clinicId, ...(!full && { professionalId: user.id }) },
           include: {
             professional: true,
             template: true,
@@ -144,7 +148,14 @@ export default async function PatientRecordPage({
               personalHistory: patient.personalHistory,
               familyHistory: patient.familyHistory,
             }}
-            action={updateClinicalSummary.bind(null, id)} />
+            action={full ? updateClinicalSummary.bind(null, id) : undefined} />
+
+          {!full && (
+            <p className="rounded-md border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600">
+              Seu perfil tem acesso restrito: você vê o resumo clínico e só os atendimentos feitos por você.
+              As consultas dos outros profissionais não aparecem.
+            </p>
+          )}
 
           <div className="card space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -181,7 +192,7 @@ export default async function PatientRecordPage({
                   <label className="label" htmlFor="profissional">Profissional</label>
                   <select id="profissional" name="profissional" defaultValue={filters.profissional} className="input">
                     <option value="">Todos</option>
-                    {professionals.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    {professionals.map((p) => <option key={p.id} value={p.id}>{displayName(p)}</option>)}
                   </select>
                 </div>
                 <div>
@@ -217,9 +228,11 @@ export default async function PatientRecordPage({
                     ? `${shown.length} de ${encounters.length} atendimento${encounters.length > 1 ? "s" : ""}`
                     : `${encounters.length} atendimento${encounters.length > 1 ? "s" : ""}`}
                 </span>
-                <Link href={`/pacientes/${id}/historico${filtersQuery(filters)}`} target="_blank" className="btn-secondary">
-                  {filtered ? "Imprimir resultado" : "Imprimir histórico"}
-                </Link>
+                {full && (
+                  <Link href={`/pacientes/${id}/historico${filtersQuery(filters)}`} target="_blank" className="btn-secondary">
+                    {filtered ? "Imprimir resultado" : "Imprimir histórico"}
+                  </Link>
+                )}
               </div>
             )}
 
@@ -251,7 +264,7 @@ export default async function PatientRecordPage({
                             <div className="flex flex-wrap items-center gap-2 text-sm">
                               <span className="inline-block text-marinho-600 transition group-open:rotate-90">▸</span>
                               <span className="font-medium">{formatDateTime(e.startedAt)}</span>
-                              <span className="text-slate-500">· {e.template?.name ?? "Evolução livre"} · {e.professional.name}</span>
+                              <span className="text-slate-500">· {e.template?.name ?? "Evolução livre"} · {displayName(e.professional)}</span>
                               {e.status === "RASCUNHO" ? (
                                 <span className="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800">Rascunho</span>
                               ) : (

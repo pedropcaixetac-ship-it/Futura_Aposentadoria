@@ -1,8 +1,9 @@
 import { formatDateTime } from "@/lib/format";
 import { highlight } from "@/lib/history";
 import type { Diagnosis, TemplateField } from "@/lib/record";
+import { displayName } from "@/lib/staff";
 
-type Author = { name: string; councilType: string | null; councilNumber: string | null; councilUf: string | null };
+type Author = { name: string; jobTitle: string | null; sex: string | null; councilType: string | null; councilNumber: string | null; councilUf: string | null };
 
 export function Marked({ text, term }: { text: string; term: string }) {
   return (
@@ -65,7 +66,7 @@ export function EncounterContent({
           <h4 className="text-sm font-semibold text-slate-700">Adendos</h4>
           {encounter.addenda.map((a) => (
             <div key={a.id} className="border-l-2 border-dourado-500 pl-3">
-              <p className="text-xs text-slate-500">{formatDateTime(a.createdAt)} · {a.author.name}{council(a.author)}</p>
+              <p className="text-xs text-slate-500">{formatDateTime(a.createdAt)} · {displayName(a.author)}{council(a.author)}</p>
               <p className="whitespace-pre-wrap text-sm"><Marked text={a.text} term={term} /></p>
             </div>
           ))}

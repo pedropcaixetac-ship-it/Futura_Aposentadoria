@@ -8,6 +8,7 @@ import { age, formatCpf, formatDate, formatDateTime } from "@/lib/format";
 import { filterEncounters, filtersQuery, FREE_TEMPLATE, hasFilters, parseHistoryFilters } from "@/lib/history";
 import { EncounterContent } from "../encounter-content";
 import { PrintButton } from "../atendimentos/[encounterId]/print-button";
+import { displayName } from "@/lib/staff";
 
 // Histórico completo (ou filtrado) pronto para imprimir ou salvar em PDF.
 // Só entram atendimentos finalizados: rascunhos ainda podem mudar.
@@ -47,7 +48,8 @@ export default async function HistoryPrintPage({
     details: { ...filters, atendimentos: shown.length },
   });
 
-  const professionalName = encounters.find((e) => e.professionalId === filters.profissional)?.professional.name;
+  const chosen = encounters.find((e) => e.professionalId === filters.profissional)?.professional;
+  const professionalName = chosen && displayName(chosen);
   const kindName = encounters.find((e) => (e.templateId ?? FREE_TEMPLATE) === filters.modelo)?.template?.name ?? "Evolução livre";
   const brDay = (d: string) => d.split("-").reverse().join("/");
   const description = [
@@ -84,7 +86,7 @@ export default async function HistoryPrintPage({
           {hasFilters(filters) ? `Filtro: ${description.join("; ")}.` : "Todos os atendimentos finalizados."}{" "}
           {shown.length} atendimento{shown.length === 1 ? "" : "s"}.
         </p>
-        <p className="text-xs text-slate-500">Emitido em {formatDateTime(new Date())} por {user.name}.</p>
+        <p className="text-xs text-slate-500">Emitido em {formatDateTime(new Date())} por {displayName(user)}.</p>
       </div>
 
       {shown.length === 0 && <p className="card text-sm text-slate-400">Nenhum atendimento finalizado encontrado.</p>}
@@ -94,7 +96,7 @@ export default async function HistoryPrintPage({
           <header className="border-b border-slate-100 pb-2">
             <p className="font-semibold">{formatDateTime(e.startedAt)} · {e.template?.name ?? "Evolução livre"}</p>
             <p className="text-sm text-slate-600">
-              {e.professional.name}
+              {displayName(e.professional)}
               {e.professional.councilNumber && ` · ${e.professional.councilType} ${e.professional.councilNumber}/${e.professional.councilUf}`}
             </p>
           </header>

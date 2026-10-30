@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { age, formatCpf, formatDate, formatDay, formatPhone, parseBrDate } from "@/lib/format";
 import { SearchBox } from "./search-box";
+import { displayName } from "@/lib/staff";
 
 export default async function PatientsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const user = await requireUser("pacientes");
@@ -30,7 +31,7 @@ export default async function PatientsPage({ searchParams }: { searchParams: Pro
     },
     include: {
       encounters: {
-        select: { startedAt: true, professional: { select: { name: true } } },
+        select: { startedAt: true, professional: { select: { name: true, jobTitle: true, sex: true } } },
         orderBy: { startedAt: "desc" },
         take: 1,
       },
@@ -84,7 +85,7 @@ export default async function PatientsPage({ searchParams }: { searchParams: Pro
                   {p.encounters[0] ? (
                     <>
                       {formatDay(p.encounters[0].startedAt)}{" "}
-                      <span className="text-slate-400">· {p.encounters[0].professional.name}</span>
+                      <span className="text-slate-400">· {displayName(p.encounters[0].professional)}</span>
                     </>
                   ) : (
                     <span className="text-slate-400">Nenhuma</span>

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireUser, type CurrentUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
-import { canEditTemplate, canManageTemplates, canUseTemplate, canViewClinical } from "@/lib/permissions";
+import { canEditTemplate, canManageTemplates, canUseTemplate, canWorkClinical } from "@/lib/permissions";
 import { slugifyKey, type TemplateField } from "@/lib/record";
 
 export type TemplateState = { error: string; ok?: boolean };
@@ -37,7 +37,7 @@ async function resolveOwner(user: CurrentUser, formData: FormData, current: stri
   const ownerId = String(formData.get("ownerId") ?? "") || null;
   if (!ownerId) return { ownerId: null };
   const owner = await prisma.user.findFirst({ where: { id: ownerId, clinicId: user.clinicId } });
-  if (!owner || !canViewClinical(owner)) return { error: "Profissional não encontrado." };
+  if (!owner || !canWorkClinical(owner)) return { error: "Profissional não encontrado." };
   return { ownerId };
 }
 
@@ -74,7 +74,7 @@ export async function saveTemplate(_: TemplateState, formData: FormData): Promis
 // O profissional copia um modelo da clínica para os seus e depois ajusta do jeito dele.
 export async function copyTemplate(id: string) {
   const user = await requireUser("modelos");
-  if (!canViewClinical(user)) throw new Error("Sem permissão");
+  if (!canWorkClinical(user)) throw new Error("Sem permissão");
   const source = await prisma.recordTemplate.findFirst({ where: { id, clinicId: user.clinicId } });
   if (!source || !canUseTemplate(user, source)) throw new Error("Modelo não encontrado");
   const t = await prisma.recordTemplate.create({

@@ -6,6 +6,7 @@ import { consentText, councilLabel, teleconsultationState } from "@/lib/telecons
 import { ensureRoom } from "@/lib/teleconsulta-sala";
 import { joinUrl, videoConfigured } from "@/lib/video";
 import { acceptConsent } from "./actions";
+import { displayName } from "@/lib/staff";
 
 // Página aberta pelo paciente, sem login: o link secreto é a chave.
 export const metadata: Metadata = { title: "Teleconsulta", robots: { index: false, follow: false } };
@@ -51,14 +52,14 @@ export default async function PatientTeleconsultationPage({ params }: { params: 
   }
 
   if (state === "AGUARDANDO_TERMO") {
-    const text = consentText({ clinicName: t.clinic.name, professionalName: t.professional.name, council });
+    const text = consentText({ clinicName: t.clinic.name, professionalName: displayName(t.professional), council });
     return (
       <Shell clinic={t.clinic.name}>
         <form action={acceptConsent.bind(null, token)} className="card w-full max-w-xl space-y-4 border-t-4 border-t-dourado-500">
           <div>
             <h1 className="text-lg font-semibold text-marinho-800">Olá, {firstName}!</h1>
             <p className="text-sm text-slate-600">
-              Sua consulta com {t.professional.name}{council && ` (${council})`} será por vídeo.
+              Sua consulta com {displayName(t.professional)}{council && ` (${council})`} será por vídeo.
               Antes de entrar, leia e aceite o termo abaixo.
             </p>
           </div>
@@ -98,7 +99,7 @@ export default async function PatientTeleconsultationPage({ params }: { params: 
     <main className="flex h-dvh flex-col bg-marinho-900">
       <header className="flex items-center justify-between px-4 py-2 text-sm text-white">
         <span className="font-semibold text-dourado-300">{t.clinic.name}</span>
-        <span className="text-marinho-100">Aguarde: {t.professional.name} vai entrar na chamada</span>
+        <span className="text-marinho-100">Aguarde: {displayName(t.professional)} vai entrar na chamada</span>
       </header>
       <iframe
         src={url}

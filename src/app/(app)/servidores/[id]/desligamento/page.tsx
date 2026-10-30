@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { dateInput, today } from "@/lib/finance";
-import { staffFunction, terminationReasons } from "@/lib/staff";
+import { staffFunction, terminationReasons, displayName } from "@/lib/staff";
 import { ActionForm } from "../../../financeiro/action-form";
 import { terminateStaff } from "../../actions";
 
@@ -19,7 +19,7 @@ export default async function TerminationPage({ params }: { params: Promise<{ id
       <div>
         <Link href="/servidores" className="text-sm text-marinho-700 hover:underline">← Cadastro de servidores</Link>
         <h1 className="text-2xl font-semibold">Registrar desligamento</h1>
-        <p className="text-sm text-slate-500">{staff.name} · {staffFunction(staff)}</p>
+        <p className="text-sm text-slate-500">{displayName(staff)} · {staffFunction(staff)}</p>
       </div>
 
       <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">

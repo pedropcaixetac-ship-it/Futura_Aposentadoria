@@ -23,14 +23,15 @@ export function ClinicalSummary({
   compact = false,
 }: {
   summary: Summary;
-  action: (state: FormState, formData: FormData) => Promise<FormState>;
+  // Sem action, o resumo é só para leitura (ex.: acesso restrito de técnico de enfermagem).
+  action?: (state: FormState, formData: FormData) => Promise<FormState>;
   // Uma coluna só, para caber na lateral da consulta.
   compact?: boolean;
 }) {
   const grid = compact ? "grid gap-3" : "grid gap-3 sm:grid-cols-2";
   const [editing, setEditing] = useState(false);
   const [state, formAction, pending] = useActionState(async (prev: FormState, fd: FormData) => {
-    const result = await action(prev, fd);
+    const result = await action!(prev, fd);
     if (!result.error) setEditing(false);
     return result;
   }, { error: "" });
@@ -40,7 +41,7 @@ export function ClinicalSummary({
       <div className="card">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-semibold">Resumo clínico</h2>
-          <button onClick={() => setEditing(true)} className="no-print text-sm text-marinho-700 hover:underline">Editar</button>
+          {action && <button onClick={() => setEditing(true)} className="no-print text-sm text-marinho-700 hover:underline">Editar</button>}
         </div>
         <dl className={grid}>
           {items.map(({ key, label }) => (

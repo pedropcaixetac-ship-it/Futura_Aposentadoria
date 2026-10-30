@@ -19,7 +19,7 @@ export type HistoryEncounter = {
 type Props = {
   patientId: string;
   summary: { allergies: string | null; currentMedications: string | null; personalHistory: string | null; familyHistory: string | null };
-  updateSummary: (state: FormState, formData: FormData) => Promise<FormState>;
+  updateSummary?: (state: FormState, formData: FormData) => Promise<FormState>;
   encounters: HistoryEncounter[];
 };
 

@@ -8,6 +8,7 @@ import { formatCpf, formatDate } from "@/lib/format";
 import { formatMoney, moneyInWords } from "@/lib/money";
 import { paymentMethodLabel } from "@/lib/finance";
 import { PrintButton } from "@/app/(app)/pacientes/[id]/atendimentos/[encounterId]/print-button";
+import { displayName } from "@/lib/staff";
 
 function formatCnpj(cnpj: string) {
   return cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
@@ -66,7 +67,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
           Recebemos de <strong>{patient.name}</strong>
           {patient.cpf && <>, CPF {formatCpf(patient.cpf)}</>}, a importância de <strong>{formatMoney(charge.amountCents)}</strong> ({moneyInWords(charge.amountCents)}),
           referente a <strong>{charge.description}</strong>
-          {professional && <>, realizado por {professional.name}{council && ` (${council})`}</>}, paga
+          {professional && <>, realizado por {displayName(professional)}{council && ` (${council})`}</>}, paga
           {charge.paymentMethod && <> via {paymentMethodLabel[charge.paymentMethod].toLowerCase()}</>} em {formatDate(charge.paidAt)}.
         </p>
         <p>Pelo que damos plena quitação.</p>
@@ -74,7 +75,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
         <p className="text-right">{city ? `${city}, ` : ""}{charge.paidAt.toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })}</p>
 
         <div className="mx-auto w-72 border-t border-slate-400 pt-1 text-center text-sm">
-          <p>{professional?.name ?? clinic.name}</p>
+          <p>{professional ? displayName(professional) : clinic.name}</p>
           {council && <p className="text-xs text-slate-500">{council}</p>}
         </div>
       </div>

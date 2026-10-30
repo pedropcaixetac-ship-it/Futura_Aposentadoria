@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
-import { canAddAddendum, canEditEncounter, canViewClinical } from "@/lib/permissions";
+import { canAddAddendum, canEditEncounter, canOpenEncounter, canViewClinical, canWorkClinical } from "@/lib/permissions";
 import { age, formatDate, formatDateTime } from "@/lib/format";
 import { documentHash, encounterHash, type Diagnosis, type TemplateField } from "@/lib/record";
 import { documentTypeLabel } from "@/lib/documents";
@@ -17,6 +17,7 @@ import { EncounterEditor } from "./encounter-editor";
 import { PrintButton } from "./print-button";
 import { PatientHistory } from "./patient-history";
 import { VitalsView } from "./vitals-view";
+import { displayName } from "@/lib/staff";
 import { TeleconsultaPanel } from "./teleconsulta-panel";
 import { TeleconsultaRecord } from "./teleconsulta-record";
 import { endTeleconsultation, joinTeleconsultation, teleconsultationStatus } from "./teleconsulta-actions";
@@ -34,7 +35,9 @@ export default async function EncounterPage({
   const user = await requireUser("pacientes");
   const { id, encounterId } = await params;
   const { assinatura, finalizado } = await searchParams;
-  if (!canViewClinical(user)) notFound();
+  if (!canWorkClinical(user)) notFound();
+  // Acesso restrito (técnico/auxiliar de enfermagem): só os próprios atendimentos e sem documentos clínicos.
+  const full = canViewClinical(user);
 
   const encounter = await prisma.encounter.findFirst({
     where: { id: encounterId, patientId: id, clinicId: user.clinicId },
@@ -48,7 +51,7 @@ export default async function EncounterPage({
       documents: { include: { author: true, signedPdf: { select: { id: true, signerName: true, signedAt: true, provider: true } } }, orderBy: { createdAt: "asc" } },
     },
   });
-  if (!encounter) notFound();
+  if (!encounter || !canOpenEncounter(user, encounter)) notFound();
 
   await audit({
     clinicId: user.clinicId,
@@ -60,7 +63,7 @@ export default async function EncounterPage({
   });
 
   const editable = canEditEncounter(user, encounter);
-  const canIssueDocuments = encounter.professionalId === user.id;
+  const canIssueDocuments = full && encounter.professionalId === user.id;
   const providers = encounter.professionalId === user.id ? availableProviders() : [];
   const snippets = editable
     ? await prisma.textSnippet.findMany({
@@ -72,7 +75,7 @@ export default async function EncounterPage({
 
   const history = editable
     ? await prisma.encounter.findMany({
-        where: { patientId: id, clinicId: user.clinicId, status: "FINALIZADO", id: { not: encounter.id } },
+        where: { patientId: id, clinicId: user.clinicId, status: "FINALIZADO", id: { not: encounter.id }, ...(!full && { professionalId: user.id }) },
         include: { professional: true, template: true },
         orderBy: { startedAt: "desc" },
         take: 30,
@@ -135,7 +138,7 @@ export default async function EncounterPage({
             {patient.birthDate && <span className="font-normal text-slate-500"> · {age(patient.birthDate)} anos ({formatDate(patient.birthDate)})</span>}
           </h1>
           <p className="text-sm text-slate-600">
-            {formatDateTime(encounter.startedAt)} · {professional.name}
+            {formatDateTime(encounter.startedAt)} · {displayName(professional)}
             {professional.councilNumber && ` · ${professional.councilType} ${professional.councilNumber}/${professional.councilUf}`}
           </p>
           {patient.allergies && <p className="text-sm font-semibold text-red-700">Alergias: {patient.allergies}</p>}
@@ -179,7 +182,7 @@ export default async function EncounterPage({
               allergies: patient.allergies,
             }}
             startedAt={encounter.startedAt.toISOString()}
-            heading={`${encounter.template?.name ?? "Evolução livre"} · ${professional.name}`}
+            heading={`${encounter.template?.name ?? "Evolução livre"} · ${displayName(professional)}`}
             fields={fields}
             content={content}
             diagnoses={diagnoses}
@@ -189,7 +192,7 @@ export default async function EncounterPage({
               last
                 ? {
                     when: formatDateTime(last.startedAt),
-                    professionalName: last.professional.name,
+                    professionalName: displayName(last.professional),
                     fields: last.fields as TemplateField[],
                     content: last.content as Record<string, string>,
                     diagnoses: last.diagnoses as Diagnosis[],
@@ -204,12 +207,12 @@ export default async function EncounterPage({
           <PatientHistory
             patientId={id}
             summary={patient}
-            updateSummary={updateClinicalSummary.bind(null, id)}
+            updateSummary={full ? updateClinicalSummary.bind(null, id) : undefined}
             encounters={history.map((e) => ({
               id: e.id,
               startedAt: e.startedAt,
               templateName: e.template?.name ?? null,
-              professionalName: e.professional.name,
+              professionalName: displayName(e.professional),
               fields: e.fields as TemplateField[],
               content: e.content as Record<string, string>,
               diagnoses: e.diagnoses as Diagnosis[],
@@ -222,7 +225,7 @@ export default async function EncounterPage({
         <div className="card space-y-4">
           {encounter.status === "RASCUNHO" && (
             <p className="rounded bg-amber-50 p-2 text-sm text-amber-800">
-              Rascunho em andamento. Só {professional.name} pode editar e finalizar.
+              Rascunho em andamento. Só {displayName(professional)} pode editar e finalizar.
             </p>
           )}
           <VitalsView vitals={vitals} />
@@ -244,7 +247,7 @@ export default async function EncounterPage({
           )}
           {encounter.finalizedAt && (
             <p className="border-t border-slate-100 pt-3 text-xs text-slate-500">
-              Finalizado em {formatDateTime(encounter.finalizedAt)} por {professional.name}.
+              Finalizado em {formatDateTime(encounter.finalizedAt)} por {displayName(professional)}.
               <br />
               Código de integridade: <span className="font-mono">{encounter.contentHash?.slice(0, 16)}</span>
             </p>
@@ -258,7 +261,7 @@ export default async function EncounterPage({
           {encounter.addenda.map((a) => (
             <div key={a.id} className="border-l-2 border-dourado-500 pl-3">
               <p className="text-xs text-slate-500">
-                {formatDateTime(a.createdAt)} · {a.author.name}
+                {formatDateTime(a.createdAt)} · {displayName(a.author)}
                 {a.author.councilNumber && ` · ${a.author.councilType} ${a.author.councilNumber}/${a.author.councilUf}`}
               </p>
               <p className="whitespace-pre-wrap text-sm">{a.text}</p>
@@ -277,7 +280,7 @@ export default async function EncounterPage({
                   <div className="min-w-0">
                     <p className="text-sm font-medium">
                       {documentTypeLabel[d.type]}
-                      <span className="font-normal text-slate-500"> · {formatDateTime(d.createdAt)} · {d.author.name}</span>
+                      <span className="font-normal text-slate-500"> · {formatDateTime(d.createdAt)} · {displayName(d.author)}</span>
                     </p>
                     <p className="truncate text-sm text-slate-600">{d.body.split("\n").find((l) => l.trim())}</p>
                     {d.contentHash !== documentHash(d) && (

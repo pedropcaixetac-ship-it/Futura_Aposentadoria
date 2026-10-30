@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { consentText, councilLabel, teleconsultationState } from "@/lib/teleconsulta";
+import { displayName } from "@/lib/staff";
 
 // O paciente aceita o termo. Guardamos o texto exato, a hora, o IP e o aparelho.
 export async function acceptConsent(token: string, formData: FormData) {
@@ -19,7 +20,7 @@ export async function acceptConsent(token: string, formData: FormData) {
   const ip = h.get("x-forwarded-for")?.split(",")[0].trim() ?? h.get("x-real-ip") ?? null;
   const text = consentText({
     clinicName: t.clinic.name,
-    professionalName: t.professional.name,
+    professionalName: displayName(t.professional),
     council: councilLabel(t.professional),
   });
   const accepted = await prisma.teleconsultation.updateMany({

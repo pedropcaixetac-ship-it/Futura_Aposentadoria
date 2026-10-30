@@ -39,7 +39,7 @@ export async function getCurrentUser() {
   if (!token) return null;
   const session = await prisma.session.findUnique({
     where: { id: hashToken(token) },
-    include: { user: { include: { clinic: true } } },
+    include: { user: { include: { clinic: true }, omit: { photo: true } } },
   });
   if (!session || session.expiresAt < new Date() || !session.user.active || !session.user.systemAccess) return null;
   return session.user;
