@@ -9,7 +9,7 @@ export type Snippet = { id: string; fieldKey: string | null; title: string; text
 
 // Textos prontos são pessoais: cada profissional só vê e altera os seus.
 async function requireProfessional() {
-  const user = await requireUser();
+  const user = await requireUser("textos-prontos");
   if (!canViewClinical(user)) throw new Error("Sem permissão");
   return user;
 }

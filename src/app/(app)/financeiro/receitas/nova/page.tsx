@@ -10,7 +10,7 @@ import { ChargeForm } from "./charge-form";
 export default async function NewChargePage({ searchParams }: {
   searchParams: Promise<{ atendimento?: string; paciente?: string; q?: string }>;
 }) {
-  const user = await requireUser();
+  const user = await requireUser("financeiro");
   if (!canManageCharges(user)) notFound();
   const { atendimento, paciente, q = "" } = await searchParams;
   const clinicId = user.clinicId;

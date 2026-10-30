@@ -14,7 +14,7 @@ function formatCnpj(cnpj: string) {
 }
 
 export default async function ReceiptPage({ params }: { params: Promise<{ id: string }> }) {
-  const user = await requireUser();
+  const user = await requireUser("financeiro");
   if (!canManageCharges(user)) notFound();
   const { id } = await params;
   const charge = await prisma.charge.findFirst({

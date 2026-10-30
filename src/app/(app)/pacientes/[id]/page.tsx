@@ -14,7 +14,7 @@ import { PatientDetails } from "./patient-details";
 import { WhatsappButton } from "./whatsapp-button";
 
 export default async function PatientRecordPage({ params }: { params: Promise<{ id: string }> }) {
-  const user = await requireUser();
+  const user = await requireUser("pacientes");
   const { id } = await params;
   const patient = await prisma.patient.findFirst({ where: { id, clinicId: user.clinicId } });
   if (!patient) notFound();

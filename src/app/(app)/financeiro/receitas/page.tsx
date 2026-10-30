@@ -19,7 +19,7 @@ const filters = [
 ];
 
 export default async function ChargesPage({ searchParams }: { searchParams: Promise<{ mes?: string; situacao?: string }> }) {
-  const user = await requireUser();
+  const user = await requireUser("financeiro");
   if (!canManageCharges(user)) notFound();
   const { mes, situacao = "" } = await searchParams;
   const range = monthRange(mes);

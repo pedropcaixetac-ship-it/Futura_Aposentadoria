@@ -4,7 +4,7 @@ import { createPatient } from "../actions";
 import { PatientForm } from "../patient-form";
 
 export default async function NewPatientPage({ searchParams }: { searchParams: Promise<{ modo?: string }> }) {
-  await requireUser();
+  await requireUser("pacientes");
   const quick = (await searchParams).modo === "rapido";
   return (
     <div className="max-w-5xl space-y-4">

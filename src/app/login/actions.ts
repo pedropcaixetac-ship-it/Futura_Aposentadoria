@@ -24,7 +24,7 @@ export async function login(_: { error: string }, formData: FormData) {
 
   await createSession(user.id);
   await audit({ clinicId: clinic.id, userId: user.id, action: "LOGIN", entity: "User", entityId: user.id });
-  redirect("/pacientes");
+  redirect("/");
 }
 
 export async function logout() {

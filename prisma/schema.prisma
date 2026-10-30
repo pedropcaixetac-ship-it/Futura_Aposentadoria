@@ -86,7 +86,17 @@ model User {
   sector            String?
   // Porcentagem do valor recebido que fica com o profissional (repasse).
   commissionPercent Int?
+  // Função ou cargo mostrado no cadastro de servidores (ex.: Médica, Recepcionista).
+  jobTitle          String?
+  // Abas liberadas para a pessoa. Enquanto customTabs for false, valem as abas
+  // padrão do perfil (ver src/lib/tabs.ts).
+  customTabs        Boolean  @default(false)
+  allowedTabs       String[] @default([])
+  // false bloqueia o login. No desligamento a pessoa perde o acesso, mas continua
+  // no cadastro, porque é a autora de atendimentos antigos do prontuário.
   active            Boolean  @default(true)
+  terminatedAt      DateTime? @db.Date
+  terminationReason String?
   createdAt         DateTime @default(now())
 
   sessions   Session[]

@@ -5,7 +5,7 @@ import { updatePatient } from "../../actions";
 import { PatientForm } from "../../patient-form";
 
 export default async function EditPatientPage({ params }: { params: Promise<{ id: string }> }) {
-  const user = await requireUser();
+  const user = await requireUser("pacientes");
   const { id } = await params;
   const patient = await prisma.patient.findFirst({ where: { id, clinicId: user.clinicId } });
   if (!patient) notFound();

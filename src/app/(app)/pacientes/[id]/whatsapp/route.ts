@@ -7,7 +7,7 @@ import { isWhatsappTemplate, whatsappLink } from "@/lib/whatsapp";
 // Passa por aqui antes de abrir o WhatsApp, para conferir o consentimento
 // do paciente e registrar na auditoria quem mandou mensagem e quando.
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const user = await requireUser();
+  const user = await requireUser("pacientes");
   const { id } = await params;
   const modelo = new URL(request.url).searchParams.get("modelo") ?? "livre";
   const patient = await prisma.patient.findFirst({ where: { id, clinicId: user.clinicId } });

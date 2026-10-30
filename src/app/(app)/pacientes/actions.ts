@@ -53,7 +53,7 @@ function whatsappConsent(formData: FormData, before: { whatsappOptIn: boolean; w
 }
 
 export async function createPatient(_: FormState, formData: FormData): Promise<FormState> {
-  const user = await requireUser();
+  const user = await requireUser("pacientes");
   const mode = modeOf(formData);
   const data = parsePatient(readFormData(formData), mode);
   const error = validatePatient(data, mode);
@@ -89,7 +89,7 @@ export async function createPatient(_: FormState, formData: FormData): Promise<F
 }
 
 export async function updatePatient(id: string, _: FormState, formData: FormData): Promise<FormState> {
-  const user = await requireUser();
+  const user = await requireUser("pacientes");
   const data = parsePatient(readFormData(formData), "completo");
   const error = validatePatient(data, "completo");
   if (error) return { error };
@@ -139,7 +139,7 @@ export async function updatePatient(id: string, _: FormState, formData: FormData
 }
 
 export async function updateClinicalSummary(id: string, _: FormState, formData: FormData): Promise<FormState> {
-  const user = await requireUser();
+  const user = await requireUser("pacientes");
   if (!canViewClinical(user)) return { error: "Sem permissão." };
 
   const before = await prisma.patient.findFirst({ where: { id, clinicId: user.clinicId } });

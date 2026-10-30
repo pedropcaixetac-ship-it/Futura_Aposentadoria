@@ -31,7 +31,7 @@ function parseFields(raw: string): TemplateField[] {
 }
 
 export async function saveTemplate(_: TemplateState, formData: FormData): Promise<TemplateState> {
-  const user = await requireUser();
+  const user = await requireUser("modelos");
   if (!canManageTemplates(user)) return { error: "Sem permissão." };
 
   const id = String(formData.get("id") ?? "") || null;

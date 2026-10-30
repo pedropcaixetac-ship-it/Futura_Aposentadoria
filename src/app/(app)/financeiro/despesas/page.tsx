@@ -10,7 +10,7 @@ import { ActionForm } from "../action-form";
 import { MonthNav, PayForm, StatusBadge } from "../ui";
 
 export default async function ExpensesPage({ searchParams }: { searchParams: Promise<{ mes?: string }> }) {
-  const user = await requireUser();
+  const user = await requireUser("financeiro");
   if (!canManageFinance(user)) notFound();
   const { mes } = await searchParams;
   const range = monthRange(mes);

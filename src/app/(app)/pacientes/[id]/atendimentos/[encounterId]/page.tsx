@@ -16,7 +16,7 @@ import { PatientHistory } from "./patient-history";
 import { VitalsView } from "./vitals-view";
 
 export default async function EncounterPage({ params }: { params: Promise<{ id: string; encounterId: string }> }) {
-  const user = await requireUser();
+  const user = await requireUser("pacientes");
   const { id, encounterId } = await params;
   if (!canViewClinical(user)) notFound();
 

@@ -27,10 +27,6 @@ export function canManageTemplates(user: PermissionUser) {
   return user.role === "ADMIN" || canViewClinical(user);
 }
 
-export function canViewAudit(user: PermissionUser) {
-  return user.role === "ADMIN";
-}
-
 // Financeiro: o administrador vê tudo; a recepção lança cobranças e recebe pagamentos;
 // cada profissional vê apenas o próprio repasse.
 export function canManageCharges(user: PermissionUser) {

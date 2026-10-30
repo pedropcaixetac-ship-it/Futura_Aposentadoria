@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "./db";
+import { hasTab, type TabKey } from "./tabs";
 
 const COOKIE = "sessao";
 const SESSION_HOURS = 12;
@@ -46,8 +47,11 @@ export async function getCurrentUser() {
 
 export type CurrentUser = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
 
-export async function requireUser() {
+// Com uma aba, também confere se a pessoa tem acesso a ela (ver "Editar permissões").
+// Sem acesso, volta para o início, que leva à primeira aba liberada.
+export async function requireUser(tab?: TabKey) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  if (tab && !hasTab(user, tab)) redirect("/");
   return user;
 }
