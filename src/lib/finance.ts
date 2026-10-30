@@ -23,6 +23,8 @@ export const expenseCategories = [
   "Salários e encargos",
   "Repasse a profissionais",
   "Materiais e insumos",
+  "Medicamentos",
+  "Equipamentos",
   "Água, luz, internet e telefone",
   "Impostos e taxas",
   "Sistemas e serviços",
@@ -67,4 +69,30 @@ export function commission(receivedCents: number, percent: number | null | undef
 // Descrição da despesa de repasse; também serve para saber se o repasse do mês já foi lançado.
 export function commissionDescription(professionalName: string, monthLabel: string) {
   return `Repasse ${professionalName} (${monthLabel})`;
+}
+
+// Tipos de compra da aba Compras e a categoria de despesa em que cada um entra.
+export const purchaseKinds: Record<string, string> = {
+  "Material médico/hospitalar": "Materiais e insumos",
+  "Medicamentos": "Medicamentos",
+  "Insumos": "Materiais e insumos",
+  "Material de escritório e limpeza": "Materiais e insumos",
+  "Equipamentos": "Equipamentos",
+  "Outros": "Outros",
+};
+
+// Divide o valor da nota em parcelas iguais, a cada 30 dias a partir do primeiro vencimento.
+// Os centavos que sobram da divisão vão para a primeira parcela.
+export function splitInstallments(totalCents: number, count: number, firstDue: Date) {
+  const base = Math.floor(totalCents / count);
+  return Array.from({ length: count }, (_, i) => ({
+    dueDate: new Date(Date.UTC(firstDue.getUTCFullYear(), firstDue.getUTCMonth(), firstDue.getUTCDate() + 30 * i)),
+    amountCents: base + (i === 0 ? totalCents - base * count : 0),
+  }));
+}
+
+// Descrição de cada parcela na aba Despesas: "NF 1234 · Fornecedor (1/3)".
+export function purchaseExpenseDescription(invoiceNumber: string, supplierName: string, installment: number, count: number) {
+  const parcel = count > 1 ? ` (${installment}/${count})` : "";
+  return `NF ${invoiceNumber} · ${supplierName}`.slice(0, 190) + parcel;
 }

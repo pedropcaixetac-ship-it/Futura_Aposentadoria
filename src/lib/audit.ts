@@ -38,6 +38,8 @@ export const auditActionLabel: Record<string, string> = {
   DESPESA_CRIADA: "Lançou despesa",
   DESPESA_PAGA: "Pagou despesa",
   DESPESA_CANCELADA: "Cancelou despesa",
+  COMPRA_LANCADA: "Lançou nota fiscal de compra",
+  COMPRA_CANCELADA: "Cancelou nota fiscal de compra",
   PRECO_CRIADO: "Cadastrou preço",
   PRECO_ALTERADO: "Alterou preço",
   REPASSE_ALTERADO: "Alterou porcentagem de repasse",
