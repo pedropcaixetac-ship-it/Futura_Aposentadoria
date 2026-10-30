@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { patientCancel, patientConfirm } from "./actions";
 
 // Botões de cada próxima consulta. Desmarcar pede uma segunda confirmação para evitar toque sem querer.
+// Remarcar vale para as mesmas consultas que podem ser desmarcadas.
 export function AppointmentActions({ id, canConfirm, canCancel }: { id: string; canConfirm: boolean; canCancel: boolean }) {
   const [asking, setAsking] = useState(false);
   const [pending, start] = useTransition();
@@ -27,7 +29,7 @@ export function AppointmentActions({ id, canConfirm, canCancel }: { id: string; 
   }
 
   return (
-    <div className="mt-3 flex gap-2">
+    <div className="mt-3 flex flex-wrap gap-2">
       {canConfirm && (
         <button
           type="button"
@@ -37,6 +39,11 @@ export function AppointmentActions({ id, canConfirm, canCancel }: { id: string; 
         >
           {pending ? "Confirmando..." : "Confirmar presença"}
         </button>
+      )}
+      {canCancel && (
+        <Link href={`/paciente/remarcar/${id}`} className="btn-secondary flex-1">
+          Remarcar
+        </Link>
       )}
       {canCancel && (
         <button type="button" className="btn-secondary flex-1" disabled={pending} onClick={() => setAsking(true)}>

@@ -7,6 +7,7 @@ import { addDays, appointmentTypeLabel, clinicTime, formatDayLabel, formatTime, 
 import { listProfessionals, loadAgenda } from "@/lib/agenda-data";
 import { formatDateTime, formatPhone } from "@/lib/format";
 import { canMessage } from "@/lib/whatsapp";
+import { lastAppAction } from "@/lib/patient-app";
 import { prisma } from "@/lib/db";
 import { WhatsappLink } from "../agenda/whatsapp-link";
 import { returnsToNotify } from "./retornos/data";
@@ -39,7 +40,8 @@ export default async function ReceptionPage({ searchParams }: { searchParams: Pr
   const count = (s: AppointmentStatus[]) => active.filter((a) => s.includes(a.status)).length;
   const now = Date.now();
   const tomorrow = addDays(todayDate, 1);
-  const [toConfirmTomorrow, returns, cancelledInApp] = await Promise.all([
+  const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000);
+  const [toConfirmTomorrow, returns, inApp] = await Promise.all([
     date === todayDate
       ? prisma.appointment.count({
           where: {
@@ -51,21 +53,30 @@ export default async function ReceptionPage({ searchParams }: { searchParams: Pr
         })
       : 0,
     returnsToNotify(user.clinicId),
-    // Consultas que o paciente desmarcou pelo aplicativo na última semana e que ainda iam acontecer:
-    // a recepção vê para remarcar ou encaixar outra pessoa no horário.
+    // Consultas futuras que o paciente marcou, remarcou ou desmarcou pelo aplicativo na última semana:
+    // a recepção vê para se organizar (e, nas desmarcadas, remarcar ou encaixar outra pessoa).
     prisma.appointment.findMany({
       where: {
         clinicId: user.clinicId,
-        status: "DESMARCADO",
-        cancelledInAppAt: { gte: new Date(Date.now() - 7 * 24 * 3600 * 1000) },
         startsAt: { gte: new Date() },
+        OR: [{ createdInAppAt: { gte: weekAgo } }, { rescheduledInAppAt: { gte: weekAgo } }, { cancelledInAppAt: { gte: weekAgo } }],
       },
-      select: { id: true, startsAt: true, professionalId: true, cancelledInAppAt: true, patient: { select: { name: true, socialName: true } } },
+      select: {
+        id: true,
+        startsAt: true,
+        status: true,
+        professionalId: true,
+        createdInAppAt: true,
+        rescheduledInAppAt: true,
+        cancelledInAppAt: true,
+        patient: { select: { name: true, socialName: true } },
+      },
       orderBy: { startsAt: "asc" },
-      take: 10,
+      take: 15,
     }),
   ]);
   const pendingReturns = returns.filter((r) => !r.returnNoticeSentAt).length;
+  const appChanges = inApp.map((a) => ({ ...a, action: lastAppAction(a) })).filter((a) => a.action);
 
   return (
     <div className="space-y-4">
@@ -99,17 +110,20 @@ export default async function ReceptionPage({ searchParams }: { searchParams: Pr
         </div>
       )}
 
-      {cancelledInApp.length > 0 && (
-        <div className="card border-red-200 bg-red-50/60">
-          <h2 className="mb-1 font-semibold text-red-900">Desmarcadas pelo paciente no aplicativo</h2>
-          <p className="mb-2 text-xs text-red-800">O horário ficou livre na agenda. Se quiser, ligue para remarcar ou encaixe outra pessoa.</p>
-          <ul className="divide-y divide-red-100 text-sm">
-            {cancelledInApp.map((a) => (
-              <li key={a.id} className="py-1.5">
+      {appChanges.length > 0 && (
+        <div className="card border-marinho-100 bg-marinho-50/60">
+          <h2 className="mb-1 font-semibold text-marinho-900">Feito pelos pacientes no aplicativo</h2>
+          <p className="mb-2 text-xs text-marinho-700">Últimos 7 dias. Nas desmarcadas o horário ficou livre: se quiser, ligue para remarcar ou encaixe outra pessoa.</p>
+          <ul className="divide-y divide-marinho-100 text-sm">
+            {appChanges.map((a) => (
+              <li key={a.id} className="flex flex-wrap items-baseline gap-x-2 py-1.5">
+                <span className={`rounded px-1.5 text-xs font-medium ${a.action!.label === "Desmarcou" ? "bg-red-100 text-red-800" : "bg-emerald-100 text-emerald-800"}`}>
+                  {a.action!.label}
+                </span>
                 <Link href={`/agenda/${a.id}`} className="hover:underline">
                   <span className="font-medium">{formatDateTime(a.startsAt)}</span> · {a.patient.socialName || a.patient.name} · {name.get(a.professionalId)}
                 </Link>
-                <span className="text-xs text-red-800"> (desmarcou em {formatDateTime(a.cancelledInAppAt)})</span>
+                <span className="text-xs text-slate-500">em {formatDateTime(a.action!.at)}</span>
               </li>
             ))}
           </ul>
