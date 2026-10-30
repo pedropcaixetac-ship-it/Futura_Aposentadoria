@@ -208,6 +208,17 @@ model Session {
   createdAt DateTime @default(now())
 }
 
+// Sessão do paciente no aplicativo (separada da sessão da equipe).
+model PatientSession {
+  id        String   @id
+  patientId String
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([patientId])
+}
+
 model Patient {
   id                   String  @id @default(cuid())
   clinicId             String
@@ -268,6 +279,11 @@ model Patient {
   notes          String?
   lgpdConsentAt  DateTime?
 
+  // Aplicativo do paciente: o paciente entra com CPF e data de nascimento.
+  // Depois de várias tentativas erradas seguidas, a entrada fica travada por um tempo.
+  appLoginFailures Int       @default(0)
+  appLockedUntil   DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -283,6 +299,7 @@ model Patient {
   appointments Appointment[]
   signedPdfs   SignedPdf[]
   teleconsultations Teleconsultation[]
+  appSessions  PatientSession[]
 
   @@unique([clinicId, cpf])
   @@unique([clinicId, cns])
