@@ -4,7 +4,20 @@ export type PermissionUser = {
   id: string;
   role: Role;
   councilNumber: string | null;
+  // Abas escolhidas pelo administrador em "Editar permissões" (quando customTabs é verdadeiro).
+  customTabs?: boolean;
+  allowedTabs?: string[];
 };
+
+// Perfis que já recebem a aba Recepção sem permissão personalizada.
+export const RECEPTION_ROLES: Role[] = ["ADMIN", "RECEPCAO", "ADMINISTRATIVO"];
+
+// Quem tem a aba Recepção: confirma presença, marca chegada ou falta e cuida da agenda de todos.
+// Fica aqui (e não em tabs.ts) para as regras da agenda usarem sem import circular.
+function hasReceptionTab(user: PermissionUser) {
+  if (user.role === "ADMIN") return true;
+  return user.customTabs ? !!user.allowedTabs?.includes("recepcao") : RECEPTION_ROLES.includes(user.role);
+}
 
 // Acesso completo ao prontuário: profissionais de saúde (e administradores) com registro em conselho.
 // Recepção, auxiliar administrativo e administradores sem registro veem apenas o cadastro.
@@ -38,10 +51,10 @@ export function canManageTemplates(user: PermissionUser) {
   return user.role === "ADMIN" || canWorkClinical(user);
 }
 
-// Agenda: recepção e administrador cuidam da agenda de todos;
+// Agenda: quem tem a aba Recepção (e o administrador) cuida da agenda de todos;
 // o profissional vê e marca só na própria agenda.
 export function canSeeAllAgendas(user: PermissionUser) {
-  return user.role === "ADMIN" || user.role === "RECEPCAO";
+  return hasReceptionTab(user);
 }
 
 export function canManageAgendaOf(user: PermissionUser, professionalId: string) {
@@ -55,7 +68,7 @@ export function canStartFromAppointment(user: PermissionUser, appointment: { pro
 
 // Recepção: quem confirma presença e marca chegada ou falta dos pacientes.
 export function canUseReception(user: PermissionUser) {
-  return user.role === "ADMIN" || user.role === "RECEPCAO";
+  return hasReceptionTab(user);
 }
 
 // Financeiro: o administrador vê tudo; a recepção lança cobranças e recebe pagamentos;

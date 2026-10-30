@@ -4,12 +4,12 @@ import bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { Prisma } from "@prisma/client";
+import { Prisma, type Role } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { parseDateInput } from "@/lib/finance";
-import { parseStaff, terminationReasons, validateStaff } from "@/lib/staff";
+import { parseStaff, staffEditBlock, terminationReasons, validateStaff } from "@/lib/staff";
 import { sanitizeTabs } from "@/lib/tabs";
 
 export type FormState = { error: string; ok?: string };
@@ -17,6 +17,14 @@ export type FormState = { error: string; ok?: string };
 async function findStaff(clinicId: string, id: string) {
   const staff = await prisma.user.findFirst({ where: { id, clinicId } });
   if (!staff) throw new Error("Servidor não encontrado");
+  return staff;
+}
+
+// Para quem não é gerente do sistema: carrega o servidor e recusa se ele for gerente ou a própria pessoa.
+async function findEditableStaff(actor: { id: string; role: Role; clinicId: string }, id: string) {
+  const staff = await findStaff(actor.clinicId, id);
+  const blocked = staffEditBlock(actor, staff);
+  if (blocked) throw new Error(blocked);
   return staff;
 }
 
@@ -32,10 +40,10 @@ export async function saveStaff(id: string | null, _: FormState, formData: FormD
   const admin = await requireUser("servidores");
   const input = parseStaff(formData);
   const current = id ? await findStaff(admin.clinicId, id) : null;
-  const error = validateStaff(input, { needsPassword: !current?.systemAccess });
+  const error = validateStaff(input, { needsPassword: !current?.systemAccess }) ?? staffEditBlock(admin, current, input.role);
   if (error) return { error };
   if (current?.id === admin.id && (input.role !== "ADMIN" || !input.systemAccess)) {
-    return { error: "Você não pode tirar o seu próprio acesso de administrador." };
+    return { error: "Você não pode tirar o seu próprio perfil de gerente do sistema." };
   }
 
   const { password, ...data } = input;
@@ -81,8 +89,8 @@ export async function saveStaff(id: string | null, _: FormState, formData: FormD
 
 export async function savePermissions(id: string, formData: FormData) {
   const admin = await requireUser("servidores");
-  const staff = await findStaff(admin.clinicId, id);
-  if (staff.role === "ADMIN") throw new Error("Administradores têm todas as abas");
+  const staff = await findEditableStaff(admin, id);
+  if (staff.role === "ADMIN") throw new Error("O gerente do sistema tem todas as abas");
 
   const tabs = sanitizeTabs(staff, formData.getAll("tabs").map(String));
   await prisma.user.update({ where: { id }, data: { customTabs: true, allowedTabs: tabs } });
@@ -93,7 +101,7 @@ export async function savePermissions(id: string, formData: FormData) {
 
 export async function resetPermissions(id: string) {
   const admin = await requireUser("servidores");
-  await findStaff(admin.clinicId, id);
+  await findEditableStaff(admin, id);
   await prisma.user.update({ where: { id }, data: { customTabs: false, allowedTabs: [] } });
   await audit({ clinicId: admin.clinicId, userId: admin.id, action: "PERMISSOES_ALTERADAS", entity: "User", entityId: id, details: { abas: "padrão do perfil" } });
   revalidatePath("/servidores");
@@ -104,6 +112,8 @@ export async function terminateStaff(id: string, _: FormState, formData: FormDat
   const admin = await requireUser("servidores");
   const staff = await findStaff(admin.clinicId, id);
   if (staff.id === admin.id) return { error: "Você não pode registrar o seu próprio desligamento." };
+  const blocked = staffEditBlock(admin, staff);
+  if (blocked) return { error: blocked };
   if (!staff.active) return { error: "Esta pessoa já está desligada." };
 
   const date = parseDateInput(String(formData.get("terminatedAt") ?? ""));
@@ -126,7 +136,7 @@ export async function terminateStaff(id: string, _: FormState, formData: FormDat
 
 export async function reactivateStaff(id: string) {
   const admin = await requireUser("servidores");
-  await findStaff(admin.clinicId, id);
+  await findEditableStaff(admin, id);
   await prisma.user.update({ where: { id }, data: { active: true, terminatedAt: null, terminationReason: null } });
   await audit({ clinicId: admin.clinicId, userId: admin.id, action: "SERVIDOR_REATIVADO", entity: "User", entityId: id });
   revalidatePath("/servidores");

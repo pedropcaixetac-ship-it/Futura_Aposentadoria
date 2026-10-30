@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { dateInput, today } from "@/lib/finance";
-import { staffFunction, terminationReasons, displayName } from "@/lib/staff";
+import { staffFunction, terminationReasons, displayName, staffEditBlock } from "@/lib/staff";
 import { ActionForm } from "../../../financeiro/action-form";
 import { terminateStaff } from "../../actions";
 
@@ -12,6 +12,7 @@ export default async function TerminationPage({ params }: { params: Promise<{ id
   const { id } = await params;
   const staff = await prisma.user.findFirst({ where: { id, clinicId: user.clinicId }, omit: { passwordHash: true } });
   if (!staff) notFound();
+  if (staffEditBlock(user, staff)) redirect("/servidores");
   if (!staff.active || staff.id === user.id) redirect("/servidores");
 
   return (

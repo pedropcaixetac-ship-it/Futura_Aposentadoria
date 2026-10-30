@@ -84,7 +84,7 @@ export function recordPdfInput(
     { title: "Antecedentes familiares", text: patient.familyHistory ?? "Não informado" },
   ];
   for (const e of encounters) {
-    const who = [displayName(e.professional), council(e.professional), e.professional.specialty].filter(Boolean).join(" · ");
+    const who = [displayName(e.professional), councilLabel(e.professional), e.professional.specialty].filter(Boolean).join(" · ");
     sections.push({ heading: true, title: `Atendimento de ${formatDateTime(e.startedAt)}`, text: who });
     sections.push(...encounterSections(e));
     for (const d of e.documents) {

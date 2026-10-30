@@ -11,6 +11,8 @@ type Props = {
   action: (state: FormState, formData: FormData) => Promise<FormState>;
   staff?: Omit<User, "passwordHash">;
   isSelf?: boolean;
+  // Só o gerente do sistema dá o perfil de gerente.
+  canGrantAdmin?: boolean;
 };
 
 const OTHER = "__outro";
@@ -122,7 +124,7 @@ const jobGroups = [...new Set(JOB_TITLES.map((j) => j.group))].map((group) => ({
   options: JOB_TITLES.filter((j) => j.group === group).map((j) => j.title),
 }));
 
-export function StaffForm({ action, staff, isSelf }: Props) {
+export function StaffForm({ action, staff, isSelf, canGrantAdmin = false }: Props) {
   const s = staff;
   const [state, formAction] = useActionState(action, { error: "" });
   const [pending, startTransition] = useTransition();
@@ -154,7 +156,7 @@ export function StaffForm({ action, staff, isSelf }: Props) {
     if (next.council) setCouncilType(next.council);
     if (isSelf) return;
     if (next.role) {
-      setRole(next.role);
+      setRole(next.role === "ADMIN" && !canGrantAdmin ? "ADMINISTRATIVO" : next.role);
       setAccess(true);
     } else {
       setAccess(false);
@@ -295,11 +297,11 @@ export function StaffForm({ action, staff, isSelf }: Props) {
           <div className="sm:col-span-2 lg:col-span-3">
             <label className="label" htmlFor="role">Perfil de acesso <span className="text-red-600">*</span></label>
             <select className="input max-w-md" id="role" name="role" value={role} onChange={(e) => setRole(e.target.value as Role)} disabled={isSelf}>
-              {(Object.keys(roleLabel) as Role[]).map((value) => (
+              {(Object.keys(roleLabel) as Role[]).filter((value) => canGrantAdmin || value !== "ADMIN").map((value) => (
                 <option key={value} value={value}>{roleLabel[value]}</option>
               ))}
             </select>
-            {/* Campo desabilitado não vai no formulário; o próprio administrador continua administrador. */}
+            {/* Campo desabilitado não vai no formulário; o próprio gerente continua gerente. */}
             {isSelf && <input type="hidden" name="role" value={role} />}
             <p className={`mt-2 rounded-md px-3 py-2 text-sm ${role === "TECNICO" ? "bg-dourado-100 text-dourado-700" : "bg-marinho-50 text-marinho-800"}`}>
               {ROLE_HELP[role]}

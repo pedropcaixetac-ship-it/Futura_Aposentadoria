@@ -3,7 +3,7 @@ import type { Prisma, Role } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { formatDate, roleLabel } from "@/lib/format";
-import { staffFunction, displayName, councilLabel } from "@/lib/staff";
+import { staffFunction, displayName, councilLabel, staffEditBlock } from "@/lib/staff";
 import { reactivateStaff } from "./actions";
 import { RowMenu } from "./row-menu";
 
@@ -152,7 +152,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
                   )}
                 </td>
                 <td className="px-2 py-2 text-right">
-                  <RowMenu id={s.id} name={s.name} active={s.active} systemAccess={s.systemAccess} isSelf={s.id === user.id} reactivate={reactivateStaff.bind(null, s.id)} />
+                  <RowMenu id={s.id} name={s.name} active={s.active} systemAccess={s.systemAccess} isSelf={s.id === user.id} locked={!!staffEditBlock(user, s)} reactivate={reactivateStaff.bind(null, s.id)} />
                 </td>
               </tr>
             ))}
