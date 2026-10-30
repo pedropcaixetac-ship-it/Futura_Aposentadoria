@@ -37,6 +37,13 @@ const retorno = [
   { key: "conduta", label: "Conduta", type: "textarea" },
 ];
 
+// Exemplo de modelo próprio: a Dra. Ana prefere um formulário mais enxuto.
+const consultaAna = [
+  { key: "queixa", label: "Queixa principal", type: "text" },
+  { key: "hda", label: "História e exame", type: "textarea" },
+  { key: "conduta", label: "Conduta e orientações", type: "textarea" },
+];
+
 const psicologia = [
   { key: "demanda", label: "Demanda", type: "textarea" },
   { key: "registro", label: "Registro da sessão", type: "textarea" },
@@ -81,15 +88,19 @@ async function seedDemo() {
     ],
   });
 
+  const ana = await prisma.user.findFirstOrThrow({ where: { clinicId: clinic.id, email: "ana@demo.com" } });
+  const carlos = await prisma.user.findFirstOrThrow({ where: { clinicId: clinic.id, email: "carlos@demo.com" } });
+
+  // Modelos da clínica (sem dono) e modelos próprios de cada profissional.
   await prisma.recordTemplate.createMany({
     data: [
       { clinicId: clinic.id, name: "Consulta (primeira vez)", fields: consultaGeral },
       { clinicId: clinic.id, name: "Retorno", fields: retorno },
-      { clinicId: clinic.id, name: "Sessão de psicologia", specialty: "Psicologia", fields: psicologia },
+      { clinicId: clinic.id, ownerId: ana.id, name: "Minha consulta", fields: consultaAna },
+      { clinicId: clinic.id, ownerId: carlos.id, name: "Sessão de psicologia", fields: psicologia },
     ],
   });
 
-  const ana = await prisma.user.findFirstOrThrow({ where: { clinicId: clinic.id, email: "ana@demo.com" } });
   await prisma.textSnippet.createMany({
     data: [
       {

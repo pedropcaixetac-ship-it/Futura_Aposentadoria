@@ -11,6 +11,7 @@ import { canAddAddendum, canEditEncounter, canViewClinical } from "@/lib/permiss
 import { documentTypes } from "@/lib/documents";
 import { documentHash, encounterHash, parseDiagnoses, sanitizeContent, type TemplateField } from "@/lib/record";
 import { parseVitals } from "@/lib/vitals";
+import { findUsableTemplate } from "@/lib/templates";
 
 const freeTextFields: TemplateField[] = [{ key: "evolucao", label: "Evolução", type: "textarea" }];
 
@@ -23,8 +24,9 @@ export async function startEncounter(patientId: string, formData: FormData) {
 
   const templateId = String(formData.get("templateId") ?? "") || null;
   const template = templateId
-    ? await prisma.recordTemplate.findFirst({ where: { id: templateId, clinicId: user.clinicId } })
+    ? await findUsableTemplate(user, templateId)
     : null;
+  if (templateId && !template) throw new Error("Modelo não encontrado");
 
   const encounter = await prisma.encounter.create({
     data: {

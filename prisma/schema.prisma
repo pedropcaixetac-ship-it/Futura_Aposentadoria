@@ -94,6 +94,7 @@ model User {
   addenda    Addendum[]
   auditLogs  AuditLog[]
   snippets   TextSnippet[]
+  templates  RecordTemplate[]
   charges    Charge[]
   documents  ClinicalDocument[]
 
@@ -184,17 +185,24 @@ model Patient {
 
 // Modelo de atendimento (ex.: "Consulta clínica geral", "Psicologia - sessão").
 // fields é uma lista de campos: [{ key, label, type: "text" | "textarea" }]
+// Cada modelo pertence a um profissional (ownerId), que monta o formulário do seu jeito.
+// Sem ownerId, é um modelo da clínica, que todos os profissionais podem usar.
 model RecordTemplate {
   id        String   @id @default(cuid())
   clinicId  String
   clinic    Clinic   @relation(fields: [clinicId], references: [id])
+  ownerId   String?
+  owner     User?    @relation(fields: [ownerId], references: [id])
   name      String
+  // Não é mais usado nas telas (os modelos agora são por profissional).
   specialty String?
   fields    Json
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 
   encounters Encounter[]
+
+  @@index([clinicId, ownerId])
 }
 
 // Um atendimento no prontuário. Enquanto RASCUNHO pode ser editado;
