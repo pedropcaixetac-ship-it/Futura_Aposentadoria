@@ -42,4 +42,7 @@ export const auditActionLabel: Record<string, string> = {
   PRECO_ALTERADO: "Alterou preço",
   REPASSE_ALTERADO: "Alterou porcentagem de repasse",
   CLINICA_ALTERADA: "Alterou dados da clínica",
+  DOCUMENTO_EMITIDO: "Emitiu receita/atestado/pedido",
+  PDF_ATENDIMENTO_GERADO: "Gerou PDF do atendimento",
+  PDF_DOCUMENTO_GERADO: "Gerou PDF de documento",
 };

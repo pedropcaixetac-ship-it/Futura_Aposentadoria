@@ -4,11 +4,12 @@ import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { canManageCharges, canViewClinical } from "@/lib/permissions";
-import { age, formatCpf, formatDate, formatDateTime } from "@/lib/format";
+import { age, formatCpf, formatDate, formatDateTime, formatPhone } from "@/lib/format";
 import type { Diagnosis, TemplateField } from "@/lib/record";
 import { updateClinicalSummary } from "../actions";
 import { startEncounter } from "./actions";
 import { ClinicalSummary } from "./clinical-summary";
+import { PatientDetails } from "./patient-details";
 
 export default async function PatientRecordPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
@@ -34,20 +35,33 @@ export default async function PatientRecordPage({ params }: { params: Promise<{ 
 
   return (
     <div className="space-y-5">
+      {!patient.registrationComplete && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dourado-300 bg-dourado-100 px-4 py-3 text-sm text-dourado-700">
+          <span>Cadastro incompleto: este paciente foi registrado pelo cadastro rápido.</span>
+          <Link href={`/pacientes/${id}/editar`} className="font-medium underline">Completar cadastro</Link>
+        </div>
+      )}
+
       <div className="card flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">{patient.socialName || patient.name}</h1>
-          {patient.socialName && <p className="text-sm text-slate-500">Nome de registro: {patient.name}</p>}
-          <p className="mt-1 text-sm text-slate-600">
-            {[
-              patient.birthDate && `${age(patient.birthDate)} anos (${formatDate(patient.birthDate)})`,
-              patient.cpf && `CPF ${formatCpf(patient.cpf)}`,
-              patient.phone,
-              patient.insurance && `${patient.insurance}${patient.insuranceNumber ? ` · ${patient.insuranceNumber}` : ""}`,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
+        <div className="flex items-start gap-4">
+          {patient.photo && (
+            // eslint-disable-next-line @next/next/no-img-element -- foto guardada como data URL
+            <img src={patient.photo} alt="" className="h-16 w-16 shrink-0 rounded-full border-2 border-dourado-300 object-cover" />
+          )}
+          <div>
+            <h1 className="text-2xl font-semibold">{patient.socialName || patient.name}</h1>
+            {patient.socialName && <p className="text-sm text-slate-500">Nome de registro: {patient.name}</p>}
+            <p className="mt-1 text-sm text-slate-600">
+              {[
+                patient.birthDate && `${age(patient.birthDate)} anos (${formatDate(patient.birthDate)})`,
+                patient.cpf && `CPF ${formatCpf(patient.cpf)}`,
+                patient.phone && formatPhone(patient.phone),
+                patient.insurance && `${patient.insurance}${patient.insuranceNumber ? ` · ${patient.insuranceNumber}` : ""}`,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           {canManageCharges(user) && (
@@ -56,6 +70,8 @@ export default async function PatientRecordPage({ params }: { params: Promise<{ 
           <Link href={`/pacientes/${id}/editar`} className="btn-secondary">Editar cadastro</Link>
         </div>
       </div>
+
+      <PatientDetails patient={patient} />
 
       {!clinical && (
         <p className="card text-sm text-slate-500">

@@ -1,12 +1,14 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { canAddAddendum, canEditEncounter, canViewClinical } from "@/lib/permissions";
-import { encounterHash, parseDiagnoses, sanitizeContent, type TemplateField } from "@/lib/record";
+import { documentTypes } from "@/lib/documents";
+import { documentHash, encounterHash, parseDiagnoses, sanitizeContent, type TemplateField } from "@/lib/record";
 
 const freeTextFields: TemplateField[] = [{ key: "evolucao", label: "Evolução", type: "textarea" }];
 
@@ -112,6 +114,45 @@ export async function addAddendum(encounterId: string, formData: FormData) {
     entity: "Addendum",
     entityId: addendum.id,
     patientId: encounter.patientId,
+  });
+  revalidatePath(`/pacientes/${encounter.patientId}/atendimentos/${encounter.id}`);
+}
+
+// Emite receita, atestado, pedido de exame ou relatório dentro do atendimento.
+// Só o profissional do atendimento emite; depois de emitido não muda mais.
+export async function issueDocument(encounterId: string, formData: FormData) {
+  const user = await requireUser();
+  const encounter = await prisma.encounter.findFirst({ where: { id: encounterId, clinicId: user.clinicId } });
+  if (!encounter || !canViewClinical(user) || encounter.professionalId !== user.id) throw new Error("Sem permissão");
+
+  const type = documentTypes.find((t) => t === formData.get("type"));
+  const body = String(formData.get("body") ?? "").trim();
+  if (!type || !body) return;
+
+  const id = randomUUID();
+  const createdAt = new Date();
+  const contentHash = documentHash({ id, patientId: encounter.patientId, authorId: user.id, type, body, createdAt });
+  await prisma.clinicalDocument.create({
+    data: {
+      id,
+      clinicId: user.clinicId,
+      encounterId,
+      patientId: encounter.patientId,
+      authorId: user.id,
+      type,
+      body,
+      createdAt,
+      contentHash,
+    },
+  });
+  await audit({
+    clinicId: user.clinicId,
+    userId: user.id,
+    action: "DOCUMENTO_EMITIDO",
+    entity: "ClinicalDocument",
+    entityId: id,
+    patientId: encounter.patientId,
+    details: { type, contentHash },
   });
   revalidatePath(`/pacientes/${encounter.patientId}/atendimentos/${encounter.id}`);
 }
