@@ -19,10 +19,14 @@ const filters = [
   { value: "cancelado", label: "Canceladas" },
 ];
 
-export default async function ChargesPage({ searchParams }: { searchParams: Promise<{ mes?: string; situacao?: string }> }) {
+// Cobranças por página. Uma clínica movimentada passa de mil cobranças no mês.
+const PAGE_SIZE = 100;
+
+export default async function ChargesPage({ searchParams }: { searchParams: Promise<{ mes?: string; situacao?: string; pagina?: string }> }) {
   const user = await requireUser("financeiro");
   if (!canManageCharges(user)) notFound();
-  const { mes, situacao = "" } = await searchParams;
+  const { mes, situacao = "", pagina } = await searchParams;
+  const page = Math.max(1, Math.floor(Number(pagina)) || 1);
   const range = monthRange(mes);
   const clinicId = user.clinicId;
 
@@ -39,13 +43,17 @@ export default async function ChargesPage({ searchParams }: { searchParams: Prom
         };
 
   const ninetyDaysAgo = new Date(Date.now() - 90 * 86400000);
-  const [charges, toBill] = await Promise.all([
+  const [charges, totals, toBill] = await Promise.all([
+    // As mais recentes primeiro, para a recepção achar logo as cobranças do dia.
     prisma.charge.findMany({
       where,
       include: { patient: true, professional: true },
-      orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }],
-      take: 300,
+      orderBy: [{ dueDate: "desc" }, { createdAt: "desc" }],
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
     }),
+    // Totais de todas as cobranças do filtro, não só das que aparecem nesta página.
+    prisma.charge.groupBy({ by: ["status"], where, _sum: { amountCents: true }, _count: true }),
     prisma.encounter.findMany({
       where: {
         clinicId,
@@ -61,7 +69,11 @@ export default async function ChargesPage({ searchParams }: { searchParams: Prom
     }),
   ]);
 
-  const sum = (status: string) => charges.filter((c) => c.status === status).reduce((t, c) => t + c.amountCents, 0);
+  const sum = (status: string) => totals.find((t) => t.status === status)?._sum.amountCents ?? 0;
+  const count = totals.reduce((n, t) => n + t._count, 0);
+  const pages = Math.max(1, Math.ceil(count / PAGE_SIZE));
+  const pageHref = (p: number) =>
+    `/financeiro/receitas?${new URLSearchParams({ mes: range.month, ...(situacao && { situacao }), ...(p > 1 && { pagina: String(p) }) })}`;
 
   return (
     <div className="space-y-5">
@@ -162,10 +174,12 @@ export default async function ChargesPage({ searchParams }: { searchParams: Prom
               </tr>
             )}
           </tbody>
-          {charges.length > 0 && (
+          {count > 0 && (
             <tfoot className="border-t border-slate-200 bg-slate-50 text-slate-600">
               <tr>
                 <td colSpan={7} className="px-4 py-2 text-right">
+                  {count} cobrança(s) no total
+                  <span className="mx-3">·</span>
                   Recebido: <strong className="text-emerald-700">{formatMoney(sum("PAGO"))}</strong>
                   <span className="mx-3">·</span>
                   Pendente: <strong className="text-dourado-700">{formatMoney(sum("PENDENTE"))}</strong>
@@ -175,6 +189,16 @@ export default async function ChargesPage({ searchParams }: { searchParams: Prom
           )}
         </table>
       </div>
+
+      {pages > 1 && (
+        <div className="flex flex-wrap items-center justify-center gap-3 text-sm">
+          {page > 1 && <Link href={pageHref(page - 1)} className="btn-secondary">‹ Mais recentes</Link>}
+          <span className="text-slate-500">
+            Mostrando {(page - 1) * PAGE_SIZE + 1} a {Math.min(page * PAGE_SIZE, count)} de {count}
+          </span>
+          {page < pages && <Link href={pageHref(page + 1)} className="btn-secondary">Mais antigas ›</Link>}
+        </div>
+      )}
     </div>
   );
 }
