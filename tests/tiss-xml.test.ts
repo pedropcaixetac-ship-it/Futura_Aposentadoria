@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { batchFileName, buildBatchXml, latin1, type BatchInput } from "../src/lib/tiss-xml";
 
 const claim = {
+  kind: "CONSULTA" as const,
   number: 7,
   operatorNumber: null,
   cardNumber: "0001234567",
@@ -20,13 +21,37 @@ const claim = {
   tussCode: "10101012",
   amountCents: 15050,
   notes: "Paciente com dor — retorno em 30 dias",
+  serviceType: null,
+  urgent: false,
+  clinicalIndication: null,
+  requestDate: null,
+  authorizationDate: null,
+  authorizationCode: null,
+  items: [],
   professional: { name: "Ana Souza", councilType: "CRM", councilNumber: "123456", councilUf: "GO" },
 };
+const sadt = {
+  ...claim,
+  kind: "SPSADT" as const,
+  number: 9,
+  consultationType: null,
+  tussCode: "40301630",
+  amountCents: 20000,
+  serviceType: "23",
+  urgent: true,
+  clinicalIndication: "Dor torácica",
+  requestDate: new Date("2026-10-29T00:00:00Z"),
+  items: [
+    { sequence: 1, tussCode: "40301630", description: "Hemograma com contagem de plaquetas", quantity: 2, unitCents: 4000, totalCents: 8000 },
+    { sequence: 2, tussCode: "40101010", description: "ECG convencional de até 12 derivações", quantity: 1, unitCents: 12000, totalCents: 12000 },
+  ],
+};
+
 const lote: BatchInput = {
   number: 3,
   createdAt: new Date("2026-10-30T15:04:05Z"),
   plan: { ansCode: "005711", providerCode: "998877" },
-  clinic: { cnpj: "12.345.678/0001-90", cnes: "1234567" },
+  clinic: { name: "Clínica Demonstração", cnpj: "12.345.678/0001-90", cnes: "1234567" },
   claims: [claim, { ...claim, number: 8, operatorNumber: "ABC123", newborn: true, careRegime: "05", notes: null }],
 };
 
@@ -62,13 +87,31 @@ test("lote TISS sem código no convênio usa o CNPJ da clínica", () => {
   assert.match(xml, /<ans:cnpjContratado>12345678000190<\/ans:cnpjContratado>/);
 });
 
+const loteSadt: BatchInput = {
+  ...lote,
+  number: 4,
+  claims: [sadt, { ...sadt, number: 10, urgent: false, clinicalIndication: null, requestDate: null, operatorNumber: "XYZ9", authorizationDate: new Date("2026-10-28T00:00:00Z"), authorizationCode: "SENHA1", notes: null }],
+};
+
+test("lote SP/SADT: um item por exame, caráter e valor total", () => {
+  const { xml } = buildBatchXml(loteSadt);
+  assert.equal(xml.match(/<ans:guiaSP-SADT>/g)?.length, 2);
+  assert.equal(xml.match(/<ans:procedimentoExecutado>/g)?.length, 4);
+  assert.match(xml, /<ans:caraterAtendimento>2<\/ans:caraterAtendimento>/);
+  assert.match(xml, /<ans:valorTotal>80\.00<\/ans:valorTotal>/);
+  assert.match(xml, /<ans:valorTotalGeral>200\.00<\/ans:valorTotalGeral>/);
+  assert.match(xml, /<ans:senha>SENHA1<\/ans:senha>/);
+  assert.doesNotMatch(xml, /guiaConsulta/);
+});
+
 test("texto fora do ISO-8859-1 é trocado ou retirado", () => {
   assert.equal(latin1("“Olá” – ok 😀"), '"Olá" - ok ');
 });
 
 test("lote TISS passa na validação dos schemas oficiais da ANS (4.03.00)", { skip: !hasXmllint() && "xmllint não instalado" }, () => {
   const dir = mkdtempSync(join(tmpdir(), "tiss-"));
-  for (const input of [lote, { ...lote, plan: { ansCode: "005711", providerCode: null } }]) {
+  const semCodigo = { ansCode: "005711", providerCode: null };
+  for (const input of [lote, { ...lote, plan: semCodigo }, loteSadt, { ...loteSadt, plan: semCodigo }]) {
     const file = join(dir, "lote.xml");
     writeFileSync(file, Buffer.from(buildBatchXml(input).xml, "latin1"));
     execFileSync("xmllint", ["--noout", "--schema", "tests/fixtures/tiss-4.03.00/tissV4_03_00.xsd", file], { stdio: "pipe" });

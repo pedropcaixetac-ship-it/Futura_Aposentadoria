@@ -6,7 +6,7 @@ import { formatDate, formatDateTime } from "@/lib/format";
 import { formatMoney, moneyInput } from "@/lib/money";
 import { dateInput, today } from "@/lib/finance";
 import { displayName } from "@/lib/staff";
-import { claimNumberLabel } from "@/lib/tiss";
+import { claimKindLabel, claimNumberLabel } from "@/lib/tiss";
 import { buildBatchXml } from "@/lib/tiss-xml";
 import { registerBatchPayment, saveBatchProtocol, undoBatch } from "../../actions";
 import { ActionForm } from "../../../action-form";
@@ -27,7 +27,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
       <Link href="/financeiro/faturamento" className="text-sm text-marinho-700 hover:underline">‹ Faturamento</Link>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold">Lote nº {batch.number} — {batch.healthPlan.name}</h2>
+          <h2 className="text-lg font-semibold">Lote nº {batch.number} — {batch.healthPlan.name} · {claimKindLabel(batch.kind)}</h2>
           <p className="text-sm text-slate-500">
             Fechado em {formatDateTime(batch.createdAt)} · {batch.claims.length} guia(s) · {formatMoney(total)} · padrão TISS {batch.tissVersion}
           </p>

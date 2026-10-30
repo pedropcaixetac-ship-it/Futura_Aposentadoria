@@ -127,3 +127,47 @@ export function parseClaimPayments(
   }
   return { payments };
 }
+
+// Tabela 50 (tipo de atendimento) na guia SP/SADT: só os que se usam em consultório.
+export const serviceTypes = [
+  { value: "23", label: "Exames" },
+  { value: "03", label: "Outras terapias" },
+  { value: "13", label: "Pequenos atendimentos" },
+  { value: "02", label: "Pequena cirurgia" },
+  { value: "04", label: "Consulta" },
+] as const;
+
+// Uma guia SP/SADT leva no máximo esta quantidade de itens (o formulário mostra uma linha por item).
+export const MAX_CLAIM_ITEMS = 20;
+
+export type ClaimItemInput = { sequence: number; tussCode: string; description: string; quantity: number; unitCents: number; totalCents: number };
+
+// Lê os itens da guia SP/SADT (campos item_tuss_N, item_qtd_N e item_valor_N). Linha sem procedimento é ignorada;
+// o procedimento precisa estar na tabela do convênio, que dá a descrição.
+export function parseClaimItems(
+  get: (key: string) => string | null,
+  prices: { tussCode: string; description: string }[],
+  parseMoney: (value: string) => number | null,
+  normalizeTuss: (value: string) => string | null,
+): { items: ClaimItemInput[] } | { error: string } {
+  const items: ClaimItemInput[] = [];
+  for (let i = 0; i < MAX_CLAIM_ITEMS; i++) {
+    const raw = (get(`item_tuss_${i}`) ?? "").trim();
+    if (!raw) continue;
+    const line = `Item ${items.length + 1}`;
+    const tussCode = normalizeTuss(raw);
+    const price = tussCode ? prices.find((p) => p.tussCode === tussCode) : undefined;
+    if (!tussCode || !price) return { error: `${line}: procedimento fora da tabela do convênio.` };
+    const quantity = Number((get(`item_qtd_${i}`) ?? "1").trim() || "1");
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) return { error: `${line}: quantidade inválida.` };
+    const unitCents = parseMoney((get(`item_valor_${i}`) ?? "").trim());
+    if (!unitCents) return { error: `${line}: valor inválido (ex.: 80,00).` };
+    items.push({ sequence: items.length + 1, tussCode, description: price.description, quantity, unitCents, totalCents: unitCents * quantity });
+  }
+  if (items.length === 0) return { error: "Inclua ao menos um exame ou procedimento." };
+  return { items };
+}
+
+export function claimKindLabel(kind: "CONSULTA" | "SPSADT") {
+  return kind === "SPSADT" ? "SP/SADT" : "Consulta";
+}

@@ -12,6 +12,7 @@ export async function loadBatch(clinicId: string, id: string) {
         orderBy: { number: "asc" },
         include: {
           patient: { select: { name: true } },
+          items: { orderBy: { sequence: "asc" } },
           professional: { select: { name: true, jobTitle: true, sex: true, councilType: true, councilNumber: true, councilUf: true } },
         },
       },
@@ -22,7 +23,7 @@ export async function loadBatch(clinicId: string, id: string) {
     number: batch.number,
     createdAt: batch.createdAt,
     plan: { ansCode: batch.healthPlan.ansCode ?? "", providerCode: batch.healthPlan.providerCode },
-    clinic: { cnpj: batch.clinic.cnpj, cnes: batch.clinic.cnes ?? "" },
+    clinic: { name: batch.clinic.name, cnpj: batch.clinic.cnpj, cnes: batch.clinic.cnes ?? "" },
     claims: batch.claims,
   };
   return { batch, input };

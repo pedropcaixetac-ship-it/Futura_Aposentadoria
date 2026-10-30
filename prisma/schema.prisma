@@ -137,6 +137,7 @@ model Clinic {
   healthPlans    HealthPlan[]
   claims         InsuranceClaim[]
   claimBatches   ClaimBatch[]
+  claimItems     ClaimItem[]
 }
 
 model User {
@@ -898,6 +899,28 @@ model HealthPlanPrice {
   @@unique([healthPlanId, tussCode])
 }
 
+// Procedimento ou exame de uma guia SP/SADT.
+model ClaimItem {
+  id          String         @id @default(cuid())
+  clinicId    String
+  clinic      Clinic         @relation(fields: [clinicId], references: [id])
+  claimId     String
+  claim       InsuranceClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  sequence    Int
+  tussCode    String
+  description String
+  quantity    Int
+  unitCents   Int
+  totalCents  Int
+
+  @@unique([claimId, sequence])
+}
+
+enum ClaimKind {
+  CONSULTA
+  SPSADT
+}
+
 enum ClaimStatus {
   ABERTA
   CANCELADA
@@ -916,6 +939,8 @@ model InsuranceClaim {
   professional       User        @relation(fields: [professionalId], references: [id])
   encounterId        String?
   encounter          Encounter?  @relation(fields: [encounterId], references: [id])
+  // Guia de consulta ou SP/SADT (exames e procedimentos, com vários itens).
+  kind               ClaimKind   @default(CONSULTA)
   // Número da guia no prestador (sequência da clínica).
   number             Int
   // Número ou senha que o convênio deu para o atendimento, quando dá.
@@ -925,18 +950,28 @@ model InsuranceClaim {
   cardValidUntil     DateTime?   @db.Date
   newborn            Boolean     @default(false)
   serviceDate        DateTime    @db.Date
-  // Tabela 52 da TISS (1 primeira consulta, 2 seguimento, 3 pré-natal, 4 encaminhamento).
-  consultationType   Int
+  // Tabela 52 da TISS (1 primeira consulta, 2 seguimento, 3 pré-natal, 4 encaminhamento). Só na guia de consulta.
+  consultationType   Int?
   // Tabela 36 da TISS (9 = não foi acidente).
   accidentIndication Int         @default(9)
   // Regime de atendimento da TISS: 01 ambulatorial, 05 telessaúde.
   careRegime         String      @default("01")
   // CBO do profissional que atendeu.
   cbo                String
+  // Na guia SP/SADT, código e descrição do primeiro item e soma dos itens.
   tussCode           String
   description        String
   amountCents        Int
   notes              String?
+  // Só na SP/SADT: tipo de atendimento (tabela 50), caráter (urgência ou eletivo), indicação clínica,
+  // data do pedido e a autorização do convênio (data e senha), quando ele exige.
+  serviceType        String?
+  urgent             Boolean     @default(false)
+  clinicalIndication String?
+  requestDate        DateTime?   @db.Date
+  authorizationDate  DateTime?   @db.Date
+  authorizationCode  String?
+  items              ClaimItem[]
   status             ClaimStatus @default(ABERTA)
   canceledAt         DateTime?
   // Lote em que a guia foi enviada ao convênio. Guia em lote não pode ser cancelada.
@@ -1000,6 +1035,8 @@ model ClaimBatch {
   healthPlanId String
   healthPlan   HealthPlan       @relation(fields: [healthPlanId], references: [id])
   number       Int
+  // Um lote leva só um tipo de guia (regra da TISS).
+  kind         ClaimKind        @default(CONSULTA)
   tissVersion  String
   createdAt    DateTime         @default(now())
   // Número de protocolo que o portal do convênio deu ao receber o arquivo.

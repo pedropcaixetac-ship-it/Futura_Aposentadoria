@@ -9,19 +9,30 @@ export const MAX_CLAIMS_PER_BATCH = 100;
 
 type Node = [name: string, content: string | Node[]];
 
+export type BatchClaimItem = { sequence: number; tussCode: string; description: string; quantity: number; unitCents: number; totalCents: number };
+
 export type BatchClaim = {
+  kind: "CONSULTA" | "SPSADT";
   number: number;
   operatorNumber: string | null;
   cardNumber: string;
   newborn: boolean;
   careRegime: string;
   serviceDate: Date;
-  consultationType: number;
+  consultationType: number | null;
   accidentIndication: number;
   cbo: string;
   tussCode: string;
   amountCents: number;
   notes: string | null;
+  // Só na SP/SADT.
+  serviceType: string | null;
+  urgent: boolean;
+  clinicalIndication: string | null;
+  requestDate: Date | null;
+  authorizationDate: Date | null;
+  authorizationCode: string | null;
+  items: BatchClaimItem[];
   professional: { name: string; councilType: string | null; councilNumber: string | null; councilUf: string | null };
 };
 
@@ -29,7 +40,7 @@ export type BatchInput = {
   number: number;
   createdAt: Date;
   plan: { ansCode: string; providerCode: string | null };
-  clinic: { cnpj: string | null; cnes: string };
+  clinic: { name: string; cnpj: string | null; cnes: string };
   claims: BatchClaim[];
 };
 
@@ -68,32 +79,92 @@ function provider(input: BatchInput): Node {
     : ["CNPJ", (input.clinic.cnpj ?? "").replace(/\D/g, "")];
 }
 
-function claimNode(input: BatchInput, claim: BatchClaim): Node {
-  const executor: Node = input.plan.providerCode
+// A clínica dentro da guia: o código no convênio ou, sem ele, o CNPJ.
+function contracted(input: BatchInput): Node {
+  return input.plan.providerCode
     ? ["codigoPrestadorNaOperadora", input.plan.providerCode]
     : ["cnpjContratado", (input.clinic.cnpj ?? "").replace(/\D/g, "")];
+}
+
+function professionalNodes(claim: BatchClaim): Node[] {
   const professional = claim.professional;
+  return [
+    ["nomeProfissional", latin1(professional.name).slice(0, 70)],
+    ["conselhoProfissional", councilCode(professional.councilType) ?? "10"],
+    ["numeroConselhoProfissional", (professional.councilNumber ?? "").slice(0, 15)],
+    ["UF", ufCode(professional.councilUf) ?? ""],
+    ["CBOS", claim.cbo],
+  ];
+}
+
+function consultationNode(input: BatchInput, claim: BatchClaim): Node {
   return ["guiaConsulta", [
     ["cabecalhoConsulta", [["registroANS", input.plan.ansCode], ["numeroGuiaPrestador", String(claim.number)]]],
     ...(claim.operatorNumber ? [["numeroGuiaOperadora", claim.operatorNumber] as Node] : []),
     ["dadosBeneficiario", [["numeroCarteira", claim.cardNumber], ["atendimentoRN", claim.newborn ? "S" : "N"]]],
-    ["contratadoExecutante", [executor, ["CNES", input.clinic.cnes]]],
-    ["profissionalExecutante", [
-      ["nomeProfissional", latin1(professional.name).slice(0, 70)],
-      ["conselhoProfissional", councilCode(professional.councilType) ?? "10"],
-      ["numeroConselhoProfissional", (professional.councilNumber ?? "").slice(0, 15)],
-      ["UF", ufCode(professional.councilUf) ?? ""],
-      ["CBOS", claim.cbo],
-    ]],
+    ["contratadoExecutante", [contracted(input), ["CNES", input.clinic.cnes]]],
+    ["profissionalExecutante", professionalNodes(claim)],
     ["indicacaoAcidente", String(claim.accidentIndication)],
     ["dadosAtendimento", [
       ["regimeAtendimento", claim.careRegime],
       ["dataAtendimento", isoDate(claim.serviceDate)],
-      ["tipoConsulta", String(claim.consultationType)],
+      ["tipoConsulta", String(claim.consultationType ?? 1)],
       ["procedimento", [["codigoTabela", TUSS_TABLE], ["codigoProcedimento", claim.tussCode], ["valorProcedimento", money(claim.amountCents)]]],
     ]],
     ...(claim.notes ? [["observacao", latin1(claim.notes).slice(0, 500)] as Node] : []),
   ]];
+}
+
+// Guia SP/SADT: exames e procedimentos, um item por linha. Quem pede é o próprio profissional da clínica.
+function sadtNode(input: BatchInput, claim: BatchClaim): Node {
+  const authorization: Node[] = claim.authorizationDate
+    ? [["dadosAutorizacao", [
+        ...(claim.operatorNumber ? [["numeroGuiaOperadora", claim.operatorNumber] as Node] : []),
+        ["dataAutorizacao", isoDate(claim.authorizationDate)],
+        ...(claim.authorizationCode ? [["senha", claim.authorizationCode] as Node] : []),
+      ]]]
+    : [];
+  const items: Node[] = claim.items.map((item) => ["procedimentoExecutado", [
+    ["sequencialItem", String(item.sequence)],
+    ["dataExecucao", isoDate(claim.serviceDate)],
+    ["procedimento", [
+      ["codigoTabela", TUSS_TABLE],
+      ["codigoProcedimento", item.tussCode],
+      ["descricaoProcedimento", latin1(item.description).slice(0, 150)],
+    ]],
+    ["quantidadeExecutada", String(item.quantity)],
+    ["reducaoAcrescimo", "1.00"],
+    ["valorUnitario", money(item.unitCents)],
+    ["valorTotal", money(item.totalCents)],
+  ]]);
+  return ["guiaSP-SADT", [
+    ["cabecalhoGuia", [["registroANS", input.plan.ansCode], ["numeroGuiaPrestador", String(claim.number)]]],
+    ...authorization,
+    ["dadosBeneficiario", [["numeroCarteira", claim.cardNumber], ["atendimentoRN", claim.newborn ? "S" : "N"]]],
+    ["dadosSolicitante", [
+      ["contratadoSolicitante", [contracted(input)]],
+      ["nomeContratadoSolicitante", latin1(input.clinic.name).slice(0, 70)],
+      ["profissionalSolicitante", professionalNodes(claim)],
+    ]],
+    ["dadosSolicitacao", [
+      ...(claim.requestDate ? [["dataSolicitacao", isoDate(claim.requestDate)] as Node] : []),
+      ["caraterAtendimento", claim.urgent ? "2" : "1"],
+      ...(claim.clinicalIndication ? [["indicacaoClinica", latin1(claim.clinicalIndication).slice(0, 500)] as Node] : []),
+    ]],
+    ["dadosExecutante", [["contratadoExecutante", [contracted(input)]], ["CNES", input.clinic.cnes]]],
+    ["dadosAtendimento", [
+      ["tipoAtendimento", claim.serviceType ?? "23"],
+      ["indicacaoAcidente", String(claim.accidentIndication)],
+      ["regimeAtendimento", claim.careRegime],
+    ]],
+    ["procedimentosExecutados", items],
+    ...(claim.notes ? [["observacao", latin1(claim.notes).slice(0, 500)] as Node] : []),
+    ["valorTotal", [["valorProcedimentos", money(claim.amountCents)], ["valorTotalGeral", money(claim.amountCents)]]],
+  ]];
+}
+
+function claimNode(input: BatchInput, claim: BatchClaim): Node {
+  return claim.kind === "SPSADT" ? sadtNode(input, claim) : consultationNode(input, claim);
 }
 
 function render(node: Node, leaves: string[], indent = ""): string {
