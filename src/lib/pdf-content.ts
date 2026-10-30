@@ -5,8 +5,11 @@ import type { Diagnosis, TemplateField } from "./record";
 import type { PdfInput } from "./pdf";
 import { vitalsSummary, type Vitals } from "./vitals";
 import { displayName } from "./staff";
+import type { Prontuario } from "./prontuario";
 
-function council(user: User) {
+type Professional = Pick<User, "councilType" | "councilNumber" | "councilUf" | "specialty"> & Parameters<typeof displayName>[0];
+
+function council(user: Pick<User, "councilType" | "councilNumber" | "councilUf">) {
   return user.councilNumber ? `${user.councilType} ${user.councilNumber}/${user.councilUf}` : null;
 }
 
@@ -62,6 +65,48 @@ export function documentPdfInput(clinicName: string, doc: ClinicalDocument & { p
     professional: { name: displayName(doc.author), council: council(doc.author), specialty: doc.author.specialty },
     place: `Emitido em ${formatDateTime(doc.createdAt)}`,
     integrityCode: doc.contentHash,
+  };
+}
+
+// Prontuário completo: resumo clínico e, em seguida, cada atendimento finalizado.
+// Quem assina (ou emite) o PDF é quem pediu a cópia, como "cópia fiel" do sistema.
+export function prontuarioPdfInput(clinicName: string, { patient, encounters }: Prontuario, issuer: Professional): PdfInput {
+  const summary = [
+    ["Alergias", patient.allergies],
+    ["Medicamentos em uso", patient.currentMedications],
+    ["Antecedentes pessoais", patient.personalHistory],
+    ["Antecedentes familiares", patient.familyHistory],
+  ] as const;
+  const sections: PdfInput["sections"] = summary.map(([title, text]) => ({ title, text: text ?? "" }));
+
+  if (encounters.length === 0) sections.push({ text: "Nenhum atendimento finalizado." });
+  for (const e of encounters) {
+    const who = [displayName(e.professional), council(e.professional)].filter(Boolean).join(" · ");
+    const signature = e.signedPdf
+      ? `Assinado digitalmente${e.signedPdf.provider === "TESTE" ? " (TESTE, sem validade jurídica)" : " com certificado ICP-Brasil"} por ${e.signedPdf.signerName} em ${formatDateTime(e.signedPdf.signedAt)}`
+      : "Sem assinatura digital";
+    sections.push({
+      heading: true,
+      title: `Atendimento de ${formatDateTime(e.startedAt)}`,
+      text: [who, `Finalizado em ${formatDateTime(e.finalizedAt)} · ${signature}`, `Código de integridade: ${e.contentHash ?? "—"}`].join("\n"),
+    });
+    // Reaproveita o mesmo conteúdo do PDF de cada atendimento.
+    sections.push(...encounterPdfInput(clinicName, { ...e, patient }).sections);
+    if (e.documents.length) {
+      sections.push({
+        title: "Documentos emitidos",
+        text: e.documents.map((d) => `${documentTypeLabel[d.type]} · ${formatDateTime(d.createdAt)}`).join("\n"),
+      });
+    }
+  }
+
+  return {
+    clinicName,
+    title: "Prontuário do paciente",
+    info: [...patientLines(patient), `${encounters.length} atendimento(s) finalizado(s)`],
+    sections,
+    professional: { name: displayName(issuer), council: council(issuer), specialty: issuer.specialty },
+    place: `Cópia do prontuário emitida em ${formatDateTime(new Date())}`,
   };
 }
 

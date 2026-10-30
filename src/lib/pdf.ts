@@ -10,7 +10,9 @@ const margin = 50;
 const contentWidth = A4.width - margin * 2;
 const footerTop = 125;
 
-export type PdfSection = { title?: string; text: string };
+// heading: começo de um bloco grande (ex.: cada atendimento no prontuário completo),
+// com título maior e uma linha dourada acima.
+export type PdfSection = { title?: string; text: string; heading?: boolean };
 
 export type PdfInput = {
   clinicName: string;
@@ -103,6 +105,15 @@ export async function buildPdf(input: PdfInput) {
   y -= 22;
 
   for (const section of input.sections) {
+    if (section.heading) {
+      ensureSpace(70);
+      y -= 6;
+      page!.drawLine({ start: { x: margin, y: y + 14 }, end: { x: A4.width - margin, y: y + 14 }, thickness: 1, color: dourado });
+      write(section.title ?? "", bold, 13, marinho);
+      if (section.text) write(section.text, regular, 9, cinza);
+      y -= 8;
+      continue;
+    }
     if (section.title) {
       ensureSpace(40);
       write(section.title, bold, 11, marinho);

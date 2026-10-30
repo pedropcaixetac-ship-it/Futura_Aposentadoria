@@ -25,3 +25,14 @@ test("texto longo continua em novas páginas", async () => {
   const pdf = await PDFDocument.load(bytes);
   assert.ok(pdf.getPageCount() >= 3);
 });
+
+test("prontuário completo: um bloco por atendimento", async () => {
+  const sections = [1, 2, 3].flatMap((n) => [
+    { heading: true, title: `Atendimento de 0${n}/10/2026`, text: "Dra. Ana · CRM 1/GO\nSem assinatura digital" },
+    { title: "Evolução", text: "Texto do atendimento ".repeat(40) },
+  ]);
+  const bytes = await buildPdf({ ...base, title: "Prontuário do paciente", sections });
+  const pdf = await PDFDocument.load(bytes);
+  assert.ok(pdf.getPageCount() >= 1);
+  assert.equal(pdf.getTitle(), "Prontuário do paciente");
+});

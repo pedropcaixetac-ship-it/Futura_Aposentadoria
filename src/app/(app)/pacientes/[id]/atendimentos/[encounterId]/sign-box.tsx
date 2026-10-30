@@ -9,10 +9,11 @@ type Props = {
   providers: { id: string; label: string }[];
   // Tela para onde voltar depois de assinar, quando não for a do atendimento.
   back?: string;
+  label?: string;
 };
 
 // Botão "Assinar" ou o selo de já assinado, para um atendimento ou documento.
-export function SignBox({ target, signed, canSign, providers, back }: Props) {
+export function SignBox({ target, signed, canSign, providers, back, label = "Assinar" }: Props) {
   if (signed) {
     return (
       <a
@@ -30,7 +31,7 @@ export function SignBox({ target, signed, canSign, providers, back }: Props) {
     <form action={startSigning.bind(null, target)} className="flex items-center gap-2">
       {back && <input type="hidden" name="back" value={back} />}
       <ProviderChoice providers={providers} />
-      <button className="btn-primary">Assinar</button>
+      <button className="btn-primary">{label}</button>
     </form>
   );
 }

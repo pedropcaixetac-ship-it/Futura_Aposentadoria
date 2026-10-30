@@ -25,6 +25,8 @@ import { EncounterContent, Marked } from "./encounter-content";
 import { PatientDetails } from "./patient-details";
 import { WhatsappButton } from "./whatsapp-button";
 import { displayName } from "@/lib/staff";
+import { availableProviders } from "@/lib/signature/providers";
+import { SignBox } from "./atendimentos/[encounterId]/sign-box";
 
 export default async function PatientRecordPage({
   params,
@@ -72,6 +74,15 @@ export default async function PatientRecordPage({
       ...(filtered && { details: filters }),
     });
   }
+
+  // Última cópia assinada do prontuário completo (sem atendimento nem documento ligado).
+  const signedCopy = clinical
+    ? await prisma.signedPdf.findFirst({
+        where: { patientId: id, clinicId: user.clinicId, encounterId: null, documentId: null },
+        select: { id: true, signerName: true, signedAt: true, provider: true },
+        orderBy: { signedAt: "desc" },
+      })
+    : null;
 
   const shown = filterEncounters(encounters, filters);
   // Opções dos filtros: só quem atendeu e os tipos usados neste paciente.
@@ -159,7 +170,26 @@ export default async function PatientRecordPage({
 
           <div className="card space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="font-semibold">Histórico de atendimentos</h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="font-semibold">Histórico de atendimentos</h2>
+                <a href={`/api/pdf/prontuario/${id}`} target="_blank" className="btn-secondary py-1.5 text-sm">
+                  PDF do prontuário
+                </a>
+                <SignBox
+                  target={{ kind: "prontuario", id }}
+                  signed={null}
+                  canSign
+                  providers={availableProviders()}
+                  back={`/pacientes/${id}`}
+                  label="Assinar prontuário"
+                />
+                {signedCopy && (
+                  <a href={`/api/pdf/assinado/${signedCopy.id}`} target="_blank" className="text-sm text-emerald-700 underline"
+                    title={`Assinado por ${signedCopy.signerName}`}>
+                    ✓ Cópia assinada de {formatDateTime(signedCopy.signedAt)}{signedCopy.provider === "TESTE" ? " (teste)" : ""}
+                  </a>
+                )}
+              </div>
               <form action={startEncounter.bind(null, id)} className="flex flex-wrap items-center gap-2">
                 {/* Se o profissional tem um modelo só, ele já vem escolhido. */}
                 <select name="templateId" aria-label="Modelo de atendimento" className="input w-auto!"

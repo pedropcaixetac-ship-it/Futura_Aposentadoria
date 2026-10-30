@@ -4,7 +4,9 @@ import { audit } from "../audit";
 import { formatCpf, formatDateTime } from "../format";
 import { documentTypeLabel } from "../documents";
 import { buildPdf } from "../pdf";
-import { documentPdfInput, encounterPdfInput } from "../pdf-content";
+import { documentPdfInput, encounterPdfInput, prontuarioPdfInput } from "../pdf-content";
+import { loadProntuario } from "../prontuario";
+import { canWorkClinical } from "../permissions";
 import type { CurrentUser } from "../auth";
 import { certificateHolder, parseCertificate, type RawSigner } from "./cms";
 import { signPdf } from "./pdf-sign";
@@ -12,20 +14,34 @@ import { providerLabel, signDigest, type ProviderId } from "./providers";
 import { open } from "./secret-box";
 import { testCertificate } from "./test-certificate";
 
-export type SignTarget = { kind: "atendimento" | "documento"; id: string };
+// prontuario: cópia do prontuário completo; o id é o do paciente.
+export type SignTarget = { kind: "atendimento" | "documento" | "prontuario"; id: string };
 
 export function isSignTarget(value: unknown): value is SignTarget {
   const v = value as SignTarget;
-  return !!v && (v.kind === "atendimento" || v.kind === "documento") && typeof v.id === "string";
+  return !!v && (v.kind === "atendimento" || v.kind === "documento" || v.kind === "prontuario") && typeof v.id === "string";
 }
 
 // Só voltamos para telas do prontuário, nunca para um endereço de fora.
 export function isSafeBack(value: unknown): value is string {
-  return typeof value === "string" && /^\/pacientes\/[\w-]+\/atendimentos\/[\w-]+(\/revisao)?$/.test(value);
+  return typeof value === "string" && /^\/pacientes\/[\w-]+(\/atendimentos\/[\w-]+(\/revisao)?)?$/.test(value);
 }
 
 // Carrega o que vai ser assinado e confere se quem pede é o autor.
 async function loadTarget(user: CurrentUser, target: SignTarget) {
+  if (target.kind === "prontuario") {
+    // Cada cópia assinada é nova: o prontuário cresce a cada atendimento.
+    const prontuario = canWorkClinical(user) ? await loadProntuario(user, target.id) : null;
+    if (!prontuario) throw new Error("Paciente não encontrado");
+    return {
+      already: false,
+      patientId: prontuario.patient.id,
+      back: `/pacientes/${prontuario.patient.id}`,
+      label: `Prontuário de ${prontuario.patient.name}`,
+      link: {},
+      input: prontuarioPdfInput(user.clinic.name, prontuario, user),
+    };
+  }
   if (target.kind === "atendimento") {
     const encounter = await prisma.encounter.findFirst({
       where: { id: target.id, clinicId: user.clinicId, status: "FINALIZADO", professionalId: user.id },
