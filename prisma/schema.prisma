@@ -29,7 +29,11 @@ enum AppointmentStatus {
 
 enum Role {
   ADMIN
+  // Profissional de saúde com acesso completo ao prontuário (médico, enfermeiro, psicólogo...).
   PROFISSIONAL
+  // Profissional de saúde com acesso restrito (técnico e auxiliar de enfermagem...): vê alergias,
+  // medicamentos e os próprios atendimentos, mas não abre as consultas anteriores de outros profissionais.
+  TECNICO
   RECEPCAO
   // Auxiliar administrativo: cuida da contabilidade e da parte trabalhista.
   ADMINISTRATIVO
@@ -119,6 +123,26 @@ model User {
   email             String?
   // CPF só com números. Serve para entrar no sistema no lugar do e-mail.
   cpf               String?
+  // Identificação e contato do servidor, nos mesmos moldes do cadastro de paciente.
+  socialName            String?
+  birthDate             DateTime? @db.Date
+  sex                   String?
+  rg                    String?
+  cns                   String?
+  motherName            String?
+  maritalStatus         String?
+  photo                 String? // imagem pequena (data URL), reduzida no navegador
+  phone                 String?
+  landline              String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  cep                   String?
+  street                String?
+  number                String?
+  complement            String?
+  district              String?
+  city                  String?
+  state                 String?
   passwordHash      String
   role              Role
   // Registro no conselho profissional (CRM, CRP, CRN, CRO...), exigido no prontuário.

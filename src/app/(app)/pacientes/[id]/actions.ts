@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
-import { canAddAddendum, canEditEncounter, canViewClinical } from "@/lib/permissions";
+import { canAddAddendum, canEditEncounter, canViewClinical, canWorkClinical } from "@/lib/permissions";
 import { createEncounter } from "@/lib/encounter";
 import { documentTypes } from "@/lib/documents";
 import { documentHash, encounterHash, parseDiagnoses, sanitizeContent, type TemplateField } from "@/lib/record";
@@ -15,7 +15,7 @@ import { parseVitals } from "@/lib/vitals";
 
 export async function startEncounter(patientId: string, formData: FormData) {
   const user = await requireUser("pacientes");
-  if (!canViewClinical(user)) throw new Error("Sem permissão");
+  if (!canWorkClinical(user)) throw new Error("Sem permissão");
 
   const patient = await prisma.patient.findFirst({ where: { id: patientId, clinicId: user.clinicId } });
   if (!patient) throw new Error("Paciente não encontrado");

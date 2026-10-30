@@ -1,14 +1,14 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { canViewClinical } from "@/lib/permissions";
+import { canWorkClinical } from "@/lib/permissions";
 import type { TemplateField } from "@/lib/record";
 import { listUsableTemplates } from "@/lib/templates";
 import { createSnippetFromForm, deleteSnippet } from "./actions";
 
 export default async function SnippetsPage() {
   const user = await requireUser("textos-prontos");
-  if (!canViewClinical(user)) notFound();
+  if (!canWorkClinical(user)) notFound();
 
   const [snippets, templates] = await Promise.all([
     prisma.textSnippet.findMany({ where: { ownerId: user.id }, orderBy: [{ fieldKey: "asc" }, { title: "asc" }] }),

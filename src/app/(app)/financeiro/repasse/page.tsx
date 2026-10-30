@@ -63,7 +63,7 @@ export default async function CommissionPage({ searchParams }: { searchParams: P
 
   const [professionals, totals, launched] = await Promise.all([
     prisma.user.findMany({
-      where: { clinicId: user.clinicId, active: true, OR: [{ role: "PROFISSIONAL" }, { councilNumber: { not: null } }] },
+      where: { clinicId: user.clinicId, active: true, OR: [{ role: { in: ["PROFISSIONAL", "TECNICO"] } }, { councilNumber: { not: null } }] },
       orderBy: { name: "asc" },
     }),
     prisma.charge.groupBy({ by: ["professionalId"], where: paidInMonth, _sum: { amountCents: true }, _count: true }),

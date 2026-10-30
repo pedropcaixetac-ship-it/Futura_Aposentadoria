@@ -3,14 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { canViewClinical } from "@/lib/permissions";
+import { canWorkClinical } from "@/lib/permissions";
 
 export type Snippet = { id: string; fieldKey: string | null; title: string; text: string };
 
 // Textos prontos são pessoais: cada profissional só vê e altera os seus.
 async function requireProfessional() {
   const user = await requireUser("textos-prontos");
-  if (!canViewClinical(user)) throw new Error("Sem permissão");
+  if (!canWorkClinical(user)) throw new Error("Sem permissão");
   return user;
 }
 

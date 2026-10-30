@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
-import { canAddAddendum, canEditEncounter, canViewClinical } from "@/lib/permissions";
+import { canAddAddendum, canEditEncounter, canOpenEncounter, canViewClinical, canWorkClinical } from "@/lib/permissions";
 import { age, formatDate, formatDateTime } from "@/lib/format";
 import { documentHash, encounterHash, type Diagnosis, type TemplateField } from "@/lib/record";
 import { documentTypeLabel } from "@/lib/documents";
@@ -28,7 +28,9 @@ export default async function EncounterPage({
   const user = await requireUser("pacientes");
   const { id, encounterId } = await params;
   const { assinatura } = await searchParams;
-  if (!canViewClinical(user)) notFound();
+  if (!canWorkClinical(user)) notFound();
+  // Acesso restrito (técnico/auxiliar de enfermagem): só os próprios atendimentos e sem documentos clínicos.
+  const full = canViewClinical(user);
 
   const encounter = await prisma.encounter.findFirst({
     where: { id: encounterId, patientId: id, clinicId: user.clinicId },
@@ -41,7 +43,7 @@ export default async function EncounterPage({
       documents: { include: { author: true, signedPdf: { select: { id: true, signerName: true, signedAt: true, provider: true } } }, orderBy: { createdAt: "asc" } },
     },
   });
-  if (!encounter) notFound();
+  if (!encounter || !canOpenEncounter(user, encounter)) notFound();
 
   await audit({
     clinicId: user.clinicId,
@@ -53,7 +55,7 @@ export default async function EncounterPage({
   });
 
   const editable = canEditEncounter(user, encounter);
-  const canIssueDocuments = encounter.professionalId === user.id;
+  const canIssueDocuments = full && encounter.professionalId === user.id;
   const providers = encounter.professionalId === user.id ? availableProviders() : [];
   const snippets = editable
     ? await prisma.textSnippet.findMany({
@@ -65,7 +67,7 @@ export default async function EncounterPage({
 
   const history = editable
     ? await prisma.encounter.findMany({
-        where: { patientId: id, clinicId: user.clinicId, status: "FINALIZADO", id: { not: encounter.id } },
+        where: { patientId: id, clinicId: user.clinicId, status: "FINALIZADO", id: { not: encounter.id }, ...(!full && { professionalId: user.id }) },
         include: { professional: true, template: true },
         orderBy: { startedAt: "desc" },
         take: 30,
@@ -167,7 +169,7 @@ export default async function EncounterPage({
           <PatientHistory
             patientId={id}
             summary={patient}
-            updateSummary={updateClinicalSummary.bind(null, id)}
+            updateSummary={full ? updateClinicalSummary.bind(null, id) : undefined}
             encounters={history.map((e) => ({
               id: e.id,
               startedAt: e.startedAt,

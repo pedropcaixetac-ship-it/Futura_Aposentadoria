@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
-import { canManageCharges, canViewClinical } from "@/lib/permissions";
+import { canManageCharges, canOpenEncounter, canViewClinical, canWorkClinical } from "@/lib/permissions";
 import { age, formatCpf, formatDate, formatDateTime, formatPhone } from "@/lib/format";
 import { whatsappNumber } from "@/lib/whatsapp";
 import { listUsableTemplates } from "@/lib/templates";
@@ -20,7 +20,9 @@ export default async function PatientRecordPage({ params }: { params: Promise<{ 
   const patient = await prisma.patient.findFirst({ where: { id, clinicId: user.clinicId } });
   if (!patient) notFound();
 
-  const clinical = canViewClinical(user);
+  // full: acesso completo ao prontuário. clinical: completo ou restrito (técnico/auxiliar de enfermagem).
+  const full = canViewClinical(user);
+  const clinical = canWorkClinical(user);
   const canWhatsapp = patient.whatsappOptIn && patient.phoneWhatsapp && !!whatsappNumber(patient.phone);
   const [encounters, templates] = clinical
     ? await Promise.all([
@@ -104,7 +106,14 @@ export default async function PatientRecordPage({ params }: { params: Promise<{ 
               personalHistory: patient.personalHistory,
               familyHistory: patient.familyHistory,
             }}
-            action={updateClinicalSummary.bind(null, id)} />
+            action={full ? updateClinicalSummary.bind(null, id) : undefined} />
+
+          {!full && (
+            <p className="rounded-md border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600">
+              Seu perfil tem acesso restrito: você vê o resumo clínico e abre só os atendimentos feitos por você.
+              As consultas dos outros profissionais aparecem na lista, sem o conteúdo.
+            </p>
+          )}
 
           <div className="card space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -137,12 +146,10 @@ export default async function PatientRecordPage({ params }: { params: Promise<{ 
                 const content = e.content as Record<string, string>;
                 const diagnoses = e.diagnoses as Diagnosis[];
                 const preview = fields.map((f) => content[f.key]).find(Boolean);
-                return (
-                  <li key={e.id}>
-                    <Link
-                      href={`/pacientes/${id}/atendimentos/${e.id}`}
-                      className="block rounded-md border border-slate-200 p-4 hover:border-marinho-400 hover:bg-marinho-50/30"
-                    >
+                const open = canOpenEncounter(user, e);
+                const box = `block rounded-md border border-slate-200 p-4 ${open ? "hover:border-marinho-400 hover:bg-marinho-50/30" : "bg-slate-50/60"}`;
+                const body = (
+                  <>
                       <div className="flex flex-wrap items-center gap-2 text-sm">
                         <span className="font-medium">{formatDateTime(e.startedAt)}</span>
                         <span className="text-slate-500">· {e.template?.name ?? "Evolução livre"} · {e.professional.name}</span>
@@ -157,13 +164,18 @@ export default async function PatientRecordPage({ params }: { params: Promise<{ 
                           </span>
                         )}
                       </div>
-                      {diagnoses.length > 0 && (
+                      {!open && <p className="mt-1 text-xs text-slate-400">Conteúdo visível só para profissionais com acesso completo.</p>}
+                      {open && diagnoses.length > 0 && (
                         <p className="mt-1 text-sm text-slate-600">
                           {diagnoses.map((d) => `${d.code} ${d.description}`).join("; ")}
                         </p>
                       )}
-                      {preview && <p className="mt-1 line-clamp-2 text-sm text-slate-500">{preview}</p>}
-                    </Link>
+                      {open && preview && <p className="mt-1 line-clamp-2 text-sm text-slate-500">{preview}</p>}
+                  </>
+                );
+                return (
+                  <li key={e.id}>
+                    {open ? <Link href={`/pacientes/${id}/atendimentos/${e.id}`} className={box}>{body}</Link> : <div className={box}>{body}</div>}
                   </li>
                 );
               })}
