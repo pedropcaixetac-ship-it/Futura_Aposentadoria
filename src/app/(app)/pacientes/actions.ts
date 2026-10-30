@@ -170,6 +170,7 @@ export async function updateClinicalSummary(id: string, _: FormState, formData: 
       depois: data,
     },
   });
-  revalidatePath(`/pacientes/${id}`);
+  // "layout" atualiza também a tela da consulta, onde o resumo pode ser editado.
+  revalidatePath(`/pacientes/${id}`, "layout");
   return { error: "" };
 }

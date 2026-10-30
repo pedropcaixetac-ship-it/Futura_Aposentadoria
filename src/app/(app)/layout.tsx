@@ -3,6 +3,7 @@ import { canManageTemplates, canUseReception, canViewAudit, canViewClinical } fr
 import { roleLabel } from "@/lib/format";
 import { logout } from "../login/actions";
 import { SidebarNav, type NavItem } from "./sidebar-nav";
+import { SidebarShell } from "./sidebar-shell";
 
 function initials(name: string) {
   return name
@@ -31,7 +32,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen md:flex">
-      <aside className="no-print flex flex-col gap-6 bg-marinho-900 p-4 text-white md:sticky md:top-0 md:h-screen md:w-64 md:shrink-0">
+      <SidebarShell clinicName={user.clinic.name}>
         <div className="flex items-center gap-3 border-b border-marinho-800 pb-4">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-dourado-500 font-bold text-marinho-950">
             {initials(user.clinic.name)}
@@ -53,7 +54,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             Sair
           </button>
         </form>
-      </aside>
+      </SidebarShell>
       <main className="min-w-0 flex-1 px-4 py-6 md:px-8">
         <div className="mx-auto max-w-6xl">{children}</div>
       </main>
