@@ -82,7 +82,11 @@ export async function updateHealthPlan(planId: string, _: FormState, formData: F
   if ("error" in parsed) return parsed;
   const active = formData.get("active") === "on";
   try {
-    await prisma.healthPlan.update({ where: { id: planId }, data: { ...parsed.data, active } });
+    await prisma.$transaction([
+      prisma.healthPlan.update({ where: { id: planId }, data: { ...parsed.data, active } }),
+      // A ficha dos pacientes mostra o nome do convênio; acompanha se ele for renomeado.
+      prisma.patient.updateMany({ where: { clinicId: user.clinicId, healthPlanId: planId }, data: { insurance: parsed.data.name } }),
+    ]);
   } catch (error) {
     if (isDuplicate(error)) return { error: "Já existe um convênio com esse nome." };
     throw error;

@@ -40,6 +40,15 @@ async function findDuplicate(clinicId: string, data: PatientInput, exceptId?: st
 }
 
 // Guarda a data do primeiro consentimento LGPD; desmarcar apaga.
+// Convênio escolhido na lista dos cadastrados: confere se é desta clínica e usa o nome cadastrado.
+async function applyHealthPlan(clinicId: string, data: PatientInput): Promise<string> {
+  if (!("healthPlanId" in data) || !data.healthPlanId) return "";
+  const plan = await prisma.healthPlan.findFirst({ where: { id: data.healthPlanId, clinicId }, select: { name: true } });
+  if (!plan) return "Convênio não encontrado. Escolha outro na lista.";
+  data.insurance = plan.name;
+  return "";
+}
+
 function consent(formData: FormData, before: Date | null | undefined) {
   if (modeOf(formData) === "rapido") return {};
   return { lgpdConsentAt: formData.get("lgpdConsent") ? (before ?? new Date()) : null };
@@ -56,7 +65,7 @@ export async function createPatient(_: FormState, formData: FormData): Promise<F
   const user = await requireUser("pacientes");
   const mode = modeOf(formData);
   const data = parsePatient(readFormData(formData), mode);
-  const error = validatePatient(data, mode);
+  const error = (await applyHealthPlan(user.clinicId, data)) || validatePatient(data, mode);
   if (error) return { error };
 
   if (!formData.get("confirmDuplicate")) {
@@ -91,7 +100,7 @@ export async function createPatient(_: FormState, formData: FormData): Promise<F
 export async function updatePatient(id: string, _: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser("pacientes");
   const data = parsePatient(readFormData(formData), "completo");
-  const error = validatePatient(data, "completo");
+  const error = (await applyHealthPlan(user.clinicId, data)) || validatePatient(data, "completo");
   if (error) return { error };
 
   const before = await prisma.patient.findFirst({ where: { id, clinicId: user.clinicId } });

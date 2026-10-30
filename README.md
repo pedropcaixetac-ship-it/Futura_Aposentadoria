@@ -60,6 +60,8 @@ Este é o primeiro módulo: **Prontuário**.
 - Convênios (primeira etapa do faturamento TISS): cadastro de cada plano de saúde (registro ANS, código da clínica no convênio,
   prazo de pagamento e de retorno) e a tabela de preços combinada por código TUSS, digitada ou colada de uma planilha.
   O CNES da clínica, que vai nas guias, também fica nesta aba
+- Na ficha do paciente, o convênio é escolhido na lista dos convênios cadastrados (ou "Outro", digitando o nome).
+  Se o convênio for renomeado, a ficha dos pacientes acompanha
 - Repasse por profissional (porcentagem do valor recebido), que pode ser lançado como despesa
 - Recibo numerado, com valor por extenso, para imprimir ou salvar em PDF
 - O administrador vê tudo; a recepção lança cobranças e recebe pagamentos; cada profissional vê só o próprio repasse

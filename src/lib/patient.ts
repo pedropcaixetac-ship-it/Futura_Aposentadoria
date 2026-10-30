@@ -60,6 +60,8 @@ export function parsePatient(get: Get, mode: RegistrationMode) {
     city: get("city"),
     state: get("state"),
     insurance: particular ? "Particular" : get("insurance"),
+    // "outro" = convênio que ainda não está cadastrado na clínica; vale o nome digitado.
+    healthPlanId: particular || get("healthPlanId") === "outro" ? null : get("healthPlanId"),
     insuranceNumber: particular ? null : get("insuranceNumber"),
     insuranceValidUntil: particular ? null : dateOrNull(get("insuranceValidUntil")),
     guardianName: get("guardianName"),

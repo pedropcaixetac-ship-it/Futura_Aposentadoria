@@ -11,6 +11,8 @@ type Props = {
   action: (state: FormState, formData: FormData) => Promise<FormState>;
   patient?: Patient;
   mode?: RegistrationMode;
+  // Convênios cadastrados em Financeiro > Convênios.
+  plans?: { id: string; name: string }[];
   submitLabel: string;
 };
 
@@ -71,12 +73,21 @@ function resizePhoto(file: File): Promise<string> {
   });
 }
 
-export function PatientForm({ action, patient, mode = "completo", submitLabel }: Props) {
+// Convênio já escolhido: o cadastrado, ou "outro" quando a ficha tem um nome que não está na lista.
+function initialPlan(patient: Patient | undefined, plans: { id: string; name: string }[]) {
+  if (patient?.healthPlanId) return patient.healthPlanId;
+  const insurance = patient?.insurance;
+  if (!insurance || insurance === "Particular") return "";
+  return plans.find((plan) => plan.name.toLowerCase() === insurance.toLowerCase())?.id ?? "outro";
+}
+
+export function PatientForm({ action, patient, mode = "completo", plans = [], submitLabel }: Props) {
   const [state, formAction] = useActionState(action, { error: "" });
   const [pending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
   const [birthDate, setBirthDate] = useState(dateValue(patient?.birthDate));
   const [convenio, setConvenio] = useState(!!patient?.insurance && patient.insurance !== "Particular");
+  const [plan, setPlan] = useState(() => initialPlan(patient, plans));
   const [photo, setPhoto] = useState(patient?.photo ?? "");
   const [cepStatus, setCepStatus] = useState("");
 
@@ -240,7 +251,19 @@ export function PatientForm({ action, patient, mode = "completo", submitLabel }:
         </div>
         {convenio && (
           <>
-            <Field label="Nome do convênio / plano" name="insurance" required defaultValue={p?.insurance === "Particular" ? "" : (p?.insurance ?? "")} />
+            {plans.length > 0 && (
+              <div>
+                <label className="label" htmlFor="healthPlanId">Convênio<span className="text-red-600"> *</span></label>
+                <select className="input" id="healthPlanId" name="healthPlanId" value={plan} onChange={(e) => setPlan(e.target.value)} required>
+                  <option value="" disabled>Escolha o convênio</option>
+                  {plans.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                  <option value="outro">Outro (não cadastrado)</option>
+                </select>
+              </div>
+            )}
+            {(plans.length === 0 || plan === "outro") && (
+              <Field label="Nome do convênio / plano" name="insurance" required defaultValue={p?.insurance === "Particular" ? "" : (p?.insurance ?? "")} />
+            )}
             <Field label="Nº da carteirinha" name="insuranceNumber" defaultValue={p?.insuranceNumber ?? ""} />
             <Field label="Validade da carteirinha" name="insuranceValidUntil" type="date" defaultValue={dateValue(p?.insuranceValidUntil)} />
           </>
