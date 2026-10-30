@@ -95,6 +95,8 @@ model Clinic {
   accountantPhone   String?
   // CNES: registro do estabelecimento no Ministério da Saúde, exigido nas guias dos convênios.
   cnes              String?
+  // Último número de guia de convênio emitido (as guias seguem uma sequência por clínica).
+  lastClaimNumber   Int      @default(0)
 
   users          User[]
   patients       Patient[]
@@ -118,6 +120,7 @@ model Clinic {
   teleconsultations Teleconsultation[]
   whatsappMessages WhatsappMessage[]
   healthPlans    HealthPlan[]
+  claims         InsuranceClaim[]
 }
 
 model User {
@@ -198,6 +201,7 @@ model User {
   @@unique([clinicId, email])
   @@unique([clinicId, cpf])
   whatsappMessages WhatsappMessage[]
+  claims              InsuranceClaim[]
 }
 
 model Session {
@@ -283,6 +287,7 @@ model Patient {
   appointments Appointment[]
   signedPdfs   SignedPdf[]
   teleconsultations Teleconsultation[]
+  claims       InsuranceClaim[]
 
   @@unique([clinicId, cpf])
   @@unique([clinicId, cns])
@@ -343,6 +348,7 @@ model Encounter {
   appointment Appointment?
   signedPdf   SignedPdf?
   teleconsultation Teleconsultation?
+  claims      InsuranceClaim[]
 
   @@index([clinicId, patientId, startedAt])
 }
@@ -824,6 +830,7 @@ model HealthPlan {
 
   prices   HealthPlanPrice[]
   patients Patient[]
+  claims   InsuranceClaim[]
 
   @@unique([clinicId, name])
 }
@@ -841,4 +848,50 @@ model HealthPlanPrice {
   updatedAt    DateTime   @updatedAt
 
   @@unique([healthPlanId, tussCode])
+}
+
+enum ClaimStatus {
+  ABERTA
+  CANCELADA
+}
+
+// Guia de consulta (padrão TISS) cobrada do convênio por um atendimento.
+model InsuranceClaim {
+  id                 String      @id @default(cuid())
+  clinicId           String
+  clinic             Clinic      @relation(fields: [clinicId], references: [id])
+  healthPlanId       String
+  healthPlan         HealthPlan  @relation(fields: [healthPlanId], references: [id])
+  patientId          String
+  patient            Patient     @relation(fields: [patientId], references: [id])
+  professionalId     String
+  professional       User        @relation(fields: [professionalId], references: [id])
+  encounterId        String?
+  encounter          Encounter?  @relation(fields: [encounterId], references: [id])
+  // Número da guia no prestador (sequência da clínica).
+  number             Int
+  // Número ou senha que o convênio deu para o atendimento, quando dá.
+  operatorNumber     String?
+  // Carteirinha no dia do atendimento.
+  cardNumber         String
+  cardValidUntil     DateTime?   @db.Date
+  newborn            Boolean     @default(false)
+  serviceDate        DateTime    @db.Date
+  // Tabela 52 da TISS (1 primeira consulta, 2 seguimento, 3 pré-natal, 4 encaminhamento).
+  consultationType   Int
+  // Tabela 36 da TISS (9 = não foi acidente).
+  accidentIndication Int         @default(9)
+  // CBO do profissional que atendeu.
+  cbo                String
+  tussCode           String
+  description        String
+  amountCents        Int
+  notes              String?
+  status             ClaimStatus @default(ABERTA)
+  canceledAt         DateTime?
+  createdAt          DateTime    @default(now())
+
+  @@unique([clinicId, number])
+  @@index([clinicId, serviceDate])
+  @@index([encounterId])
 }
