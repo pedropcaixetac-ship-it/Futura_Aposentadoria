@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { encounterHash } from "../src/lib/record";
+import { bodySurface, buildSessions, protocolDrugs } from "../src/lib/quimio";
 import { dateInput } from "../src/lib/finance";
 import { defaultObligations, obligationDueDate } from "../src/lib/accounting";
 
@@ -345,6 +346,69 @@ async function seedHospitalPharmacy() {
     }
   }
   console.log("Hospital de demonstração: farmácia com estoque de exemplo");
+}
+
+// Cozinha, CCIH e quimioterapia de exemplo: dieta da Helena, isolamento e infecção do Sebastião, e dois tratamentos de quimio.
+async function seedHospitalSectors() {
+  const hospital = await prisma.clinic.findUnique({ where: { slug: "hospital-demo" } });
+  if (!hospital || (await prisma.chemoProtocol.count({ where: { clinicId: hospital.id } })) > 0) return;
+  const ana = await prisma.user.findFirstOrThrow({ where: { clinicId: hospital.id, email: "ana@hospital.com" } });
+  const bruna = await prisma.user.findFirstOrThrow({ where: { clinicId: hospital.id, email: "enfermagem@hospital.com" } });
+  const day = 24 * 3600_000;
+  const helena = await prisma.admission.findFirst({ where: { clinicId: hospital.id, dischargedAt: null, patient: { name: "Helena Martins" } } });
+  if (helena) {
+    await prisma.prescriptionItem.create({
+      data: { clinicId: hospital.id, patientId: helena.patientId, admissionId: helena.id, prescriberId: ana.id, kind: "DIETA", description: "Dieta pastosa para diabético", intervalHours: 24, startAt: new Date(Date.now() - 2 * day), note: "Sem açúcar; fracionar em 6 refeições" },
+    });
+  }
+  const sebastiao = await prisma.admission.findFirst({ where: { clinicId: hospital.id, dischargedAt: null, patient: { name: "Sebastião Rodrigues" } } });
+  if (sebastiao) {
+    await prisma.isolationPrecaution.create({ data: { clinicId: hospital.id, admissionId: sebastiao.id, kind: "CONTATO", reason: "KPC em swab retal", startedById: ana.id, startedAt: new Date(Date.now() - day) } });
+    const diagnosed = new Date(Date.now() - 3 * 3600_000);
+    diagnosed.setUTCHours(0, 0, 0, 0);
+    await prisma.hospitalInfection.create({
+      data: { clinicId: hospital.id, admissionId: sebastiao.id, site: "ITU", diagnosedAt: diagnosed, organism: "Escherichia coli", device: "Sonda vesical de demora", reportedById: ana.id },
+    });
+  }
+  const ac = await prisma.chemoProtocol.create({
+    data: {
+      clinicId: hospital.id, name: "AC (doxorrubicina + ciclofosfamida)", cycleDays: 21, note: "Pré-medicação: ondansetrona 8 mg EV e dexametasona 10 mg EV",
+      drugs: [
+        { drug: "Doxorrubicina", dose: 60, unit: "mg/m²", route: "EV", days: [1] },
+        { drug: "Ciclofosfamida", dose: 600, unit: "mg/m²", route: "EV", days: [1] },
+      ],
+    },
+  });
+  const pacli = await prisma.chemoProtocol.create({
+    data: { clinicId: hospital.id, name: "Paclitaxel semanal", cycleDays: 7, drugs: [{ drug: "Paclitaxel", dose: 80, unit: "mg/m²", route: "EV", days: [1] }] },
+  });
+  const local = new Date(Date.now() - 3 * 3600_000);
+  const today = new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()));
+  const plans = [
+    { name: "Rosa Maria Alves", protocol: ac, start: new Date(today.getTime() - 21 * day), cycles: 4, heightCm: 160, weightKg: 64 },
+    { name: "Carlos Eduardo Lima", protocol: pacli, start: new Date(today.getTime() - 14 * day), cycles: 12, heightCm: 175, weightKg: 82 },
+  ];
+  for (const p of plans) {
+    const patient = await prisma.patient.findFirst({ where: { clinicId: hospital.id, name: p.name } });
+    if (!patient) continue;
+    const bsa = bodySurface(p.heightCm, p.weightKg);
+    const plan = await prisma.chemoPlan.create({
+      data: { clinicId: hospital.id, patientId: patient.id, protocolId: p.protocol.id, physicianId: ana.id, startDate: p.start, cycles: p.cycles, heightCm: p.heightCm, weightKg: p.weightKg, bsa },
+    });
+    for (const s of buildSessions(protocolDrugs(p.protocol.drugs), p.protocol.cycleDays, p.cycles, p.start, { bsa, weightKg: p.weightKg, doseLevel: 100 })) {
+      const past = s.date.getTime() < today.getTime();
+      const isToday = s.date.getTime() === today.getTime();
+      await prisma.chemoSession.create({
+        data: {
+          clinicId: hospital.id, planId: plan.id, patientId: patient.id, cycle: s.cycle, day: s.day, date: s.date, doses: s.doses,
+          // Sessões passadas aplicadas; a de hoje do paclitaxel já liberada pela médica.
+          ...(past ? { status: "REALIZADA", releasedAt: new Date(s.date.getTime() + 11 * 3600_000), releasedById: ana.id, administeredAt: new Date(s.date.getTime() + 13 * 3600_000), administeredById: bruna.id } : {}),
+          ...(isToday && p.protocol === pacli ? { releasedAt: new Date(Date.now() - 30 * 60_000), releasedById: ana.id } : {}),
+        },
+      });
+    }
+  }
+  console.log("Hospital de demonstração: cozinha, CCIH e quimioterapia de exemplo");
 }
 
 async function seedHospitalCare() {
@@ -719,6 +783,7 @@ async function main() {
   await seedHospitalEmergency();
   await seedHospitalPrescriptions();
   await seedHospitalPharmacy();
+  await seedHospitalSectors();
   await seedAgenda();
   await seedFinanceDemo();
   await seedPurchasesDemo();
