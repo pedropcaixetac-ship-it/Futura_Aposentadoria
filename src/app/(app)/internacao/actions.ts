@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { Prisma, type DischargeKind, type EvolutionKind, type FluidDirection, type Shift } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { canAdmit, canDischarge } from "@/lib/hospital-roles";
 import { audit } from "@/lib/audit";
 import { patientNameWhere } from "@/lib/patient";
 import { canViewClinical, canWorkClinical } from "@/lib/permissions";
@@ -57,6 +58,7 @@ export async function searchPatients(query: string): Promise<PatientOption[]> {
 
 export async function admitPatient(_: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser("internacao");
+  if (!canAdmit(user)) return { error: "A internação é feita pelo setor de internação, pela enfermagem ou pelo médico." };
 
   const bedId = text(formData, "bedId");
   const bed = bedId ? await prisma.bed.findFirst({ where: { id: bedId, clinicId: user.clinicId, active: true, ward: { active: true } } }) : null;
@@ -176,7 +178,7 @@ const dischargeKinds = Object.keys(dischargeKindLabel) as DischargeKind[];
 
 export async function dischargePatient(admissionId: string, _: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser("internacao");
-  if (!canViewClinical(user)) return { error: "A alta é dada por profissional de saúde com registro em conselho." };
+  if (!canDischarge(user)) return { error: "A alta é dada pelo médico (CRM)." };
   const admission = await findOpenAdmission(user.clinicId, admissionId);
   if (!admission) return { error: "Internação não encontrada ou já encerrada." };
   const kind = text(formData, "dischargeKind") as DischargeKind | null;

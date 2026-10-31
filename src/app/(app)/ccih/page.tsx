@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { canWorkInfectionControl } from "@/lib/hospital-roles";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { displayName } from "@/lib/staff";
 import { compareBedCodes } from "@/lib/internacao";
@@ -20,6 +21,7 @@ function monthRange(now = new Date()) {
 
 export default async function CcihPage() {
   const user = await requireUser("ccih");
+  const ccihTeam = canWorkInfectionControl(user);
   const now = new Date();
   const { from, label } = monthRange(now);
   const monthStart = new Date(from.getTime() - BRT);
@@ -109,13 +111,15 @@ export default async function CcihPage() {
               </p>
               <p className="text-slate-600">{i.reason} · desde {formatDateTime(i.startedAt)} · {displayName(i.startedBy)}</p>
               <p className="text-xs text-slate-500">{isolationHint[i.kind]}</p>
+              {ccihTeam && (
               <ActionForm action={endIsolation.bind(null, i.id)} submitLabel="Encerrar isolamento" className="mt-2 flex flex-wrap items-end gap-2">
                 <input name="endReason" className="input w-auto! min-w-64" placeholder="Motivo (ex.: culturas negativas)" aria-label="Motivo do encerramento" />
               </ActionForm>
+              )}
             </li>
           ))}
         </ul>
-        {beds.length > 0 && (
+        {beds.length > 0 && ccihTeam && (
           <ActionForm action={startIsolation} submitLabel="Colocar em isolamento" className="space-y-3 border-t border-slate-100 pt-3">
             <div className="grid gap-3 sm:grid-cols-3">
               <div>
@@ -181,15 +185,15 @@ export default async function CcihPage() {
               <p className="text-slate-600">{[i.organism, i.device, i.note].filter(Boolean).join(" · ") || "Sem detalhes"} · {displayName(i.reportedBy)}</p>
               {i.canceledAt ? (
                 <p className="text-xs text-slate-500">Anulada: {i.cancelReason}</p>
-              ) : (
+              ) : ccihTeam ? (
                 <ActionForm action={cancelInfection.bind(null, i.id)} submitLabel="Anular" className="mt-2 flex flex-wrap items-end gap-2">
                   <input name="reason" className="input w-auto! min-w-64" placeholder="Motivo da anulação" aria-label="Motivo da anulação" />
                 </ActionForm>
-              )}
+              ) : null}
             </li>
           ))}
         </ul>
-        {beds.length > 0 && (
+        {beds.length > 0 && ccihTeam && (
           <ActionForm action={reportInfection} submitLabel="Notificar infecção" className="space-y-3 border-t border-slate-100 pt-3">
             <h3 className="font-medium">Notificar infecção</h3>
             <div className="grid gap-3 sm:grid-cols-3">

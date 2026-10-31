@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { canTriage } from "@/lib/hospital-roles";
 import { age, formatDateTime } from "@/lib/format";
 import { canOpenEncounter, canWorkClinical } from "@/lib/permissions";
 import { displayName } from "@/lib/staff";
@@ -108,7 +109,7 @@ export default async function EmergencyVisitPage({ params, searchParams }: { par
         )}
       </section>
 
-      {open && nurse && waitingDoctor && (
+      {open && canTriage(user) && waitingDoctor && (
         <ActionForm action={triageVisit.bind(null, visit.id)} submitLabel={visit.triagedAt ? "Refazer triagem" : "Concluir triagem"} resetOnSuccess={false}>
           <h2 className="font-semibold text-marinho-800">{visit.triagedAt ? "Refazer a triagem" : "Triagem"}</h2>
           <fieldset className="space-y-2">

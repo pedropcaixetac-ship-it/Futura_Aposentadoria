@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { canJudgeSterilization } from "@/lib/hospital-roles";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { displayName } from "@/lib/staff";
 import { loadResultLabel, methodLabel, packageState, packageStateLabel } from "@/lib/cme";
@@ -75,7 +76,7 @@ export default async function LoadPage({ params }: { params: Promise<{ id: strin
         </table>
       </section>
 
-      {load.result === "LIBERADA" && (
+      {load.result === "LIBERADA" && canJudgeSterilization(user) && (
         <ActionForm action={recallLoad.bind(null, load.id)} submitLabel="Recolher carga" className="card flex flex-wrap items-end gap-2">
           <div className="grow">
             <label className="label" htmlFor="note">Recolher a carga (bloqueia os pacotes que sobraram e lista quem usou)</label>

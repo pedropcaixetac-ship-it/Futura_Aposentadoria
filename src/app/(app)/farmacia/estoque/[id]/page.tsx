@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { canAdjustPharmacyStock } from "@/lib/hospital-roles";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { displayName } from "@/lib/staff";
 import { expiryState, lotBalances, movementLabel } from "@/lib/farmacia";
@@ -47,7 +48,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
         </ul>
       </section>
 
-      {lots.length > 0 && (
+      {lots.length > 0 && canAdjustPharmacyStock(user) && (
         <ActionForm action={adjustStock.bind(null, product.id)} submitLabel="Registrar">
           <h2 className="font-semibold text-marinho-800">Ajuste de inventário ou perda</h2>
           <div className="grid gap-3 sm:grid-cols-4">

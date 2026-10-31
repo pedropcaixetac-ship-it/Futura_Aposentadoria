@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { Prisma, type SterilizationMethod } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { canJudgeSterilization } from "@/lib/hospital-roles";
 import { audit } from "@/lib/audit";
 import { withLock } from "@/lib/lock";
 import { loadCode, methodLabel, packageExpiry } from "@/lib/cme";
@@ -62,6 +63,7 @@ export async function startLoad(_: FormState, formData: FormData): Promise<FormS
 // Resultado da carga: liberar exige indicador químico e biológico aprovados; reprovar exige o motivo.
 export async function judgeLoad(loadId: string, _: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser("cme");
+  if (!canJudgeSterilization(user)) return { error: "Quem libera ou reprova a carga é o enfermeiro (COREN)." };
   const decision = text(formData, "decision");
   const chemicalOk = formData.get("chemicalOk") === "on";
   const biologicalOk = formData.get("biologicalOk") === "on";
@@ -85,6 +87,7 @@ export async function judgeLoad(loadId: string, _: FormState, formData: FormData
 // Recolher carga já liberada (ex.: indicador biológico positivo depois): bloqueia os pacotes que sobraram.
 export async function recallLoad(loadId: string, _: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser("cme");
+  if (!canJudgeSterilization(user)) return { error: "Quem recolhe a carga é o enfermeiro (COREN)." };
   const note = text(formData, "note");
   if (!note) return { error: "Informe o motivo do recolhimento." };
   const load = await prisma.sterilizationLoad.findFirst({ where: { id: loadId, clinicId: user.clinicId } });

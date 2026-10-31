@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
+import { canAdmit } from "@/lib/hospital-roles";
 import { listProfessionals } from "@/lib/agenda-data";
 import { canViewClinical } from "@/lib/permissions";
 import { compareBedCodes } from "@/lib/internacao";
@@ -8,6 +10,7 @@ import { AdmitForm } from "./admit-form";
 
 export default async function AdmitPage({ searchParams }: { searchParams: Promise<{ leito?: string; paciente?: string; origem?: string }> }) {
   const user = await requireUser("internacao");
+  if (!canAdmit(user)) redirect("/internacao");
   const params = await searchParams;
 
   const [wards, professionals, patient] = await Promise.all([

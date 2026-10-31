@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { canWorkClinical } from "@/lib/permissions";
+import { canAdministerChemo } from "@/lib/hospital-roles";
 import { isPhysician } from "@/lib/pronto-socorro";
 import { kitchenDate as todayDate } from "@/lib/cozinha";
 import { formatDate } from "@/lib/format";
@@ -29,7 +29,7 @@ export default async function ChemoPage() {
     }),
   ]);
   const doctor = isPhysician(user);
-  const nursing = canWorkClinical(user);
+  const nursing = canAdministerChemo(user);
   const now = sessions.filter((s) => s.date.getTime() <= today.getTime());
   const next = sessions.filter((s) => s.date.getTime() > today.getTime());
   const title = (s: (typeof sessions)[number]) => (

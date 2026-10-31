@@ -5,8 +5,8 @@ import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { canAdministerChemo } from "@/lib/hospital-roles";
 import { audit } from "@/lib/audit";
-import { canWorkClinical } from "@/lib/permissions";
 import { isPhysician } from "@/lib/pronto-socorro";
 import { kitchenDate as todayDate } from "@/lib/cozinha";
 import { bodySurface, buildSessions, DOSE_UNITS, parseDays, protocolDrugs, type DoseUnit, type ProtocolDrug } from "@/lib/quimio";
@@ -119,7 +119,7 @@ export async function releaseSession(sessionId: string): Promise<FormState> {
 // Enfermagem registra a aplicação. Só depois da liberação do médico e nunca antes do dia.
 export async function administerSession(sessionId: string, _: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser("quimioterapia");
-  if (!canWorkClinical(user)) return { error: "Só profissional de saúde registra a aplicação." };
+  if (!canAdministerChemo(user)) return { error: "A aplicação de quimioterapia é feita pelo enfermeiro (COREN)." };
   const session = await loadSession(sessionId, user.clinicId);
   if (!session) return { error: "Sessão não encontrada." };
   if (session.date.getTime() > todayDate().getTime()) return { error: "Esta sessão é de outro dia." };

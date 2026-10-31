@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { canAdjustPharmacyStock, canDispenseControlled } from "@/lib/hospital-roles";
 import { audit } from "@/lib/audit";
 import { withLock, type Tx } from "@/lib/lock";
 import { isExpired, lotBalances, pickLots, UNITS } from "@/lib/farmacia";
@@ -91,6 +92,7 @@ export async function dispense(itemId: string, _: FormState, formData: FormData)
   if (!item) return { error: "Item suspenso ou paciente já saiu." };
   const product = await prisma.pharmacyProduct.findFirst({ where: { id: text(formData, "productId") ?? "", clinicId: user.clinicId, active: true } });
   if (!product) return { error: "Escolha o produto do estoque." };
+  if (product.controlled && !canDispenseControlled(user)) return { error: `${product.name} é controlado: só o farmacêutico (CRF) entrega.` };
   const quantity = positiveInt(text(formData, "quantity"));
   if (!quantity) return { error: "Informe a quantidade." };
 
@@ -117,6 +119,7 @@ export async function dispense(itemId: string, _: FormState, formData: FormData)
 // Ajuste de inventário (contagem diferente) ou perda (vencido, quebrado). Sempre com o motivo.
 export async function adjustStock(productId: string, _: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser("farmacia");
+  if (!canAdjustPharmacyStock(user)) return { error: "Ajuste de estoque e perda são feitos pelo farmacêutico (CRF) ou pelo gerente." };
   const product = await prisma.pharmacyProduct.findFirst({ where: { id: productId, clinicId: user.clinicId } });
   if (!product) return { error: "Produto não encontrado." };
   const lot = text(formData, "lot");
