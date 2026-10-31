@@ -28,7 +28,7 @@ export const siteLabel: Record<InfectionSite, string> = {
 export const DEVICES = ["Cateter venoso central", "Sonda vesical de demora", "Ventilação mecânica", "Nenhum"];
 
 // Antimicrobianos que a CCIH acompanha (nome genérico, sem acento).
-const ANTIMICROBIALS = [
+export const ANTIMICROBIALS = [
   "amicacina", "amoxicilina", "ampicilina", "anidulafungina", "azitromicina", "aztreonam", "cefalexina", "cefalotina", "cefazolina",
   "cefepima", "cefotaxima", "cefoxitina", "ceftarolina", "ceftazidima", "ceftriaxona", "cefuroxima", "ciprofloxacino", "claritromicina",
   "clindamicina", "colistina", "daptomicina", "doxiciclina", "ertapenem", "fluconazol", "gentamicina", "imipenem", "levofloxacino",

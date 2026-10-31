@@ -2,7 +2,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { PrismaClient } from "@prisma/client";
-import { autoLines, billDays, billTotal, payerKind, roomHours } from "../src/lib/conta-hospitalar";
+import { autoLines, billDays, billTotal, dailiesByWard, payerKind, roomHours } from "../src/lib/conta-hospitalar";
 import { tabInInstitution } from "../src/lib/tabs";
 
 const prisma = new PrismaClient();
@@ -33,13 +33,28 @@ test("hora de sala: começada conta inteira; sem tempos usa a prevista", () => {
   assert.equal(roomHours({ patientInAt: null, patientOutAt: null, expectedMinutes: 150 }), 3);
 });
 
+test("diárias seguem a ala de cada dia: UTI e depois enfermaria (teste de caos)", () => {
+  const d = (s: string) => new Date(`${s}-03:00`);
+  const stays = [
+    { from: d("2026-11-01T22:00:00"), wardKind: "UTI adulto" },
+    { from: d("2026-11-05T09:00:00"), wardKind: "Enfermaria" },
+  ];
+  // Viradas de 02, 03, 04 e 05/11 na UTI; 06/11 na enfermaria; alta em 06/11 à tarde.
+  assert.deepEqual([...dailiesByWard(d("2026-11-01T22:00:00"), d("2026-11-06T15:00:00"), stays)], [["UTI adulto", 4], ["Enfermaria", 1]]);
+  // Entrou e saiu no mesmo dia: uma diária, da ala onde estava.
+  assert.deepEqual([...dailiesByWard(d("2026-11-01T08:00:00"), d("2026-11-01T18:00:00"), [{ from: d("2026-11-01T08:00:00"), wardKind: "UTI neonatal" }])], [["UTI neonatal", 1]]);
+  // Ainda internado: conta até agora.
+  const now = d("2026-11-03T12:00:00");
+  assert.deepEqual([...dailiesByWard(d("2026-11-01T10:00:00"), null, [{ from: d("2026-11-01T10:00:00"), wardKind: "UTI pediátrica" }], now)], [["UTI pediátrica", 2]]);
+});
+
 test("lançamentos automáticos com os preços da tabela; sem preço fica zero", () => {
   const prices = new Map([["diaria:Enfermaria", 45000], ["med:p1", 450], ["exame:t1", 2500], ["sala:hora", 60000]]);
   const lines = autoLines(
     {
       admittedAt: new Date("2026-11-01T10:00:00-03:00"),
       dischargedAt: new Date("2026-11-04T10:00:00-03:00"),
-      wardKind: "Enfermaria",
+      stays: [{ from: new Date("2026-11-01T10:00:00-03:00"), wardKind: "Enfermaria" }],
       medications: [{ productId: "p1", name: "Dipirona", unit: "ampola", quantity: 6 }, { productId: "p2", name: "Devolvido", unit: "ampola", quantity: 0 }],
       exams: [{ id: "e1", name: "Hemograma", at: new Date() }, { id: "e2", name: "Sem preço", at: new Date() }],
       surgeries: [{ id: "s1", procedure: "Apendicectomia", hours: 2 }],
@@ -48,7 +63,7 @@ test("lançamentos automáticos com os preços da tabela; sem preço fica zero",
     new Map([["e1", "t1"], ["e2", "t2"]]),
   );
   assert.deepEqual(lines.map((l) => [l.source, l.quantity, l.unitCents]), [
-    ["diarias", 3, 45000],
+    ["diarias:Enfermaria", 3, 45000],
     ["med:p1", 6, 450],
     ["exame:e1", 1, 2500],
     ["exame:e2", 1, 0],

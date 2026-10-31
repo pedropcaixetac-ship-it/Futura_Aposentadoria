@@ -8,14 +8,16 @@ import { kitchenDate as todayDate } from "@/lib/cozinha";
 import { ActionForm } from "../financeiro/action-form";
 import { cancelExam, collectExam, saveLabResult } from "../exames/actions";
 import { ExamHeader } from "../exames/exam-header";
-import { loadQueue } from "../exames/queue-data";
+import { loadQueue, queueWards } from "../exames/queue-data";
+import { QueueFilter, QueueMore } from "../exames/queue-filter";
 import { ResultView } from "../exames/result-view";
 
 // Laboratório: coletar, liberar resultado e ver o que saiu nas últimas 24 horas.
-export default async function LabPage() {
+export default async function LabPage({ searchParams }: { searchParams: Promise<{ ala?: string }> }) {
   const user = await requireUser("laboratorio");
   const tomorrow = new Date(todayDate().getTime() + 27 * 3600_000);
-  const { toCollect, toRelease, released } = await loadQueue(user.clinicId, "LABORATORIO", tomorrow);
+  const { ala = "" } = await searchParams;
+  const [{ toCollect, toRelease, released, counts }, wards] = await Promise.all([loadQueue(user.clinicId, "LABORATORIO", tomorrow, ala), queueWards(user.clinicId)]);
   const team = canWorkClinical(user);
   const releaser = canReleaseLabResult(user);
 
@@ -29,8 +31,10 @@ export default async function LabPage() {
         <Link href="/laboratorio/catalogo" className="btn-secondary">Catálogo de exames</Link>
       </div>
 
+      <QueueFilter path="/laboratorio" ala={ala} wards={wards} />
+
       <section className="space-y-2">
-        <h2 className="font-semibold text-marinho-800">A coletar ({toCollect.length})</h2>
+        <h2 className="font-semibold text-marinho-800">A coletar ({counts.toCollect})</h2>
         {toCollect.length === 0 && <p className="card text-sm text-slate-500">Nenhuma coleta pendente.</p>}
         <ul className="space-y-2">
           {toCollect.map((e) => (
@@ -49,10 +53,11 @@ export default async function LabPage() {
             </li>
           ))}
         </ul>
+        <QueueMore shown={toCollect.length} total={counts.toCollect} />
       </section>
 
       <section className="space-y-2">
-        <h2 className="font-semibold text-marinho-800">Em análise ({toRelease.length})</h2>
+        <h2 className="font-semibold text-marinho-800">Em análise ({counts.toRelease})</h2>
         {toRelease.length === 0 && <p className="card text-sm text-slate-500">Nada em análise.</p>}
         <ul className="space-y-2">
           {toRelease.map((e) => {
@@ -82,11 +87,12 @@ export default async function LabPage() {
             );
           })}
         </ul>
+        <QueueMore shown={toRelease.length} total={counts.toRelease} />
       </section>
 
       {released.length > 0 && (
         <section className="space-y-2">
-          <h2 className="font-semibold text-marinho-800">Liberados nas últimas 24 horas</h2>
+          <h2 className="font-semibold text-marinho-800">Liberados nas últimas 24 horas{counts.released > released.length && ` (os ${released.length} mais recentes de ${counts.released})`}</h2>
           <ul className="space-y-2">
             {released.map((e) => (
               <li key={e.id} className="card space-y-2 text-sm">

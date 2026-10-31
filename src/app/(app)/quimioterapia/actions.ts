@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { canAdministerChemo } from "@/lib/hospital-roles";
 import { audit } from "@/lib/audit";
+import { withLock } from "@/lib/lock";
 import { isPhysician } from "@/lib/pronto-socorro";
 import { kitchenDate as todayDate } from "@/lib/cozinha";
 import { bodySurface, buildSessions, DOSE_UNITS, parseDays, protocolDrugs, type DoseUnit, type ProtocolDrug } from "@/lib/quimio";
@@ -84,7 +85,10 @@ export async function startPlan(patientId: string, _: FormState, formData: FormD
 
   const bsa = bodySurface(heightCm, weightKg);
   const sessions = buildSessions(protocolDrugs(protocol.drugs), protocol.cycleDays, cycles, startDate, { bsa, weightKg, doseLevel });
-  const plan = await prisma.$transaction(async (tx) => {
+  // Clique duplo em "Iniciar" não pode abrir dois tratamentos iguais (doses em dobro na agenda da quimio).
+  const plan = await withLock([`quimio-paciente:${patient.id}`], async (tx) => {
+    const same = await tx.chemoPlan.findFirst({ where: { clinicId: user.clinicId, patientId: patient.id, protocolId: protocol.id, endedAt: null }, select: { id: true } });
+    if (same) return null;
     const plan = await tx.chemoPlan.create({
       data: { clinicId: user.clinicId, patientId: patient.id, protocolId: protocol.id, physicianId: user.id, startDate, cycles, heightCm, weightKg, bsa, doseLevel, note: text(formData, "note") },
     });
@@ -93,6 +97,7 @@ export async function startPlan(patientId: string, _: FormState, formData: FormD
     });
     return plan;
   });
+  if (!plan) return { error: `Este paciente já tem um tratamento ${protocol.name} em andamento. Encerre o anterior antes de começar outro igual.` };
   await audit({ clinicId: user.clinicId, userId: user.id, action: "QUIMIO_TRATAMENTO", entity: "ChemoPlan", entityId: plan.id, patientId: patient.id, details: { protocolo: protocol.name, ciclos: cycles, sc: bsa } });
   redirect(`/quimioterapia/${plan.id}`);
 }
@@ -147,20 +152,25 @@ export async function postponeSession(sessionId: string, _: FormState, formData:
   if (shift <= 0) return { error: "A nova data precisa ser depois da data marcada." };
   const reason = text(formData, "reason");
   if (!reason) return { error: "Informe o motivo (ex.: neutropenia)." };
-  const following = await prisma.chemoSession.findMany({ where: { clinicId: user.clinicId, planId: session.planId, status: "AGENDADA", date: { gte: session.date } } });
-  await prisma.$transaction(
-    following.map((s) =>
-      prisma.chemoSession.update({
-        where: { id: s.id },
+  // Uma alteração por vez no mesmo tratamento: clique duplo não adia duas vezes, e sessão aplicada não muda de data.
+  const following = await withLock([`quimio-plano:${session.planId}`], async (tx) => {
+    const fresh = await tx.chemoSession.findFirst({ where: { id: session.id, clinicId: user.clinicId, status: "AGENDADA", date: session.date } });
+    if (!fresh) return null;
+    const list = await tx.chemoSession.findMany({ where: { clinicId: user.clinicId, planId: session.planId, status: "AGENDADA", date: { gte: session.date } } });
+    for (const s of list) {
+      await tx.chemoSession.updateMany({
+        where: { id: s.id, clinicId: user.clinicId, status: "AGENDADA" },
         data: {
           date: new Date(s.date.getTime() + shift * DAY),
           releasedAt: null,
           releasedById: null,
           ...(s.id === session.id ? { note: `Adiada ${shift} dia(s): ${reason}` } : {}),
         },
-      }),
-    ),
-  );
+      });
+    }
+    return list;
+  });
+  if (!following) return { error: "Esta sessão acabou de ser alterada por outra pessoa. Recarregue a página." };
   await audit({ clinicId: user.clinicId, userId: user.id, action: "QUIMIO_SESSAO", entity: "ChemoSession", entityId: session.id, patientId: session.patientId, details: { acao: "adiou", dias: shift, motivo: reason, sessoes: following.length } });
   revalidatePath("/quimioterapia");
   revalidatePath(`/quimioterapia/${session.planId}`);

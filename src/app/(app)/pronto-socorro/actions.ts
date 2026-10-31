@@ -100,8 +100,9 @@ export async function triageVisit(visitId: string, _: FormState, formData: FormD
   const pain = painRaw === null ? null : Number(painRaw);
   if (pain !== null && !(Number.isInteger(pain) && pain >= 0 && pain <= 10)) return { error: "A dor vai de 0 a 10." };
 
-  await prisma.emergencyVisit.update({
-    where: { id: visit.id },
+  // Só enquanto ninguém chamou: se o médico chamou no mesmo segundo, o paciente não pode voltar para a fila.
+  const { count } = await prisma.emergencyVisit.updateMany({
+    where: { id: visit.id, clinicId: user.clinicId, closedAt: null, status: { in: ["AGUARDANDO_TRIAGEM", "AGUARDANDO_MEDICO"] } },
     data: {
       status: "AGUARDANDO_MEDICO",
       risk,
@@ -112,6 +113,7 @@ export async function triageVisit(visitId: string, _: FormState, formData: FormD
       triageNote: text(formData, "triageNote"),
     },
   });
+  if (!count) return { error: "Este paciente acabou de ser chamado pelo médico ou saiu do pronto-socorro." };
   await audit({ clinicId: user.clinicId, userId: user.id, action: "PS_TRIAGEM", entity: "EmergencyVisit", entityId: visit.id, patientId: visit.patientId, details: { risco: risk } });
   revalidatePath("/pronto-socorro");
   redirect("/pronto-socorro");
@@ -153,7 +155,8 @@ export async function closeVisit(visitId: string, _: FormState, formData: FormDa
 
   if (choice === "OBSERVACAO") {
     if (!isPhysician(user)) return { error: "Só o médico coloca o paciente em observação." };
-    await prisma.emergencyVisit.update({ where: { id: visit.id }, data: { status: "OBSERVACAO", ...(note && { closeNote: note }) } });
+    const { count } = await prisma.emergencyVisit.updateMany({ where: { id: visit.id, clinicId: user.clinicId, closedAt: null }, data: { status: "OBSERVACAO", ...(note && { closeNote: note }) } });
+    if (!count) return { error: "Este paciente acabou de sair do pronto-socorro." };
     await audit({ clinicId: user.clinicId, userId: user.id, action: "PS_DESFECHO", entity: "EmergencyVisit", entityId: visit.id, patientId: visit.patientId, details: { desfecho: "Observação" } });
     revalidatePath("/pronto-socorro");
     return { error: "", ok: "Paciente em observação. Ele continua no painel até o desfecho." };
@@ -164,10 +167,12 @@ export async function closeVisit(visitId: string, _: FormState, formData: FormDa
   if (outcome !== "EVASAO" && !isPhysician(user)) return { error: "Só o médico registra alta, internação, transferência ou óbito." };
   if (outcome === "OBITO" && !note) return { error: "Informe a hora e as circunstâncias do óbito na observação." };
 
-  await prisma.emergencyVisit.update({
-    where: { id: visit.id },
+  // Um desfecho só: alta, óbito e evasão registrados no mesmo segundo por pessoas diferentes não se sobrepõem.
+  const { count } = await prisma.emergencyVisit.updateMany({
+    where: { id: visit.id, clinicId: user.clinicId, closedAt: null },
     data: { status: "ENCERRADO", outcome, closedAt: new Date(), closedById: user.id, closeNote: note ?? visit.closeNote },
   });
+  if (!count) return { error: "Outra pessoa acabou de registrar o desfecho deste paciente." };
   await audit({ clinicId: user.clinicId, userId: user.id, action: "PS_DESFECHO", entity: "EmergencyVisit", entityId: visit.id, patientId: visit.patientId, details: { desfecho: outcomeLabel[outcome] } });
   revalidatePath("/pronto-socorro");
   // Internação: segue direto para escolher o leito, com o paciente já preenchido.

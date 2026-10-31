@@ -213,6 +213,8 @@ model Clinic {
   examRequests      ExamRequest[]
   hospitalPrices    HospitalPrice[]
   hospitalBills     HospitalBill[]
+  consultRequests   ConsultRequest[]
+  attendingChanges  AttendingChange[]
   hospitalBillItems HospitalBillItem[]
 }
 
@@ -355,6 +357,13 @@ model User {
   workOrdersClosed     WorkOrder[]           @relation("WorkOrderCloser")
   hospitalBillsClosed  HospitalBill[]
   hospitalBillItems    HospitalBillItem[]
+  consultsAsConsultant ConsultRequest[]      @relation("ConsultConsultant")
+  consultsRequested    ConsultRequest[]      @relation("ConsultRequester")
+  consultsAnswered     ConsultRequest[]      @relation("ConsultAnswerer")
+  consultsCanceled     ConsultRequest[]      @relation("ConsultCanceler")
+  attendingChangesFrom AttendingChange[]     @relation("AttendingChangeFrom")
+  attendingChangesTo   AttendingChange[]     @relation("AttendingChangeTo")
+  attendingChangesBy   AttendingChange[]     @relation("AttendingChangeBy")
 
   @@unique([clinicId, email])
   @@unique([clinicId, cpf])
@@ -474,6 +483,7 @@ model Patient {
   chemoSessions     ChemoSession[]
   surgeries         Surgery[]
   examRequests      ExamRequest[]
+  consultRequests   ConsultRequest[]
 
   @@unique([clinicId, cpf])
   @@unique([clinicId, cns])
@@ -1451,6 +1461,9 @@ model Admission {
   // Médico responsável pela internação.
   attendingId    String
   attending      User           @relation("AdmissionAttending", fields: [attendingId], references: [id])
+  // Especialidade (clínica) que cuida do paciente agora, ex.: Clínica médica, Cirurgia geral.
+  // Muda quando o paciente é transferido de especialidade (ver AttendingChange).
+  specialty      String?
   admittedById   String
   admittedBy     User           @relation("AdmissionCreator", fields: [admittedById], references: [id])
   admittedAt     DateTime       @default(now())
@@ -1480,6 +1493,8 @@ model Admission {
   fluidEntries      FluidEntry[]
   prescriptionItems PrescriptionItem[]
   bill              HospitalBill?
+  consults          ConsultRequest[]
+  attendingChanges  AttendingChange[]
 
   @@index([clinicId, dischargedAt])
 }
@@ -2443,4 +2458,71 @@ model HospitalBillItem {
 
   @@unique([billId, source])
   @@index([billId])
+}
+
+// ---- Especialidades no hospital: parecer e transferência ----
+
+enum ConsultStatus {
+  PENDENTE
+  RESPONDIDO
+  CANCELADO
+}
+
+// Pedido de parecer (interconsulta): a equipe que cuida do internado pede a opinião de outra especialidade.
+// Responde qualquer médico da especialidade pedida (ou o médico escolhido). Respondido não muda mais.
+model ConsultRequest {
+  id            String        @id @default(cuid())
+  clinicId      String
+  clinic        Clinic        @relation(fields: [clinicId], references: [id])
+  admissionId   String
+  admission     Admission     @relation(fields: [admissionId], references: [id])
+  patientId     String
+  patient       Patient       @relation(fields: [patientId], references: [id])
+  // Especialidade pedida (mesmo texto da especialidade do cadastro do médico).
+  specialty     String
+  // Médico específico (opcional); vazio = qualquer um da especialidade.
+  consultantId  String?
+  consultant    User?         @relation("ConsultConsultant", fields: [consultantId], references: [id])
+  urgent        Boolean       @default(false)
+  question      String
+  requestedById String
+  requestedBy   User          @relation("ConsultRequester", fields: [requestedById], references: [id])
+  createdAt     DateTime      @default(now())
+  status        ConsultStatus @default(PENDENTE)
+  answer        String?
+  answeredById  String?
+  answeredBy    User?         @relation("ConsultAnswerer", fields: [answeredById], references: [id])
+  answeredAt    DateTime?
+  // A especialidade do parecer assumiu o paciente ao responder.
+  tookOver      Boolean       @default(false)
+  canceledAt    DateTime?
+  canceledById  String?
+  canceledBy    User?         @relation("ConsultCanceler", fields: [canceledById], references: [id])
+  cancelReason  String?
+
+  @@index([clinicId, status, specialty])
+  @@index([admissionId])
+}
+
+// Troca do médico responsável (e da especialidade) de uma internação: "a clínica médica passa o paciente para a cirurgia".
+model AttendingChange {
+  id              String    @id @default(cuid())
+  clinicId        String
+  clinic          Clinic    @relation(fields: [clinicId], references: [id])
+  admissionId     String
+  admission       Admission @relation(fields: [admissionId], references: [id])
+  fromAttendingId String
+  fromAttending   User      @relation("AttendingChangeFrom", fields: [fromAttendingId], references: [id])
+  toAttendingId   String
+  toAttending     User      @relation("AttendingChangeTo", fields: [toAttendingId], references: [id])
+  fromSpecialty   String?
+  toSpecialty     String?
+  reason          String?
+  // Pelo parecer respondido com "assumir o paciente".
+  consultId       String?
+  changedById     String
+  changedBy       User      @relation("AttendingChangeBy", fields: [changedById], references: [id])
+  changedAt       DateTime  @default(now())
+
+  @@index([admissionId])
 }

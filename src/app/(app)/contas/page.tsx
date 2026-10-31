@@ -5,6 +5,10 @@ import { formatDate } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { billDays, payerKind, payerLabel } from "@/lib/conta-hospitalar";
 import { BillsNav } from "./nav";
+import { Pager, pageNumber } from "../pager";
+
+// Hospital grande: centenas de internados e de altas por mês. Cada lista vem em páginas.
+const PAGE_SIZE = 100;
 
 type Row = {
   id: string;
@@ -49,8 +53,15 @@ function Table({ rows, empty, closed }: { rows: Row[]; empty: string; closed?: b
   );
 }
 
-export default async function BillsPage() {
+export default async function BillsPage({ searchParams }: { searchParams: Promise<{ altas?: string; internados?: string }> }) {
   const user = await requireUser("contas");
+  const params = await searchParams;
+  const pageAltas = pageNumber(params.altas);
+  const pageInternados = pageNumber(params.internados);
+  const href = (key: "altas" | "internados", page: number) => {
+    const q = new URLSearchParams({ ...(key !== "altas" && pageAltas > 1 && { altas: String(pageAltas) }), ...(key !== "internados" && pageInternados > 1 && { internados: String(pageInternados) }), ...(page > 1 && { [key]: String(page) }) });
+    return `/contas${q.size ? `?${q}` : ""}`;
+  };
   const include = {
     patient: { select: { name: true, socialName: true } },
     bed: { select: { code: true, ward: { select: { name: true } } } },
@@ -59,10 +70,14 @@ export default async function BillsPage() {
   const monthStart = new Date();
   monthStart.setUTCDate(1);
   monthStart.setUTCHours(3, 0, 0, 0);
-  const [toClose, current, closed] = await Promise.all([
-    prisma.admission.findMany({ where: { clinicId: user.clinicId, dischargedAt: { not: null }, OR: [{ bill: null }, { bill: { status: "ABERTA" } }] }, include, orderBy: { dischargedAt: "asc" } }),
-    prisma.admission.findMany({ where: { clinicId: user.clinicId, dischargedAt: null }, include, orderBy: { admittedAt: "asc" } }),
+  const toCloseWhere = { clinicId: user.clinicId, dischargedAt: { not: null }, OR: [{ bill: null }, { bill: { status: "ABERTA" as const } }] };
+  const currentWhere = { clinicId: user.clinicId, dischargedAt: null };
+  const [toClose, current, closed, toCloseCount, currentCount] = await Promise.all([
+    prisma.admission.findMany({ where: { ...toCloseWhere, clinicId: user.clinicId }, include, orderBy: { dischargedAt: "asc" }, skip: (pageAltas - 1) * PAGE_SIZE, take: PAGE_SIZE }),
+    prisma.admission.findMany({ where: { ...currentWhere, clinicId: user.clinicId }, include, orderBy: { admittedAt: "asc" }, skip: (pageInternados - 1) * PAGE_SIZE, take: PAGE_SIZE }),
     prisma.admission.findMany({ where: { clinicId: user.clinicId, bill: { status: "FECHADA" } }, include, orderBy: { bill: { closedAt: "desc" } }, take: 20 }),
+    prisma.admission.count({ where: { ...toCloseWhere, clinicId: user.clinicId } }),
+    prisma.admission.count({ where: { ...currentWhere, clinicId: user.clinicId } }),
   ]);
   const closedThisMonth = await prisma.hospitalBill.aggregate({ where: { clinicId: user.clinicId, status: "FECHADA", closedAt: { gte: monthStart } }, _sum: { totalCents: true }, _count: true });
 
@@ -75,15 +90,17 @@ export default async function BillsPage() {
       <BillsNav current="contas" />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <div className="card"><p className="text-sm text-slate-500">Altas com conta a fechar</p><p className={`text-2xl font-semibold ${toClose.length ? "text-amber-600" : "text-emerald-700"}`}>{toClose.length}</p></div>
-        <div className="card"><p className="text-sm text-slate-500">Internados agora</p><p className="text-2xl font-semibold text-marinho-800">{current.length}</p></div>
+        <div className="card"><p className="text-sm text-slate-500">Altas com conta a fechar</p><p className={`text-2xl font-semibold ${toCloseCount ? "text-amber-600" : "text-emerald-700"}`}>{toCloseCount}</p></div>
+        <div className="card"><p className="text-sm text-slate-500">Internados agora</p><p className="text-2xl font-semibold text-marinho-800">{currentCount}</p></div>
         <div className="card"><p className="text-sm text-slate-500">Fechado no mês</p><p className="text-2xl font-semibold text-marinho-800">{formatMoney(closedThisMonth._sum.totalCents ?? 0)}</p><p className="text-xs text-slate-500">{closedThisMonth._count} conta(s)</p></div>
       </div>
 
       <h2 className="font-semibold text-marinho-800">Alta dada: conferir e fechar</h2>
       <Table rows={toClose} empty="Nenhuma conta esperando fechamento." />
+      <Pager page={pageAltas} size={PAGE_SIZE} count={toCloseCount} href={(p) => href("altas", p)} />
       <h2 className="font-semibold text-marinho-800">Internados (conta parcial)</h2>
       <Table rows={current} empty="Ninguém internado." />
+      <Pager page={pageInternados} size={PAGE_SIZE} count={currentCount} href={(p) => href("internados", p)} />
       <h2 className="font-semibold text-marinho-800">Fechadas recentemente</h2>
       <Table rows={closed} empty="Nenhuma conta fechada ainda." closed />
     </div>

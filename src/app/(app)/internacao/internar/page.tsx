@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { canAdmit } from "@/lib/hospital-roles";
-import { listProfessionals } from "@/lib/agenda-data";
+import { displayName } from "@/lib/staff";
 import { canViewClinical } from "@/lib/permissions";
 import { compareBedCodes } from "@/lib/internacao";
 import { AdmitForm } from "./admit-form";
@@ -19,7 +19,14 @@ export default async function AdmitPage({ searchParams }: { searchParams: Promis
       include: { beds: { where: { active: true, status: "LIVRE", admissions: { none: { dischargedAt: null } } } } },
       orderBy: { name: "asc" },
     }),
-    listProfessionals(user.clinicId),
+    // Médico responsável: só médicos (CRM), com a especialidade, que passa a ser a da internação.
+    prisma.user
+      .findMany({
+        where: { clinicId: user.clinicId, active: true, role: { in: ["PROFISSIONAL", "ADMIN"] }, councilType: "CRM", councilNumber: { not: null } },
+        select: { id: true, name: true, sex: true, jobTitle: true, specialty: true },
+        orderBy: { name: "asc" },
+      })
+      .then((list) => list.map((p) => ({ id: p.id, name: `${displayName(p)}${p.specialty ? ` · ${p.specialty}` : ""}` }))),
     params.paciente
       ? prisma.patient.findFirst({ where: { id: params.paciente, clinicId: user.clinicId }, select: { id: true, name: true, phone: true, insurance: true } })
       : null,
