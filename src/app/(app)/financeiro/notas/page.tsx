@@ -15,18 +15,22 @@ const chargeInclude = {
   professional: { select: { id: true, name: true, cpf: true, municipalRegistration: true, jobTitle: true, sex: true } },
 } as const;
 
+const PENDING_PAGE = 100;
+
 export default async function InvoicesPage() {
   const user = await requireUser("financeiro");
   if (!canManageCharges(user)) notFound();
   const admin = canManageFinance(user);
   const clinicId = user.clinicId;
 
-  const [clinic, pending, issued] = await Promise.all([
+  const [clinic, pending, issued, pendingCount] = await Promise.all([
     prisma.clinic.findUniqueOrThrow({ where: { id: clinicId } }),
     prisma.serviceInvoice.findMany({
       where: { clinicId, status: "PEDIDA" },
       include: { charge: { include: chargeInclude } },
       orderBy: { requestedAt: "asc" },
+      // Clínica movimentada: a fila pode passar de mil notas, e a tela ficaria pesada demais. As mais antigas primeiro.
+      take: PENDING_PAGE,
     }),
     prisma.serviceInvoice.findMany({
       where: { clinicId, status: "EMITIDA" },
@@ -34,6 +38,7 @@ export default async function InvoicesPage() {
       orderBy: { issuedAt: "desc" },
       take: 50,
     }),
+    prisma.serviceInvoice.count({ where: { clinicId, status: "PEDIDA" } }),
   ]);
 
   return (
@@ -58,6 +63,11 @@ export default async function InvoicesPage() {
             />
           ))}
           {pending.length === 0 && <li className="card text-center text-sm text-slate-400">Nenhuma nota esperando emissão.</li>}
+          {pendingCount > pending.length && (
+            <li className="text-center text-sm text-slate-500">
+              Mostrando as {pending.length} mais antigas de {pendingCount} notas pedidas. Emita estas para ver as próximas.
+            </li>
+          )}
         </ul>
 
         <h2 className="pt-2 text-lg font-semibold">Últimas notas emitidas</h2>

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import type { PaymentMethod } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { withLock } from "@/lib/lock";
 import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { canCancelCharge, canManageCharges, canManageFinance } from "@/lib/permissions";
@@ -89,19 +90,28 @@ export async function createCharge(_: FormState, formData: FormData): Promise<Fo
   const paidAt = parseDateInput(text(formData, "paidAt") ?? "") ?? today();
   if (paidNow && !paymentMethod) return { error: "Informe a forma de pagamento." };
 
-  const charge = await prisma.charge.create({
-    data: {
-      clinicId: user.clinicId,
-      patientId: patient.id,
-      professionalId: professional?.id,
-      encounterId: encounter?.id,
-      priceItemId: priceItem?.id,
-      description: description.slice(0, 200),
-      amountCents,
-      dueDate,
-      notes: text(formData, "notes"),
-    },
-  });
+  const data = {
+    clinicId: user.clinicId,
+    patientId: patient.id,
+    professionalId: professional?.id,
+    encounterId: encounter?.id,
+    priceItemId: priceItem?.id,
+    description: description.slice(0, 200),
+    amountCents,
+    dueDate,
+    notes: text(formData, "notes"),
+  };
+  // Clique duplo em "Salvar" (ou duas pessoas cobrando o mesmo atendimento): o atendimento só é cobrado uma vez.
+  // O que o convênio pagou (lançado pelo lote) não conta.
+  const charge = encounter
+    ? await withLock([`cobranca:${encounter.id}`], async (tx) => {
+        const charged = await tx.charge.findFirst({
+          where: { clinicId: user.clinicId, encounterId: encounter.id, status: { not: "CANCELADO" }, OR: [{ paymentMethod: null }, { paymentMethod: { not: "CONVENIO" } }] },
+        });
+        return charged ? null : tx.charge.create({ data });
+      })
+    : await prisma.charge.create({ data });
+  if (!charge) return { error: "Este atendimento já tem cobrança. Veja em Receitas." };
   await audit({
     clinicId: user.clinicId,
     userId: user.id,
@@ -135,7 +145,14 @@ export async function receiveCharge(chargeId: string, formData: FormData) {
   if (!paymentMethod) throw new Error("Informe a forma de pagamento");
   const paidAt = parseDateInput(text(formData, "paidAt") ?? "") ?? today();
 
-  const receiptNumber = await markPaid(user.clinicId, charge.id, paymentMethod, paidAt);
+  // Clique duplo em "Receber": o segundo clique só recarrega a tela, sem número de recibo novo nem erro.
+  if (charge.status === "PAGO") return revalidateFinance();
+  const receiptNumber = await markPaid(user.clinicId, charge.id, paymentMethod, paidAt).catch(async (e) => {
+    const now = await prisma.charge.findFirst({ where: { id: charge.id, clinicId: user.clinicId }, select: { status: true } });
+    if (now?.status === "PAGO") return null;
+    throw e;
+  });
+  if (receiptNumber === null) return revalidateFinance();
   await audit({
     clinicId: user.clinicId,
     userId: user.id,

@@ -6,6 +6,11 @@ import { findUsableTemplate } from "./templates";
 
 const freeTextFields: TemplateField[] = [{ key: "evolucao", label: "Evolução", type: "textarea" }];
 
+// Campos do atendimento: os do modelo escolhido ou, sem modelo, a evolução livre.
+export function encounterFields(template: { fields: unknown } | null) {
+  return (template?.fields as TemplateField[] | undefined) ?? freeTextFields;
+}
+
 // Abre um atendimento (rascunho) no prontuário, a partir do prontuário ou da agenda.
 // Quem chama confere antes se o usuário pode atender e se o paciente é da clínica.
 export async function createEncounter(user: CurrentUser, patientId: string, templateId: string | null) {
@@ -19,7 +24,7 @@ export async function createEncounter(user: CurrentUser, patientId: string, temp
       patientId,
       professionalId: user.id,
       templateId: template?.id,
-      fields: (template?.fields as TemplateField[] | undefined) ?? freeTextFields,
+      fields: encounterFields(template),
     },
   });
   await audit({

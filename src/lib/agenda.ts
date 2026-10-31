@@ -1,5 +1,6 @@
 // Regras e contas da agenda que não dependem do banco de dados.
 import type { AppointmentStatus, AppointmentType } from "@prisma/client";
+import { isCalendarDate } from "./format";
 
 // Horário de Brasília. O Brasil não tem horário de verão desde 2019, então a
 // diferença para o UTC é sempre de 3 horas.
@@ -28,7 +29,7 @@ export function today() {
 }
 
 export function isValidDate(value: string | undefined): value is string {
-  return !!value && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
+  return isCalendarDate(value);
 }
 
 export function addDays(date: string, days: number) {
