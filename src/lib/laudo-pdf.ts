@@ -28,6 +28,8 @@ type Spot =
   | { t: "ring"; at: Record<string, [number, number, number, number]> };
 
 type Layout = {
+  // Formulário em branco, em src/lib/laudos-modelos.
+  file: string;
   spots: Record<string, Spot>;
   // Caixa de "assinatura e carimbo": nome e conselho do profissional, embaixo.
   stamp: { x: number; y: number; w: number };
@@ -40,6 +42,7 @@ const row = (y: number, name: number, qty: number, prefix: string): Record<strin
 });
 
 const APAC: Layout = {
+  file: "apac.pdf",
   spots: {
     estabelecimento: { t: "text", x: 38, y: 739, w: 408 },
     cnes: { t: "cells", x: 455.6, y: 739, w: 101.1, n: 7 },
@@ -82,6 +85,7 @@ const APAC: Layout = {
 };
 
 const AIH: Layout = {
+  file: "aih.pdf",
   spots: {
     estabelecimento: { t: "text", x: 44, y: 736.5, w: 402 },
     cnes: { t: "cells", x: 456.8, y: 736.5, w: 100.3, n: 7 },
@@ -136,6 +140,8 @@ const AIH: Layout = {
   stamp: { x: 375, y: 228, w: 180 },
 };
 
+// LME antiga (até 5 medicamentos e 3 meses), usada nas primeiras LMEs emitidas pelo sistema.
+// Continua aqui para o PDF de um laudo já emitido sair sempre igual.
 const medRow = (n: number, y: number): Record<string, Spot> => ({
   [`med${n}`]: { t: "text", x: 60, y, w: 342, size: 8.5 },
   [`med${n}Mes1`]: { t: "text", x: 412, y, w: 44 },
@@ -143,7 +149,8 @@ const medRow = (n: number, y: number): Record<string, Spot> => ({
   [`med${n}Mes3`]: { t: "text", x: 518, y, w: 40 },
 });
 
-const LME: Layout = {
+const LME_2010: Layout = {
+  file: "lme-2010.pdf",
   spots: {
     cnes: { t: "cells", x: 36.5, y: 659, w: 169.3, n: 7 },
     estabelecimento: { t: "text", x: 212, y: 659, w: 342 },
@@ -186,7 +193,58 @@ const LME: Layout = {
   stamp: { x: 397, y: 201, w: 162 },
 };
 
+// Os campos de baixo (13 e 18 a 23) ficaram no mesmo lugar no modelo atual.
+const LME_2010_BOTTOM = Object.fromEntries(
+  ["incapaz", "responsavel", "preenchidoPor", "outroNome", "outroCpf", "racaCor", "etnia", "telefone", "pacienteDocTipo", "pacienteDoc", "email"].map(
+    (k) => [k, LME_2010.spots[k]],
+  ),
+);
+
+// Colunas de quantidade de cada mês, no modelo atual (6 meses).
+const MONTH_X = [369.6, 399.8, 433.9, 466.2, 497.4, 528.1, 560.9];
+const medRow6 = (n: number, y: number): Record<string, Spot> => ({
+  [`med${n}`]: { t: "text", x: 60, y, w: 306, size: 8.5 },
+  ...Object.fromEntries(
+    [1, 2, 3, 4, 5, 6].map((m) => [`med${n}Mes${m}`, { t: "text", x: MONTH_X[m - 1] + 3, y, w: MONTH_X[m] - MONTH_X[m - 1] - 6, size: 9 }]),
+  ),
+});
+
+// Modelo atual da LME: até 6 medicamentos, 6 meses e CNS do médico.
+const LME: Layout = {
+  file: "lme.pdf",
+  spots: {
+    cnes: LME_2010.spots.cnes,
+    estabelecimento: LME_2010.spots.estabelecimento,
+    pacienteNome: LME_2010.spots.pacienteNome,
+    peso: LME_2010.spots.peso,
+    nomeMae: LME_2010.spots.nomeMae,
+    altura: LME_2010.spots.altura,
+    ...medRow6(1, 560.5),
+    ...medRow6(2, 541.5),
+    ...medRow6(3, 523),
+    ...medRow6(4, 505),
+    ...medRow6(5, 486.5),
+    ...medRow6(6, 467.5),
+    cidPrincipal: { t: "cells", x: 35.2, y: 434, w: 67.5, n: 4 },
+    diagnostico: { t: "text", x: 112, y: 434, w: 444, size: 8.5 },
+    anamnese: { t: "area", x: 44, top: 408, bottom: 366, w: 512, size: 8.5 },
+    tratamentoPrevio: { t: "mark", at: { N: [47.5, 338.4], S: [89.6, 338.4] } },
+    tratamentoRelato: { t: "text", x: 147, y: 337, w: 408, size: 8 },
+    profissionalNome: { t: "text", x: 42, y: 231, w: 345 },
+    profissionalCns: { t: "cells", x: 35.8, y: 203.5, w: 253.7, n: 15 },
+    dataSolicitacao: { t: "date", y: 203.5, xs: [301, 328, 356] },
+    ...LME_2010_BOTTOM,
+  },
+  stamp: LME_2010.stamp,
+};
+
 const LAYOUTS: Record<LaudoType, Layout> = { APAC, AIH, LME };
+
+// LME emitida no modelo antigo: tinha "documento do médico" (CPF ou CNS) em vez do CNS.
+function layoutFor(type: LaudoType, values: LaudoValues) {
+  if (type === "LME" && (values.profissionalDocTipo || values.profissionalDoc)) return LME_2010;
+  return LAYOUTS[type];
+}
 
 function clean(font: PDFFont, text: string) {
   const known = new Set(font.getCharacterSet());
@@ -289,7 +347,8 @@ export type LaudoPdfInput = {
 };
 
 export async function buildLaudoPdf(input: LaudoPdfInput) {
-  const template = await readFile(path.join(MODELOS, `${input.type.toLowerCase()}.pdf`));
+  const layout = layoutFor(input.type, input.values);
+  const template = await readFile(path.join(MODELOS, layout.file));
   const pdf = await PDFDocument.load(template);
   pdf.setTitle(laudoTitle[input.type]);
   pdf.setAuthor(input.author);
@@ -301,14 +360,13 @@ export async function buildLaudoPdf(input: LaudoPdfInput) {
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const page = pdf.getPage(0);
-  const layout = LAYOUTS[input.type];
+  const fields = new Map(laudoFields(input.type).map((f) => [f.key, f]));
 
-  for (const field of laudoFields(input.type)) {
-    const value = input.values[field.key];
-    const spot = layout.spots[field.key];
-    if (!value || !spot) continue;
-    const shown = field.options?.find((o) => o.value === value)?.label ?? value;
-    draw(page, font, bold, spot, value, field.key === "racaCor" && input.type === "APAC" ? `${value} ${shown}` : shown);
+  for (const [key, spot] of Object.entries(layout.spots)) {
+    const value = input.values[key];
+    if (!value) continue;
+    const shown = fields.get(key)?.options?.find((o) => o.value === value)?.label ?? value;
+    draw(page, font, bold, spot, value, key === "racaCor" && input.type === "APAC" ? `${value} ${shown}` : shown);
   }
 
   // Carimbo: nome e registro no conselho, de baixo para cima dentro da caixa.
