@@ -6,6 +6,7 @@ import { logout } from "../login/actions";
 import { SidebarNav, type NavItem } from "./sidebar-nav";
 import { SidebarShell } from "./sidebar-shell";
 import { ReportLink } from "./report-link";
+import { PlatformNotices } from "./notices";
 import { displayName } from "@/lib/staff";
 import { billingStatus } from "@/lib/plans";
 import { formatDate } from "@/lib/format";
@@ -70,6 +71,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </SidebarShell>
       <main className="min-w-0 flex-1 px-4 py-6 md:px-8">
         <div className="mx-auto max-w-6xl">
+          <PlatformNotices user={user} />
           {billingNotice && (
             <p className={`no-print mb-4 rounded-md px-3 py-2 text-sm ${billing?.kind === "atrasada" ? "bg-red-50 text-red-700" : "bg-dourado-100 text-dourado-700"}`}>
               {billingNotice}

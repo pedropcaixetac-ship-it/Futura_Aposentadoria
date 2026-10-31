@@ -168,6 +168,7 @@ model Clinic {
   problems       ProblemReport[]
   serviceInvoices ServiceInvoice[]
   platformPayments ClinicPayment[]
+  platformNotices  PlatformNotice[]
 }
 
 model User {
@@ -260,6 +261,7 @@ model User {
   whatsappMessages WhatsappMessage[]
   claims              InsuranceClaim[]
   problems            ProblemReport[]
+  noticeDismissals    NoticeDismissal[]
 }
 
 model Session {
@@ -1145,6 +1147,7 @@ model PlatformUser {
   auditLogs PlatformAuditLog[]
   paymentsRegistered ClinicPayment[] @relation("PaymentRegisteredBy")
   paymentsCanceled   ClinicPayment[] @relation("PaymentCanceledBy")
+  notices            PlatformNotice[]
 }
 
 model PlatformSession {
@@ -1228,4 +1231,37 @@ model ClinicPayment {
 
   @@index([clinicId, createdAt])
   @@index([paidAt])
+}
+
+// Aviso da empresa para as clínicas (manutenção, novidade, cobrança), escrito no Painel do dono.
+// clinicId vazio = todas as clínicas. audience: "todos" ou "gerentes" (só o gerente do sistema da clínica).
+model PlatformNotice {
+  id          String          @id @default(cuid())
+  title       String
+  body        String
+  // info, novidade, manutencao, importante
+  kind        String          @default("info")
+  audience    String          @default("todos")
+  clinicId    String?
+  clinic      Clinic?         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  startsAt    DateTime        @default(now())
+  endsAt      DateTime?
+  createdById String
+  createdBy   PlatformUser    @relation(fields: [createdById], references: [id])
+  createdAt   DateTime        @default(now())
+
+  dismissals NoticeDismissal[]
+
+  @@index([startsAt])
+}
+
+// Quem já fechou o aviso ("Entendi"), para não aparecer de novo para essa pessoa.
+model NoticeDismissal {
+  noticeId  String
+  notice    PlatformNotice @relation(fields: [noticeId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+
+  @@id([noticeId, userId])
 }
