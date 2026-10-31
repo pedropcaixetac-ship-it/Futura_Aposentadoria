@@ -323,6 +323,30 @@ async function seedHospitalPrescriptions() {
   console.log("Hospital de demonstração: prescrições e checagens de exemplo");
 }
 
+// Farmácia de exemplo: alguns produtos com lotes, um lote perto de vencer, um vencido e um item abaixo do mínimo.
+async function seedHospitalPharmacy() {
+  const hospital = await prisma.clinic.findUnique({ where: { slug: "hospital-demo" } });
+  if (!hospital || (await prisma.pharmacyProduct.count({ where: { clinicId: hospital.id } })) > 0) return;
+  const admin = await prisma.user.findFirstOrThrow({ where: { clinicId: hospital.id, email: "admin@hospital.com" } });
+  const day = 24 * 3600_000;
+  const products: { name: string; presentation: string; unit: string; minStock: number; controlled?: boolean; lots: [string, number, number][] }[] = [
+    { name: "Dipirona sódica", presentation: "500 mg/mL ampola 2 mL", unit: "ampola", minStock: 50, lots: [["DP2401", 20, 400], ["DP2399", 40, 25]] },
+    { name: "Ceftriaxona", presentation: "1 g frasco-ampola", unit: "frasco", minStock: 30, lots: [["CF8812", 12, 300]] },
+    { name: "Ondansetrona", presentation: "4 mg/2 mL ampola", unit: "ampola", minStock: 20, lots: [["ON5530", 60, 200], ["ON5101", 5, -10]] },
+    { name: "Soro fisiológico 0,9%", presentation: "bolsa 500 mL", unit: "bolsa", minStock: 100, lots: [["SF0931", 240, 500]] },
+    { name: "Morfina", presentation: "10 mg/mL ampola 1 mL", unit: "ampola", minStock: 10, controlled: true, lots: [["MF1207", 25, 365]] },
+  ];
+  for (const p of products) {
+    const product = await prisma.pharmacyProduct.create({ data: { clinicId: hospital.id, name: p.name, presentation: p.presentation, unit: p.unit, minStock: p.minStock, controlled: !!p.controlled } });
+    for (const [lot, quantity, days] of p.lots) {
+      await prisma.stockMovement.create({
+        data: { clinicId: hospital.id, productId: product.id, kind: "ENTRADA", quantity, lot, expiresAt: new Date(Date.now() + days * day), invoice: "10233", userId: admin.id, at: new Date(Date.now() - 20 * day) },
+      });
+    }
+  }
+  console.log("Hospital de demonstração: farmácia com estoque de exemplo");
+}
+
 async function seedHospitalCare() {
   const hospital = await prisma.clinic.findUnique({ where: { slug: "hospital-demo" } });
   if (!hospital || (await prisma.vitalRecord.count({ where: { clinicId: hospital.id } })) > 0) return;
@@ -694,6 +718,7 @@ async function main() {
   await seedHospitalCare();
   await seedHospitalEmergency();
   await seedHospitalPrescriptions();
+  await seedHospitalPharmacy();
   await seedAgenda();
   await seedFinanceDemo();
   await seedPurchasesDemo();

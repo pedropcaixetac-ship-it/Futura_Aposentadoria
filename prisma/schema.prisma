@@ -189,6 +189,8 @@ model Clinic {
   emergencyVisits  EmergencyVisit[]
   prescriptionItems PrescriptionItem[]
   medicationChecks MedicationCheck[]
+  pharmacyProducts PharmacyProduct[]
+  stockMovements   StockMovement[]
 }
 
 model User {
@@ -301,6 +303,7 @@ model User {
   suspendedItems       PrescriptionItem[] @relation("PrescriptionSuspender")
   medicationChecks     MedicationCheck[]  @relation("CheckRecorder")
   canceledChecks       MedicationCheck[]  @relation("CheckCanceler")
+  stockMovements       StockMovement[]
 }
 
 model Session {
@@ -412,6 +415,7 @@ model Patient {
   admissions   Admission[]
   emergencyVisits EmergencyVisit[]
   prescriptionItems PrescriptionItem[]
+  stockMovements StockMovement[]
 
   @@unique([clinicId, cpf])
   @@unique([clinicId, cns])
@@ -1623,6 +1627,7 @@ model PrescriptionItem {
   suspendedBy      User?            @relation("PrescriptionSuspender", fields: [suspendedById], references: [id])
   suspendReason    String?
   checks           MedicationCheck[]
+  dispensations    StockMovement[]
 
   @@index([admissionId])
   @@index([emergencyVisitId])
@@ -1647,4 +1652,57 @@ model MedicationCheck {
   cancelReason String?
 
   @@index([itemId])
+}
+
+// ---- Farmácia hospitalar ----
+
+enum StockMovementKind {
+  ENTRADA
+  DISPENSACAO
+  DEVOLUCAO
+  AJUSTE
+  PERDA
+}
+
+// Medicamento ou material da farmácia. O saldo é a soma das movimentações.
+model PharmacyProduct {
+  id           String          @id @default(cuid())
+  clinicId     String
+  clinic       Clinic          @relation(fields: [clinicId], references: [id])
+  name         String
+  presentation String?
+  unit         String          @default("unidade")
+  minStock     Int             @default(0)
+  controlled   Boolean         @default(false)
+  active       Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  movements    StockMovement[]
+
+  @@unique([clinicId, name, presentation])
+}
+
+// Cada entrada, saída, ajuste ou perda, por lote. Não muda nem some: erro se corrige com um ajuste.
+// quantity: positiva entra, negativa sai.
+model StockMovement {
+  id                 String            @id @default(cuid())
+  clinicId           String
+  clinic             Clinic            @relation(fields: [clinicId], references: [id])
+  productId          String
+  product            PharmacyProduct   @relation(fields: [productId], references: [id])
+  kind               StockMovementKind
+  quantity           Int
+  lot                String
+  expiresAt          DateTime?
+  at                 DateTime          @default(now())
+  note               String?
+  invoice            String?
+  patientId          String?
+  patient            Patient?          @relation(fields: [patientId], references: [id])
+  prescriptionItemId String?
+  prescriptionItem   PrescriptionItem? @relation(fields: [prescriptionItemId], references: [id])
+  userId             String
+  user               User              @relation(fields: [userId], references: [id])
+
+  @@index([clinicId, productId])
+  @@index([prescriptionItemId])
 }
