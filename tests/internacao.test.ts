@@ -3,7 +3,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { PrismaClient } from "@prisma/client";
 import { bedState, compareBedCodes, currentShift, daysAdmitted, daysLabel, defaultEvolutionKind, fluidBalance, fluidDayStart, formatBalance, occupancy, parseBedCodes, suggestedTemplateId } from "../src/lib/internacao";
-import { hasTab, tabInInstitution } from "../src/lib/tabs";
+import { hasTab, TABS, tabInInstitution, tabLabel } from "../src/lib/tabs";
 
 const prisma = new PrismaClient();
 after(() => prisma.$disconnect());
@@ -58,6 +58,10 @@ test("aba Internação só existe no hospital; clínica continua igual", () => {
   assert.equal(tabInInstitution("CLINICA", "contabilidade"), true);
   assert.equal(tabInInstitution("HOSPITAL", "contabilidade"), true);
   assert.equal(tabInInstitution(null, "internacao"), false);
+  // "Atender" se chama "Ambulatório" no hospital; na clínica continua "Atender".
+  const atender = TABS.find((t) => t.key === "atender")!;
+  assert.equal(tabLabel(atender, "CLINICA"), "Atender");
+  assert.equal(tabLabel(atender, "HOSPITAL"), "Ambulatório");
 });
 
 async function hospital(label: string) {

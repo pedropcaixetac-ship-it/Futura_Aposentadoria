@@ -126,7 +126,7 @@ export default async function EncounterPage({
         {encounter.admissionId && hasTab(user, "internacao") ? (
           <Link href={`/internacao/${encounter.admissionId}`} className="text-sm text-marinho-700 hover:underline">← Voltar para a internação</Link>
         ) : encounter.appointment && encounter.professionalId === user.id && hasTab(user, "atender") ? (
-          <Link href="/atender" className="text-sm text-marinho-700 hover:underline">← Voltar para Atender</Link>
+          <Link href="/atender" className="text-sm text-marinho-700 hover:underline">← Voltar para {user.institution === "HOSPITAL" ? "Ambulatório" : "Atender"}</Link>
         ) : (
           <Link href={`/pacientes/${id}`} className="text-sm text-marinho-700 hover:underline">← Voltar ao prontuário</Link>
         )}
