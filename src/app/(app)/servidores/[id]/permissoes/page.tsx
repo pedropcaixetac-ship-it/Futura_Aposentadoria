@@ -32,7 +32,9 @@ export default async function PermissionsPage({ params }: { params: Promise<{ id
 
       <form action={savePermissions.bind(null, staff.id)} className="card space-y-4">
         <ul className="divide-y divide-slate-100">
-          {TABS.filter((tab) => tabInInstitution(user.institution, tab.key)).map((tab) => {
+          {TABS.filter((tab) => tabInInstitution(user.institution, tab.key))
+            .sort((a, b) => tabLabel(a, user.institution).localeCompare(tabLabel(b, user.institution), "pt-BR"))
+            .map((tab) => {
             const blocked = tab.blockedReason?.(staff) ?? null;
             const checked = hasTab({ ...staff, institution: user.institution }, tab.key);
             return (

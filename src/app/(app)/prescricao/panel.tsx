@@ -10,6 +10,7 @@ import type { CurrentUser } from "@/lib/auth";
 import { ActionForm } from "../financeiro/action-form";
 import { addPrescriptionItem, cancelCheck, checkDose, suspendPrescriptionItem, type RxContext } from "./actions";
 import { CheckForm } from "./check-form";
+import { MedicationInput } from "./medication-search";
 
 const tone: Record<DoseState, string> = {
   FEITO: "border-emerald-200 bg-emerald-50 text-emerald-800",
@@ -158,7 +159,7 @@ export async function PrescriptionPanel({ ctx, user, open }: { ctx: RxContext; u
             </div>
             <div className="sm:col-span-4">
               <label className="label" htmlFor="description">Medicamento ou cuidado *</label>
-              <input className="input" id="description" name="description" required placeholder="Ex.: Dipirona 500 mg/mL" />
+              <MedicationInput id="description" name="description" routeFieldId="route" placeholder="Digite o nome do medicamento (ex.: dipirona) ou um cuidado" />
             </div>
             <div className="sm:col-span-2">
               <label className="label" htmlFor="dose">Dose</label>
