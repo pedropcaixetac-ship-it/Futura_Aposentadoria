@@ -95,10 +95,18 @@ enum DocumentType {
   LME
 }
 
+// Tipo de instituição: a mesma base serve clínicas e hospitais. No hospital, a gestão
+// da clínica (financeiro, contabilidade) fica de fora e entram os setores hospitalares.
+enum InstitutionKind {
+  CLINICA
+  HOSPITAL
+}
+
 model Clinic {
   id                String   @id @default(cuid())
   name              String
   slug              String   @unique
+  kind              InstitutionKind @default(CLINICA)
   createdAt         DateTime @default(now())
   // Dados que aparecem no recibo.
   cnpj              String?
@@ -171,6 +179,10 @@ model Clinic {
   serviceInvoices ServiceInvoice[]
   platformPayments ClinicPayment[]
   platformNotices  PlatformNotice[]
+  wards            Ward[]
+  beds             Bed[]
+  admissions       Admission[]
+  bedMovements     BedMovement[]
 }
 
 model User {
@@ -266,6 +278,10 @@ model User {
   claims              InsuranceClaim[]
   problems            ProblemReport[]
   noticeDismissals    NoticeDismissal[]
+  admissionsAttending Admission[]         @relation("AdmissionAttending")
+  admissionsCreated   Admission[]         @relation("AdmissionCreator")
+  admissionsDischarged Admission[]        @relation("AdmissionDischarger")
+  bedMovements        BedMovement[]
 }
 
 model Session {
@@ -374,6 +390,7 @@ model Patient {
   teleconsultations Teleconsultation[]
   claims       InsuranceClaim[]
   appSessions  PatientSession[]
+  admissions   Admission[]
 
   @@unique([clinicId, cpf])
   @@unique([clinicId, cns])
@@ -1275,4 +1292,109 @@ model NoticeDismissal {
   createdAt DateTime       @default(now())
 
   @@id([noticeId, userId])
+}
+
+// ---- Hospital: internação e leitos (só aparece para instituição do tipo HOSPITAL) ----
+
+// Situação do leito vazio. Ocupado não é guardado aqui: o leito está ocupado quando tem internação sem alta.
+enum BedStatus {
+  LIVRE
+  // Depois da alta o leito vai para limpeza; alguém marca "leito limpo" para liberar.
+  LIMPEZA
+  BLOQUEADO
+}
+
+enum DischargeKind {
+  MELHORADO
+  A_PEDIDO
+  TRANSFERENCIA
+  OBITO
+  EVASAO
+}
+
+// Ala ou setor de internação (ex.: Enfermaria clínica, UTI adulto, Apartamentos).
+model Ward {
+  id        String   @id @default(cuid())
+  clinicId  String
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+  name      String
+  kind      String   @default("Enfermaria")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  beds Bed[]
+
+  @@unique([clinicId, name])
+}
+
+model Bed {
+  id         String    @id @default(cuid())
+  clinicId   String
+  clinic     Clinic    @relation(fields: [clinicId], references: [id])
+  wardId     String
+  ward       Ward      @relation(fields: [wardId], references: [id])
+  code       String
+  status     BedStatus @default(LIVRE)
+  // Motivo do bloqueio (ex.: manutenção do ar-condicionado, isolamento).
+  statusNote String?
+  active     Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+
+  admissions    Admission[]
+  movementsFrom BedMovement[] @relation("MovementFrom")
+  movementsTo   BedMovement[] @relation("MovementTo")
+
+  @@unique([wardId, code])
+}
+
+// Internação: do dia em que o paciente ocupa o leito até a alta. bedId é o leito atual.
+// No banco, um leito e um paciente só podem ter uma internação sem alta de cada vez.
+model Admission {
+  id             String         @id @default(cuid())
+  clinicId       String
+  clinic         Clinic         @relation(fields: [clinicId], references: [id])
+  patientId      String
+  patient        Patient        @relation(fields: [patientId], references: [id])
+  bedId          String
+  bed            Bed            @relation(fields: [bedId], references: [id])
+  // Médico responsável pela internação.
+  attendingId    String
+  attending      User           @relation("AdmissionAttending", fields: [attendingId], references: [id])
+  admittedById   String
+  admittedBy     User           @relation("AdmissionCreator", fields: [admittedById], references: [id])
+  admittedAt     DateTime       @default(now())
+  // De onde veio: pronto-socorro, ambulatório, transferência de outro hospital, eletiva...
+  origin         String
+  reason         String?
+  cidCode        String?
+  cidDescription String?
+  // SUS, nome do convênio ou particular.
+  insurance      String?
+  dischargedAt   DateTime?
+  dischargeKind  DischargeKind?
+  dischargeNote  String?
+  dischargedById String?
+  dischargedBy   User?          @relation("AdmissionDischarger", fields: [dischargedById], references: [id])
+  createdAt      DateTime       @default(now())
+
+  movements BedMovement[]
+
+  @@index([clinicId, dischargedAt])
+}
+
+// Histórico de leitos de cada internação (entrada no primeiro leito e cada troca).
+model BedMovement {
+  id          String    @id @default(cuid())
+  clinicId    String
+  clinic      Clinic    @relation(fields: [clinicId], references: [id])
+  admissionId String
+  admission   Admission @relation(fields: [admissionId], references: [id])
+  fromBedId   String?
+  fromBed     Bed?      @relation("MovementFrom", fields: [fromBedId], references: [id])
+  toBedId     String
+  toBed       Bed       @relation("MovementTo", fields: [toBedId], references: [id])
+  movedAt     DateTime  @default(now())
+  movedById   String
+  movedBy     User      @relation(fields: [movedById], references: [id])
+  note        String?
 }

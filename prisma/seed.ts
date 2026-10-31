@@ -178,6 +178,71 @@ async function seedDemo() {
   console.log("Clínica de demonstração criada (senha de todos: senha123)");
 }
 
+// Hospital de demonstração: só a parte clínica, sem a gestão da clínica. Código "hospital-demo".
+async function seedHospitalDemo() {
+  if (await prisma.clinic.findUnique({ where: { slug: "hospital-demo" } })) return;
+  const hospital = await prisma.clinic.create({ data: { name: "Hospital Demonstração", slug: "hospital-demo", kind: "HOSPITAL" } });
+  const passwordHash = await bcrypt.hash("senha123", 10);
+  await prisma.user.createMany({
+    data: [
+      { clinicId: hospital.id, name: "Administrador", email: "admin@hospital.com", passwordHash, role: "ADMIN", jobTitle: "Gerente do sistema", sector: "Administração" },
+      {
+        clinicId: hospital.id, name: "Ana Souza", sex: "F", jobTitle: "Médico(a)", email: "ana@hospital.com", passwordHash, role: "PROFISSIONAL",
+        councilType: "CRM", councilNumber: "123456", councilUf: "GO", specialty: "Clínica médica", sector: "Enfermaria",
+      },
+      {
+        clinicId: hospital.id, name: "Bruna Alves", sex: "F", jobTitle: "Enfermeiro(a)", email: "enfermagem@hospital.com", passwordHash, role: "PROFISSIONAL",
+        councilType: "COREN", councilNumber: "654321", councilUf: "GO", sector: "Enfermaria",
+      },
+      { clinicId: hospital.id, name: "Júlia Recepção", email: "recepcao@hospital.com", passwordHash, role: "RECEPCAO", jobTitle: "Recepcionista", sector: "Recepção" },
+    ],
+  });
+  await prisma.recordTemplate.createMany({
+    data: [
+      { clinicId: hospital.id, name: "Consulta (primeira vez)", fields: consultaGeral },
+      { clinicId: hospital.id, name: "Retorno", fields: retorno },
+    ],
+  });
+  console.log("Hospital de demonstração criado (código hospital-demo, senha de todos: senha123)");
+}
+
+// Alas, leitos e dois pacientes internados no hospital de demonstração.
+// Roda à parte, para aparecer também em quem já tinha o hospital criado.
+async function seedHospitalBeds() {
+  const hospital = await prisma.clinic.findUnique({ where: { slug: "hospital-demo" } });
+  if (!hospital || (await prisma.ward.count({ where: { clinicId: hospital.id } })) > 0) return;
+  const enfermaria = await prisma.ward.create({ data: { clinicId: hospital.id, name: "Enfermaria clínica", kind: "Enfermaria" } });
+  const uti = await prisma.ward.create({ data: { clinicId: hospital.id, name: "UTI adulto", kind: "UTI adulto" } });
+  await prisma.bed.createMany({
+    data: [
+      ...["101", "102", "103", "104", "105", "106"].map((code) => ({ clinicId: hospital.id, wardId: enfermaria.id, code })),
+      ...["UTI-01", "UTI-02", "UTI-03", "UTI-04"].map((code) => ({ clinicId: hospital.id, wardId: uti.id, code })),
+    ],
+  });
+  await prisma.bed.updateMany({ where: { wardId: enfermaria.id, code: "105" }, data: { status: "LIMPEZA" } });
+  await prisma.bed.updateMany({ where: { wardId: uti.id, code: "UTI-04" }, data: { status: "BLOQUEADO", statusNote: "Manutenção do monitor" } });
+
+  const ana = await prisma.user.findFirstOrThrow({ where: { clinicId: hospital.id, email: "ana@hospital.com" } });
+  const recepcao = await prisma.user.findFirstOrThrow({ where: { clinicId: hospital.id, email: "recepcao@hospital.com" } });
+  const internados = [
+    { name: "Sebastião Rodrigues", birthDate: new Date("1948-02-03"), sex: "M", bed: "101", ward: enfermaria.id, days: 3, origin: "Pronto-socorro", cid: ["J18.9", "Pneumonia não especificada"], reason: "Pneumonia comunitária, antibiótico venoso." },
+    { name: "Helena Martins", birthDate: new Date("1961-07-21"), sex: "F", bed: "UTI-02", ward: uti.id, days: 1, origin: "Centro cirúrgico", cid: ["K35.8", "Outras formas de apendicite aguda"], reason: "Pós-operatório de apendicectomia com sepse abdominal." },
+  ];
+  for (const p of internados) {
+    const patient = await prisma.patient.create({ data: { clinicId: hospital.id, name: p.name, birthDate: p.birthDate, sex: p.sex, insurance: "SUS" } });
+    const bed = await prisma.bed.findFirstOrThrow({ where: { wardId: p.ward, code: p.bed } });
+    const admittedAt = new Date(Date.now() - p.days * 24 * 3600 * 1000);
+    const admission = await prisma.admission.create({
+      data: {
+        clinicId: hospital.id, patientId: patient.id, bedId: bed.id, attendingId: ana.id, admittedById: recepcao.id, admittedAt,
+        origin: p.origin, reason: p.reason, cidCode: p.cid[0], cidDescription: p.cid[1], insurance: "SUS",
+      },
+    });
+    await prisma.bedMovement.create({ data: { clinicId: hospital.id, admissionId: admission.id, toBedId: bed.id, movedAt: admittedAt, movedById: recepcao.id } });
+  }
+  console.log("Hospital de demonstração: alas, leitos e internações de exemplo criados");
+}
+
 // Horário de Brasília (sem horário de verão): hora local + 3 = UTC.
 function brasilia(daysFromToday: number, hour: number, minute = 0) {
   const now = new Date(Date.now() - 3 * 3600 * 1000);
@@ -481,6 +546,8 @@ async function main() {
   await seedCid10();
   await seedSigtap();
   await seedDemo();
+  await seedHospitalDemo();
+  await seedHospitalBeds();
   await seedAgenda();
   await seedFinanceDemo();
   await seedPurchasesDemo();

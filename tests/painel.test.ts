@@ -39,6 +39,9 @@ test("cadastro da clínica aceita CNPJ ou CPF e exige responsável", () => {
   assert.ok(validateClinic(parseClinic(form({ ...base, cnpj: "11.222.333/0001-00" }))));
   assert.ok(validateClinic(parseClinic(form({ ...base, contactName: "" }))));
   assert.equal(parseClinic(form({ ...base, slug: "Clinica-Teste" })).slug, "clinica-teste");
+  assert.equal(parseClinic(form(base)).kind, "CLINICA");
+  assert.equal(parseClinic(form({ ...base, kind: "HOSPITAL" })).kind, "HOSPITAL");
+  assert.equal(parseClinic(form({ ...base, kind: "OUTRO" })).kind, "CLINICA");
 });
 
 test("primeiro gerente precisa de e-mail e senha", () => {

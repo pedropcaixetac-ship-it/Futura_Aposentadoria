@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "./db";
 import { hasTab, type TabKey } from "./tabs";
-import { clinicBlocked } from "./plans";
+import { clinicBlocked, institutionModules } from "./plans";
 
 const COOKIE = "sessao";
 const SESSION_HOURS = 12;
@@ -62,8 +62,12 @@ export async function getCurrentUser() {
   if (now - session.lastSeenAt.getTime() > 60_000) {
     await prisma.session.update({ where: { id: session.id }, data: { lastSeenAt: new Date(now) } });
   }
-  // Módulos do plano da clínica; sem plano, tudo liberado (ver src/lib/plans.ts).
-  return { ...session.user, modules: session.user.clinic.plan?.modules ?? null };
+  // Módulos do plano da clínica; sem plano, tudo liberado. Hospital fica sem a gestão da clínica (ver src/lib/plans.ts).
+  return {
+    ...session.user,
+    modules: institutionModules(session.user.clinic.kind, session.user.clinic.plan?.modules),
+    institution: session.user.clinic.kind,
+  };
 }
 
 export type CurrentUser = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;

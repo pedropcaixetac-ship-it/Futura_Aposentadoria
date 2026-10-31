@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { ActionForm } from "@/app/(app)/financeiro/action-form";
-import { formatCnpj, suggestSlug } from "@/lib/painel";
+import { formatCnpj, INSTITUTION_KINDS, suggestSlug, type InstitutionKind } from "@/lib/painel";
 import type { FormState } from "./actions";
 
 type Clinic = {
   name: string;
   slug: string;
+  kind: InstitutionKind;
   cnpj: string | null;
   address: string | null;
   phone: string | null;
@@ -56,6 +57,15 @@ export function ClinicForm({ action, clinic, plans }: Props) {
             onChange={(e) => { setSlug(e.target.value.toLowerCase()); setSlugTouched(true); }}
             hint="É o que a equipe da clínica digita na tela de login. Sem acento nem espaço."
           />
+          <div className="sm:col-span-2">
+            <label className="label" htmlFor="kind">Tipo de instituição</label>
+            <select className="input" id="kind" name="kind" defaultValue={clinic?.kind ?? "CLINICA"}>
+              {INSTITUTION_KINDS.map((k) => <option key={k.key} value={k.key}>{k.label}</option>)}
+            </select>
+            <p className="mt-1 text-xs text-slate-500">
+              {INSTITUTION_KINDS.map((k) => `${k.label}: ${k.hint}`).join(" ")}
+            </p>
+          </div>
           <Field label="CNPJ" name="cnpj" defaultValue={formatCnpj(clinic?.cnpj)} inputMode="numeric" hint="Ou o CPF, se for de pessoa física. Aparece no recibo." />
           <Field label="Telefone da clínica" name="phone" defaultValue={clinic?.phone ?? ""} />
           <div className="sm:col-span-2">
