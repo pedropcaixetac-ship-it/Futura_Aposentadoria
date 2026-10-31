@@ -256,6 +256,35 @@ const evolucaoEnfermagem = [
   { key: "intercorrencias", label: "Intercorrências e pendências para o próximo plantão", type: "textarea" },
 ];
 
+// Pronto-socorro do hospital de demonstração: gente esperando triagem, na fila do médico (cores diferentes) e em observação.
+async function seedHospitalEmergency() {
+  const hospital = await prisma.clinic.findUnique({ where: { slug: "hospital-demo" } });
+  if (!hospital || (await prisma.emergencyVisit.count({ where: { clinicId: hospital.id } })) > 0) return;
+  const recepcao = await prisma.user.findFirstOrThrow({ where: { clinicId: hospital.id, email: "recepcao@hospital.com" } });
+  const bruna = await prisma.user.findFirstOrThrow({ where: { clinicId: hospital.id, email: "enfermagem@hospital.com" } });
+  const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000);
+  const people = [
+    { name: "Carlos Eduardo Lima", birth: "1971-05-12", complaint: "Dor no peito há 40 minutos, com suor frio", mode: "SAMU", arrived: 12, risk: "LARANJA" as const, triaged: 8,
+      vitals: { pas: 158, pad: 96, fc: 104, fr: 22, spo2: 94 }, pain: 8, note: "Dor torácica em aperto irradiando para braço esquerdo. Sem alergias." },
+    { name: "Mariana Costa", birth: "1994-08-03", complaint: "Febre e dor de garganta há 2 dias", mode: "Por meios próprios", arrived: 75, risk: "VERDE" as const, triaged: 60,
+      vitals: { temp: 38.4, fc: 96, spo2: 98 }, pain: 4, note: "Odinofagia, sem dispneia." },
+    { name: "José Antônio Pereira", birth: "1950-02-20", complaint: "Falta de ar que piorou hoje", mode: "Por meios próprios", arrived: 50, risk: "AMARELO" as const, triaged: 42,
+      vitals: { pas: 142, pad: 88, fc: 98, fr: 26, spo2: 90, temp: 36.9 }, pain: 2, note: "DPOC conhecido, usa bombinha. Sibilos." },
+    { name: "Lucas Henrique Souza", birth: "2008-11-30", complaint: "Torceu o tornozelo jogando bola", mode: "Por meios próprios", arrived: 6, risk: null, triaged: null, vitals: null, pain: null, note: null },
+    { name: "Rosa Maria Alves", birth: "1958-07-15", complaint: "Tontura e pressão alta", mode: "Por meios próprios", arrived: 3, risk: null, triaged: null, vitals: null, pain: null, note: null },
+  ];
+  for (const p of people) {
+    const patient = await prisma.patient.create({ data: { clinicId: hospital.id, name: p.name, birthDate: new Date(`${p.birth}T12:00:00Z`) } });
+    await prisma.emergencyVisit.create({
+      data: {
+        clinicId: hospital.id, patientId: patient.id, complaint: p.complaint, arrivalMode: p.mode, arrivedAt: minutesAgo(p.arrived), registeredById: recepcao.id,
+        ...(p.risk && { status: "AGUARDANDO_MEDICO" as const, risk: p.risk, triagedAt: minutesAgo(p.triaged!), triagedById: bruna.id, triageVitals: p.vitals!, pain: p.pain, triageNote: p.note }),
+      },
+    });
+  }
+  console.log("Hospital de demonstração: pacientes de exemplo no pronto-socorro");
+}
+
 async function seedHospitalCare() {
   const hospital = await prisma.clinic.findUnique({ where: { slug: "hospital-demo" } });
   if (!hospital || (await prisma.vitalRecord.count({ where: { clinicId: hospital.id } })) > 0) return;
@@ -625,6 +654,7 @@ async function main() {
   await seedHospitalDemo();
   await seedHospitalBeds();
   await seedHospitalCare();
+  await seedHospitalEmergency();
   await seedAgenda();
   await seedFinanceDemo();
   await seedPurchasesDemo();
