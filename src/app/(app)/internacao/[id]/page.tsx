@@ -3,12 +3,14 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
-import { canViewClinical } from "@/lib/permissions";
+import { canOpenEncounter, canViewClinical, canWorkClinical } from "@/lib/permissions";
+import { listUsableTemplates } from "@/lib/templates";
 import { age, formatCpf, formatDate, formatDateTime } from "@/lib/format";
 import { displayName } from "@/lib/staff";
-import { compareBedCodes, daysAdmitted, daysLabel, dischargeKindLabel } from "@/lib/internacao";
+import { compareBedCodes, currentShift, daysAdmitted, daysLabel, defaultEvolutionKind, dischargeKindLabel, evolutionKindLabel, shiftLabel, suggestedTemplateId } from "@/lib/internacao";
 import { ActionForm } from "../../financeiro/action-form";
-import { dischargePatient, transferBed } from "../actions";
+import { dischargePatient, startEvolution, transferBed } from "../actions";
+import { CareNav } from "./care-nav";
 
 function stayLabel(days: number) {
   return days === 0 ? "Alta no mesmo dia" : `Ficou ${daysLabel(days)} internado(a)`;
@@ -47,6 +49,17 @@ export default async function AdmissionPage({ params }: { params: Promise<{ id: 
         orderBy: { name: "asc" },
       })
     : [];
+  const care = canWorkClinical(user);
+  const [evolutions, templates] = care
+    ? await Promise.all([
+        prisma.encounter.findMany({
+          where: { clinicId: user.clinicId, admissionId: admission.id },
+          include: { professional: { select: { id: true, name: true, sex: true, jobTitle: true } }, template: { select: { name: true } } },
+          orderBy: { startedAt: "desc" },
+        }),
+        listUsableTemplates(user),
+      ])
+    : [[], { mine: [], clinic: [] }];
   const years = age(admission.patient.birthDate);
   const bedName = (b: { code: string; ward: { name: string } }) => `${b.ward.name} · ${b.code}`;
 
@@ -67,10 +80,12 @@ export default async function AdmissionPage({ params }: { params: Promise<{ id: 
             .filter(Boolean)
             .join(" · ")}
         </p>
-        {admission.patient.allergies && clinical && (
+        {admission.patient.allergies && care && (
           <p className="mt-1 inline-block rounded-md bg-red-50 px-2 py-1 text-sm font-medium text-red-700">Alergias: {admission.patient.allergies}</p>
         )}
       </div>
+
+      {care && <CareNav admissionId={admission.id} current="resumo" />}
 
       <section className="card grid gap-4 text-sm sm:grid-cols-3">
         <div>
@@ -104,6 +119,68 @@ export default async function AdmissionPage({ params }: { params: Promise<{ id: 
           <Link href={`/pacientes/${admission.patient.id}`} className="text-marinho-700 hover:underline">Abrir ficha e prontuário do paciente</Link>
         </div>
       </section>
+
+      {care && (
+        <section className="card space-y-4">
+          <h2 className="font-semibold text-marinho-800">Evoluções</h2>
+          {open && (
+            <form action={startEvolution.bind(null, admission.id)} className="grid gap-3 rounded-md bg-marinho-50 p-3 sm:grid-cols-4 sm:items-end">
+              <div>
+                <label className="label" htmlFor="evolutionKind">Tipo</label>
+                <select className="input" id="evolutionKind" name="evolutionKind" defaultValue={defaultEvolutionKind(user)}>
+                  {Object.entries(evolutionKindLabel).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label" htmlFor="shift">Turno</label>
+                <select className="input" id="shift" name="shift" defaultValue={currentShift()}>
+                  {Object.entries(shiftLabel).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label" htmlFor="templateId">Modelo</label>
+                <select className="input" id="templateId" name="templateId" defaultValue={suggestedTemplateId(defaultEvolutionKind(user), [...templates.mine, ...templates.clinic])}>
+                  <option value="">Evolução livre</option>
+                  {templates.mine.length > 0 && (
+                    <optgroup label="Meus modelos">{templates.mine.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</optgroup>
+                  )}
+                  {templates.clinic.length > 0 && (
+                    <optgroup label="Modelos da instituição">{templates.clinic.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</optgroup>
+                  )}
+                </select>
+              </div>
+              <button className="btn-primary">Nova evolução</button>
+            </form>
+          )}
+          {evolutions.length === 0 ? (
+            <p className="text-sm text-slate-500">Nenhuma evolução registrada nesta internação.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100 text-sm">
+              {evolutions.map((e) => {
+                const line = (
+                  <>
+                    <span className="font-medium">{formatDateTime(e.startedAt)}</span>
+                    <span className="text-slate-600">
+                      {" "}· {e.evolutionKind ? evolutionKindLabel[e.evolutionKind] : "Atendimento"}{e.shift && ` (${shiftLabel[e.shift]})`} · {displayName(e.professional)}
+                      {e.template && ` · ${e.template.name}`}
+                    </span>
+                    {e.status === "RASCUNHO" && <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">rascunho</span>}
+                  </>
+                );
+                return (
+                  <li key={e.id} className="py-2">
+                    {canOpenEncounter(user, e) ? (
+                      <Link href={`/pacientes/${admission.patient.id}/atendimentos/${e.id}`} className="hover:underline">{line}</Link>
+                    ) : (
+                      line
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      )}
 
       {open && (
         <div className="grid gap-4 md:grid-cols-2">

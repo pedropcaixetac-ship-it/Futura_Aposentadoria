@@ -2,7 +2,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { PrismaClient } from "@prisma/client";
-import { bedState, compareBedCodes, daysAdmitted, daysLabel, occupancy, parseBedCodes } from "../src/lib/internacao";
+import { bedState, compareBedCodes, currentShift, daysAdmitted, daysLabel, defaultEvolutionKind, fluidBalance, fluidDayStart, formatBalance, occupancy, parseBedCodes, suggestedTemplateId } from "../src/lib/internacao";
 import { hasTab, tabInInstitution } from "../src/lib/tabs";
 
 const prisma = new PrismaClient();
@@ -101,4 +101,54 @@ test("visita só se liga a internação do mesmo hospital", async () => {
     /outra clínica/,
   );
   await prisma.visit.create({ data: { clinicId: b.clinic.id, admissionId: admission.id, visitorName: "Visitante", registeredById: b.doctor.id } });
+});
+
+test("turno, tipo de evolução e dia do balanço hídrico", () => {
+  // Horas em Brasília = UTC - 3.
+  assert.equal(currentShift(new Date("2026-10-31T10:00:00Z")), "MANHA"); // 7h
+  assert.equal(currentShift(new Date("2026-10-31T15:59:00Z")), "MANHA"); // 12h59
+  assert.equal(currentShift(new Date("2026-10-31T16:00:00Z")), "TARDE"); // 13h
+  assert.equal(currentShift(new Date("2026-10-31T22:00:00Z")), "NOITE"); // 19h
+  assert.equal(currentShift(new Date("2026-10-31T09:59:00Z")), "NOITE"); // 6h59
+  assert.equal(defaultEvolutionKind({ role: "PROFISSIONAL", councilType: "CRM" }), "MEDICA");
+  assert.equal(defaultEvolutionKind({ role: "PROFISSIONAL", councilType: "COREN" }), "ENFERMAGEM");
+  assert.equal(defaultEvolutionKind({ role: "TECNICO", councilType: null }), "ENFERMAGEM");
+  assert.equal(defaultEvolutionKind({ role: "PROFISSIONAL", councilType: "CREFITO" }), "MULTIPROFISSIONAL");
+  // Lançamento às 3h de 01/11 conta no balanço que começou às 7h de 31/10.
+  assert.equal(fluidDayStart(new Date("2026-11-01T06:00:00Z")).toISOString(), "2026-10-31T10:00:00.000Z");
+  assert.equal(fluidDayStart(new Date("2026-11-01T10:00:00Z")).toISOString(), "2026-11-01T10:00:00.000Z");
+  const total = fluidBalance([
+    { direction: "ENTRADA", volumeMl: 1000 },
+    { direction: "SAIDA", volumeMl: 700 },
+    { direction: "SAIDA", volumeMl: 500, canceledAt: new Date() },
+  ]);
+  assert.deepEqual(total, { entrada: 1000, saida: 700, balanco: 300 });
+  assert.equal(formatBalance(300), "+300 mL");
+  assert.equal(formatBalance(-1200), "-1.200 mL");
+  const templates = [{ id: "a", name: "Consulta" }, { id: "b", name: "Evolução de Enfermagem" }, { id: "c", name: "Evolução médica diária (SOAP)" }];
+  assert.equal(suggestedTemplateId("MEDICA", templates), "c");
+  assert.equal(suggestedTemplateId("ENFERMAGEM", templates), "b");
+  assert.equal(suggestedTemplateId("MULTIPROFISSIONAL", templates), "");
+});
+
+test("sinais vitais e balanço não mudam nem somem; só são anulados uma vez", async () => {
+  const h = await hospital("f");
+  const admission = await admit(h, h.p1.id, h.bed1.id);
+  const vital = await prisma.vitalRecord.create({ data: { clinicId: h.clinic.id, admissionId: admission.id, takenAt: new Date(), vitals: { fc: 80 }, recordedById: h.doctor.id } });
+  await assert.rejects(prisma.vitalRecord.update({ where: { id: vital.id }, data: { vitals: { fc: 120 } } }), /não podem ser alterados/);
+  await assert.rejects(prisma.vitalRecord.delete({ where: { id: vital.id } }), /não podem ser excluídos/);
+  await prisma.vitalRecord.update({ where: { id: vital.id }, data: { canceledAt: new Date(), canceledById: h.doctor.id, cancelReason: "paciente errado" } });
+  await assert.rejects(prisma.vitalRecord.update({ where: { id: vital.id }, data: { cancelReason: "outro" } }), /não podem ser alterados/);
+  const fluid = await prisma.fluidEntry.create({ data: { clinicId: h.clinic.id, admissionId: admission.id, at: new Date(), direction: "SAIDA", kind: "Diurese", volumeMl: 300, recordedById: h.doctor.id } });
+  await assert.rejects(prisma.fluidEntry.update({ where: { id: fluid.id }, data: { volumeMl: 3000 } }), /não podem ser alterados/);
+});
+
+test("evolução só se liga a internação do mesmo hospital", async () => {
+  const a = await hospital("g");
+  const b = await hospital("h");
+  const admission = await admit(b, b.p1.id, b.bed1.id);
+  await assert.rejects(
+    prisma.encounter.create({ data: { clinicId: a.clinic.id, patientId: a.p1.id, professionalId: a.doctor.id, fields: [], admissionId: admission.id, evolutionKind: "MEDICA" } }),
+    /outra clínica/,
+  );
 });

@@ -2,14 +2,16 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { Prisma, type DischargeKind } from "@prisma/client";
+import { Prisma, type DischargeKind, type EvolutionKind, type FluidDirection, type Shift } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { patientNameWhere } from "@/lib/patient";
-import { canViewClinical } from "@/lib/permissions";
+import { canViewClinical, canWorkClinical } from "@/lib/permissions";
 import { onlyDigits } from "@/lib/format";
-import { ADMISSION_ORIGINS, dischargeKindLabel, parseBedCodes, WARD_KINDS } from "@/lib/internacao";
+import { ADMISSION_ORIGINS, dischargeKindLabel, evolutionKindLabel, FLUID_IN, FLUID_OUT, parseBedCodes, shiftLabel, WARD_KINDS } from "@/lib/internacao";
+import { createEncounter } from "@/lib/encounter";
+import { parseVitals } from "@/lib/vitals";
 import { findProfessional } from "@/lib/agenda-data";
 
 export type FormState = { error: string; ok?: string };
@@ -281,4 +283,92 @@ export async function removeBed(bedId: string) {
   await prisma.bed.update({ where: { id: bed.id }, data: { active: false } });
   await audit({ clinicId: user.clinicId, userId: user.id, action: "LEITOS_ALTERADOS", entity: "Bed", entityId: bed.id, details: { leitoRemovido: `${bed.ward.name} ${bed.code}` } });
   revalidatePath("/internacao/leitos");
+}
+
+// ---- Evolução, sinais vitais e balanço hídrico ----
+
+// Profissional de saúde numa internação aberta (evolução, sinais e balanço só enquanto o paciente está internado).
+async function openAdmissionForCare(admissionId: string) {
+  const user = await requireUser("internacao");
+  if (!canWorkClinical(user)) throw new Error("Só profissionais de saúde registram no prontuário da internação.");
+  const admission = await prisma.admission.findFirst({ where: { id: admissionId, clinicId: user.clinicId, dischargedAt: null } });
+  if (!admission) throw new Error("Internação não encontrada ou já encerrada.");
+  return { user, admission };
+}
+
+const evolutionKinds = Object.keys(evolutionKindLabel) as EvolutionKind[];
+const shifts = Object.keys(shiftLabel) as Shift[];
+
+export async function startEvolution(admissionId: string, formData: FormData) {
+  const { user, admission } = await openAdmissionForCare(admissionId);
+  const kind = text(formData, "evolutionKind") as EvolutionKind | null;
+  if (!kind || !evolutionKinds.includes(kind)) throw new Error("Escolha o tipo de evolução.");
+  const shift = text(formData, "shift") as Shift | null;
+  const encounter = await createEncounter(user, admission.patientId, text(formData, "templateId"), {
+    admissionId: admission.id,
+    evolutionKind: kind,
+    shift: shift && shifts.includes(shift) ? shift : null,
+  });
+  redirect(`/pacientes/${admission.patientId}/atendimentos/${encounter.id}`);
+}
+
+// "2026-10-31T14:30" no horário de Brasília; vazio = agora. Não aceita hora no futuro nem antes da internação.
+function careTime(value: string | null, admittedAt: Date) {
+  const at = brasiliaDateTime(value);
+  if (!at || at.getTime() > Date.now() + 5 * 60_000 || at < admittedAt) return null;
+  return at;
+}
+
+export async function addVitals(admissionId: string, _: FormState, formData: FormData): Promise<FormState> {
+  const { user, admission } = await openAdmissionForCare(admissionId);
+  const takenAt = careTime(text(formData, "takenAt"), admission.admittedAt);
+  if (!takenAt) return { error: "Confira a data e a hora da aferição." };
+  const vitals = parseVitals(formData);
+  const painRaw = text(formData, "pain");
+  const pain = painRaw === null ? null : Number(painRaw);
+  if (pain !== null && !(Number.isInteger(pain) && pain >= 0 && pain <= 10)) return { error: "A dor vai de 0 a 10." };
+  if (!vitals && pain === null) return { error: "Preencha ao menos um sinal vital (valores fora do possível são descartados)." };
+  await prisma.vitalRecord.create({
+    data: { clinicId: user.clinicId, admissionId: admission.id, takenAt, vitals: vitals ?? {}, pain, note: text(formData, "note"), recordedById: user.id },
+  });
+  await audit({ clinicId: user.clinicId, userId: user.id, action: "SINAIS_VITAIS_REGISTRADOS", entity: "Admission", entityId: admission.id, patientId: admission.patientId });
+  revalidatePath(`/internacao/${admission.id}/sinais`);
+  return { error: "", ok: "Sinais vitais registrados." };
+}
+
+export async function addFluid(admissionId: string, _: FormState, formData: FormData): Promise<FormState> {
+  const { user, admission } = await openAdmissionForCare(admissionId);
+  const at = careTime(text(formData, "at"), admission.admittedAt);
+  if (!at) return { error: "Confira a data e a hora." };
+  const direction = text(formData, "direction") as FluidDirection | null;
+  const kind = text(formData, "kind");
+  const options = direction === "ENTRADA" ? FLUID_IN : direction === "SAIDA" ? FLUID_OUT : [];
+  if (!kind || !options.includes(kind)) return { error: "Escolha o que entrou ou saiu." };
+  const volumeMl = Number(text(formData, "volumeMl"));
+  if (!Number.isInteger(volumeMl) || volumeMl <= 0 || volumeMl > 10000) return { error: "Informe o volume em mL (de 1 a 10.000)." };
+  await prisma.fluidEntry.create({
+    data: { clinicId: user.clinicId, admissionId: admission.id, at, direction: direction!, kind, volumeMl, note: text(formData, "note"), recordedById: user.id },
+  });
+  await audit({ clinicId: user.clinicId, userId: user.id, action: "BALANCO_HIDRICO_REGISTRADO", entity: "Admission", entityId: admission.id, patientId: admission.patientId });
+  revalidatePath(`/internacao/${admission.id}/balanco`);
+  return { error: "", ok: `${direction === "ENTRADA" ? "Entrada" : "Saída"} de ${volumeMl} mL registrada.` };
+}
+
+// Lançamento errado: fica no prontuário riscado, com quem anulou e o motivo. Só quem lançou ou quem tem acesso completo.
+export async function cancelCareRecord(kind: "sinais" | "balanco", recordId: string, formData: FormData) {
+  const user = await requireUser("internacao");
+  if (!canWorkClinical(user)) throw new Error("Sem permissão");
+  const reason = text(formData, "reason");
+  if (!reason) throw new Error("Informe o motivo da anulação.");
+  const record =
+    kind === "sinais"
+      ? await prisma.vitalRecord.findFirst({ where: { id: recordId, clinicId: user.clinicId, canceledAt: null } })
+      : await prisma.fluidEntry.findFirst({ where: { id: recordId, clinicId: user.clinicId, canceledAt: null } });
+  if (!record) return;
+  if (record.recordedById !== user.id && !canViewClinical(user)) throw new Error("Só quem lançou pode anular.");
+  const data = { canceledAt: new Date(), canceledById: user.id, cancelReason: reason };
+  if (kind === "sinais") await prisma.vitalRecord.update({ where: { id: record.id }, data });
+  else await prisma.fluidEntry.update({ where: { id: record.id }, data });
+  await audit({ clinicId: user.clinicId, userId: user.id, action: "REGISTRO_INTERNACAO_ANULADO", entity: kind === "sinais" ? "VitalRecord" : "FluidEntry", entityId: record.id, details: { motivo: reason } });
+  revalidatePath(`/internacao/${record.admissionId}/${kind}`);
 }

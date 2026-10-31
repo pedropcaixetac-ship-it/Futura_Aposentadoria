@@ -2,7 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { hasTab } from "@/lib/tabs";
-import { canViewClinical } from "@/lib/permissions";
+import { canViewClinical, canWorkClinical } from "@/lib/permissions";
 import { age } from "@/lib/format";
 import { displayName } from "@/lib/staff";
 import { bedState, bedStateLabel, compareBedCodes, daysAdmitted, daysLabel, occupancy, type BedState } from "@/lib/internacao";
@@ -52,6 +52,7 @@ export default async function BedMapPage() {
           <p className="text-sm text-slate-500">Mapa de leitos. Clique num leito ocupado para abrir a internação.</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {canWorkClinical(user) && wards.length > 0 && <Link href="/internacao/plantao" className="btn-secondary">Passagem de plantão</Link>}
           {hasTab(user, "leitos") && <Link href="/internacao/leitos" className="btn-secondary">Alas e leitos</Link>}
           {total.livres > 0 && <Link href="/internacao/internar" className="btn-primary">Internar paciente</Link>}
         </div>

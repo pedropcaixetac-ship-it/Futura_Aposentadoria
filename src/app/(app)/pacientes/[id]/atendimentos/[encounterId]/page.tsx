@@ -26,6 +26,7 @@ import { endTeleconsultation, joinTeleconsultation, teleconsultationStatus } fro
 import { teleconsultationPath, teleconsultationState } from "@/lib/teleconsulta";
 import { siteOrigin } from "@/lib/teleconsulta-sala";
 import { videoConfigured } from "@/lib/video";
+import { evolutionKindLabel } from "@/lib/internacao";
 
 export default async function EncounterPage({
   params,
@@ -55,6 +56,8 @@ export default async function EncounterPage({
     },
   });
   if (!encounter || !canOpenEncounter(user, encounter)) notFound();
+  // Evolução de internado sem modelo leva o nome do tipo (médica, enfermagem...).
+  const encounterTitle = encounter.template?.name ?? (encounter.evolutionKind ? evolutionKindLabel[encounter.evolutionKind] : "Evolução livre");
 
   await audit({
     clinicId: user.clinicId,
@@ -120,7 +123,9 @@ export default async function EncounterPage({
     <div className={editable ? "space-y-4" : "mx-auto max-w-3xl space-y-4"}>
       <div className="no-print flex items-center justify-between">
         {/* Atendimento aberto pela aba Atender volta para ela; os demais, para o prontuário. */}
-        {encounter.appointment && encounter.professionalId === user.id && hasTab(user, "atender") ? (
+        {encounter.admissionId && hasTab(user, "internacao") ? (
+          <Link href={`/internacao/${encounter.admissionId}`} className="text-sm text-marinho-700 hover:underline">← Voltar para a internação</Link>
+        ) : encounter.appointment && encounter.professionalId === user.id && hasTab(user, "atender") ? (
           <Link href="/atender" className="text-sm text-marinho-700 hover:underline">← Voltar para Atender</Link>
         ) : (
           <Link href={`/pacientes/${id}`} className="text-sm text-marinho-700 hover:underline">← Voltar ao prontuário</Link>
@@ -141,7 +146,7 @@ export default async function EncounterPage({
 
       {!editable && (
         <div className="card space-y-1">
-          <p className="text-xs uppercase tracking-wide text-slate-500">{encounter.template?.name ?? "Evolução livre"}</p>
+          <p className="text-xs uppercase tracking-wide text-slate-500">{encounterTitle}</p>
           <h1 className="text-xl font-semibold">
             {patient.name}
             {patient.birthDate && <span className="font-normal text-slate-500"> · {age(patient.birthDate)} anos ({formatDate(patient.birthDate)})</span>}
@@ -191,7 +196,7 @@ export default async function EncounterPage({
               allergies: patient.allergies,
             }}
             startedAt={encounter.startedAt.toISOString()}
-            heading={`${encounter.template?.name ?? "Evolução livre"} · ${displayName(professional)}`}
+            heading={`${encounterTitle} · ${displayName(professional)}`}
             fields={fields}
             content={content}
             diagnoses={diagnoses}
