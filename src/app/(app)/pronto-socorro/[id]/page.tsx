@@ -18,10 +18,10 @@ import { ExamPanel } from "../../exames/panel";
 const triageFields = vitalFields.filter((f) => f.key !== "altura");
 const staff = { select: { name: true, sex: true, jobTitle: true } } as const;
 
-export default async function EmergencyVisitPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ jaChamado?: string }> }) {
+export default async function EmergencyVisitPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ jaChamado?: string; dia?: string }> }) {
   const user = await requireUser("pronto-socorro");
   const { id } = await params;
-  const { jaChamado } = await searchParams;
+  const { jaChamado, dia } = await searchParams;
   const visit = await prisma.emergencyVisit.findFirst({
     where: { id, clinicId: user.clinicId },
     include: {
@@ -163,7 +163,7 @@ export default async function EmergencyVisitPage({ params, searchParams }: { par
       )}
 
       {nurse && visit.doctorId && (
-        <PrescriptionPanel ctx={{ kind: "ps", id: visit.id }} user={user} open={open} />
+        <PrescriptionPanel ctx={{ kind: "ps", id: visit.id }} user={user} open={open} day={dia} />
       )}
       {nurse && visit.doctorId && <ExamPanel ctx={{ kind: "ps", id: visit.id }} user={user} open={open} />}
 
