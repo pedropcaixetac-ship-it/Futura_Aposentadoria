@@ -11,6 +11,7 @@ export type TabKey =
   | "internacao"
   | "leitos"
   | "visitas"
+  | "farmacia"
   | "agenda"
   | "pacientes"
   | "modelos"
@@ -97,6 +98,14 @@ export const TABS: Tab[] = [
     href: "/visitas",
     description: "Registrar a entrada e a saída das visitas aos pacientes internados.",
     defaultRoles: RECEPTION_ROLES,
+    hospital: true,
+  },
+  {
+    key: "farmacia",
+    label: "Farmácia",
+    href: "/farmacia",
+    description: "Estoque de medicamentos e materiais por lote e validade, e dispensação do que o médico prescreveu.",
+    defaultRoles: ["ADMIN", "PROFISSIONAL", "ADMINISTRATIVO"],
     hospital: true,
   },
   {
