@@ -6,8 +6,10 @@ import { formatDate, formatDateTime } from "@/lib/format";
 import { platformActionLabel } from "@/lib/painel";
 import { ActionForm } from "@/app/(app)/financeiro/action-form";
 import { ClinicForm } from "../../clinic-form";
-import { reactivateClinic, registerPayment, setClinicPlan, suspendClinic, updateClinic } from "../../actions";
-import { billingLabel, billingStatus, GRACE_DAYS, MODULES } from "@/lib/plans";
+import { cancelPayment, reactivateClinic, registerPayment, setClinicPlan, suspendClinic, updateClinic } from "../../actions";
+import { ChargeLink } from "../../charge-link";
+import { PAYMENT_METHODS, type PaymentMethod } from "@/lib/painel-financeiro";
+import { billingLabel, billingStatus, GRACE_DAYS, MODULES, todayDate } from "@/lib/plans";
 import { formatMoney, moneyInput } from "@/lib/money";
 
 export default async function ClinicPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ criada?: string }> }) {
@@ -18,7 +20,7 @@ export default async function ClinicPage({ params, searchParams }: { params: Pro
   if (!clinic) notFound();
 
   // Só dados administrativos: quantos usuários e pacientes, quem são os gerentes. Nada do prontuário.
-  const [users, patients, encounters, managers, lastLogin, history] = await Promise.all([
+  const [users, patients, encounters, managers, lastLogin, history, payments] = await Promise.all([
     prisma.user.count({ where: { clinicId: id, active: true, systemAccess: true } }),
     prisma.patient.count({ where: { clinicId: id } }),
     prisma.encounter.count({ where: { clinicId: id } }),
@@ -29,7 +31,14 @@ export default async function ClinicPage({ params, searchParams }: { params: Pro
     }),
     prisma.auditLog.findFirst({ where: { clinicId: id, action: "LOGIN" }, orderBy: { createdAt: "desc" }, select: { createdAt: true } }),
     prisma.platformAuditLog.findMany({ where: { clinicId: id }, include: { user: true }, orderBy: { createdAt: "desc" }, take: 20 }),
+    prisma.clinicPayment.findMany({
+      where: { clinicId: id },
+      include: { createdBy: { select: { name: true } }, canceledBy: { select: { name: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 24,
+    }),
   ]);
+  const lastPaymentId = payments.find((p) => !p.canceledAt)?.id;
   const plans = await prisma.plan.findMany({ where: { OR: [{ active: true }, { id: clinic.planId ?? "" }] }, orderBy: { priceCents: "asc" } });
   const billing = billingStatus(clinic.paidUntil);
   const billingColor = { "sem-controle": "text-slate-600", "em-dia": "text-emerald-700", "vence-logo": "text-dourado-700", atrasada: "text-red-700", bloqueada: "text-red-700" }[billing.kind];
@@ -102,16 +111,68 @@ export default async function ClinicPage({ params, searchParams }: { params: Pro
             <p className="text-xs uppercase tracking-wide text-slate-500">Situação</p>
             <p className={`text-sm font-semibold ${billingColor}`}>{billingLabel(billing)}</p>
             {billing.kind === "atrasada" && <p className="text-xs text-slate-500">O acesso é suspenso sozinho em {billing.daysToBlock} dia(s).</p>}
+            {billing.kind !== "sem-controle" && billing.kind !== "em-dia" && <ChargeLink clinic={clinic} />}
           </div>
         </div>
 
-        <ActionForm action={registerPayment.bind(null, clinic.id)} submitLabel="Registrar pagamento" resetOnSuccess={false} className="flex flex-wrap items-end gap-3 rounded-md bg-marinho-50 p-3">
-          <div>
-            <label className="label" htmlFor="amount">Valor recebido (R$)</label>
-            <input className="input w-40" id="amount" name="amount" inputMode="decimal" defaultValue={clinic.plan ? moneyInput(clinic.plan.priceCents) : ""} />
+        <ActionForm action={registerPayment.bind(null, clinic.id)} submitLabel="Registrar pagamento" className="space-y-3 rounded-md bg-marinho-50 p-3">
+          <div className="grid gap-3 sm:grid-cols-4">
+            <div>
+              <label className="label" htmlFor="amount">Valor recebido (R$)</label>
+              <input className="input" id="amount" name="amount" inputMode="decimal" required defaultValue={clinic.plan ? moneyInput(clinic.plan.priceCents) : ""} />
+            </div>
+            <div>
+              <label className="label" htmlFor="method">Forma</label>
+              <select className="input" id="method" name="method" defaultValue="pix">
+                {Object.entries(PAYMENT_METHODS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label" htmlFor="paidAt">Data do pagamento</label>
+              <input className="input" id="paidAt" name="paidAt" type="date" defaultValue={todayDate().toISOString().slice(0, 10)} />
+            </div>
+            <div>
+              <label className="label" htmlFor="notes">Observação</label>
+              <input className="input" id="notes" name="notes" placeholder="Opcional" />
+            </div>
           </div>
-          <p className="flex-1 text-xs text-slate-500">Recebeu o Pix ou o boleto? Registrar estende o &quot;pago até&quot; em um mês e libera a clínica se estava bloqueada.</p>
+          <p className="text-xs text-slate-500">Recebeu o Pix ou o boleto? Registrar estende o &quot;pago até&quot; em um mês e libera a clínica se estava bloqueada.</p>
         </ActionForm>
+
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-marinho-800">Pagamentos recebidos</h3>
+          {payments.length === 0 ? (
+            <p className="text-sm text-slate-500">Nenhum pagamento registrado ainda.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100 text-sm">
+              {payments.map((p) => (
+                <li key={p.id} className={`space-y-2 py-2 ${p.canceledAt ? "text-slate-400" : ""}`}>
+                  <div className="flex flex-wrap items-baseline gap-x-3">
+                    <span className="font-medium">{formatDate(p.paidAt)}</span>
+                    <span className={p.canceledAt ? "line-through" : "font-semibold text-emerald-700"}>{formatMoney(p.amountCents)}</span>
+                    <span>{PAYMENT_METHODS[p.method as PaymentMethod] ?? p.method}</span>
+                    <span className="text-slate-500">pago até {formatDate(p.paidUntil)} · registrado por {p.createdBy.name}</span>
+                    {p.notes && <span className="text-slate-500">· {p.notes}</span>}
+                  </div>
+                  {p.canceledAt && (
+                    <p className="text-xs">Desfeito em {formatDateTime(p.canceledAt)} por {p.canceledBy?.name ?? "—"}: {p.cancelReason}</p>
+                  )}
+                  {p.id === lastPaymentId && (
+                    <details className="text-xs">
+                      <summary className="cursor-pointer text-marinho-700 hover:underline">Lançou errado? Desfazer este pagamento</summary>
+                      <ActionForm action={cancelPayment.bind(null, p.id)} submitLabel="Desfazer pagamento" className="mt-2 flex flex-wrap items-end gap-3">
+                        <div>
+                          <label className="label" htmlFor={`reason-${p.id}`}>Motivo</label>
+                          <input className="input" id={`reason-${p.id}`} name="reason" required placeholder="Ex.: valor digitado errado" />
+                        </div>
+                      </ActionForm>
+                    </details>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
         <ActionForm action={setClinicPlan.bind(null, clinic.id)} submitLabel="Salvar plano e vencimento" resetOnSuccess={false} className="grid gap-4 sm:grid-cols-3 sm:items-end">
           <div>
