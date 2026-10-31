@@ -174,6 +174,10 @@ Este é o primeiro módulo: **Prontuário**.
 - Uma clínica nunca vê dados de outra: cada tela filtra pela clínica de quem está usando, e o próprio banco de dados
   recusa ligar um registro (consulta, atendimento, cobrança...) a paciente ou profissional de outra clínica.
   Um teste automático avisa se uma tela nova esquecer o filtro ou se uma ligação nova ficar sem a trava
+- Segurança do painel: senha com as mesmas regras do sistema (senha fraca, como a de demonstração, obriga a trocar ao entrar),
+  verificação em duas etapas opcional em "Minha conta" e bloqueio de 15 minutos depois de 5 tentativas erradas
+- Equipe do painel (`/painel/equipe`, só o dono): cadastra pessoas da empresa com senha provisória, gera senha nova para quem
+  esqueceu, desliga a verificação em duas etapas de quem perdeu o celular e bloqueia o acesso (a pessoa sai na hora)
 
 ## Usuários de demonstração
 
@@ -187,7 +191,7 @@ Código da clínica: `demo`. Senha de todos: `senha123`. Dá para entrar pelo e-
 | admin@demo.com | 123.456.789-09 | | Administrador |
 | administrativo@demo.com | | | Auxiliar administrativo |
 
-Painel do dono (`/painel`): `dono@futura.com` / `senha123`. Em produção, defina `PAINEL_EMAIL` e `PAINEL_SENHA`
+Painel do dono (`/painel`): `dono@futura.com` / `senha123` (no primeiro acesso o painel pede uma senha nova). Em produção, defina `PAINEL_EMAIL` e `PAINEL_SENHA`
 antes da primeira publicação (ver `.env.example`).
 
 ## Para quem for rodar o código

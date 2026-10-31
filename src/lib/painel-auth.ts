@@ -38,22 +38,32 @@ export async function getPlatformUser() {
   const jar = await cookies();
   const token = jar.get(COOKIE)?.value;
   if (!token) return null;
-  const session = await prisma.platformSession.findUnique({
-    where: { id: hashToken(token) },
-    include: { user: { omit: { passwordHash: true } } },
-  });
+  const session = await prisma.platformSession.findUnique({ where: { id: hashToken(token) }, include: { user: true } });
   if (!session || session.expiresAt < new Date() || !session.user.active) return null;
   return session.user;
 }
 
-export async function requirePlatformUser() {
+// owner: só o dono (equipe do painel). passwordChange: a tela de criar a senha própria,
+// a única que quem está com senha provisória consegue abrir.
+export async function requirePlatformUser(opts: { owner?: boolean; passwordChange?: boolean } = {}) {
   const user = await getPlatformUser();
   if (!user) redirect("/painel/login");
+  if (user.mustChangePassword && !opts.passwordChange) redirect("/painel/nova-senha");
+  if (opts.owner && !user.owner) redirect("/painel");
   return user;
 }
 
-export async function platformAudit(entry: { userId?: string | null; action: string; clinicId?: string | null; details?: Prisma.InputJsonValue }) {
+// Depois de trocar a senha (ou de o dono bloquear alguém), as outras sessões abertas caem.
+export async function endOtherPlatformSessions(userId: string) {
+  const token = (await cookies()).get(COOKIE)?.value;
+  await prisma.platformSession.deleteMany({ where: { userId, ...(token ? { id: { not: hashToken(token) } } : {}) } });
+}
+
+export async function clientIp() {
   const h = await headers();
-  const ip = h.get("x-forwarded-for")?.split(",")[0].trim() ?? h.get("x-real-ip") ?? null;
-  await prisma.platformAuditLog.create({ data: { ...entry, ip } });
+  return h.get("x-forwarded-for")?.split(",")[0].trim() ?? h.get("x-real-ip") ?? null;
+}
+
+export async function platformAudit(entry: { userId?: string | null; action: string; clinicId?: string | null; details?: Prisma.InputJsonValue }) {
+  await prisma.platformAuditLog.create({ data: { ...entry, ip: await clientIp() } });
 }

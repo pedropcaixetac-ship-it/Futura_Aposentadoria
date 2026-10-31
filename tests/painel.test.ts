@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { isValidCnpj, parseClinic, slugError, suggestSlug, validateClinic, validateManager } from "../src/lib/painel";
+import { teamChangeError, temporaryPassword } from "../src/lib/painel-equipe";
 
 function form(values: Record<string, string>) {
   const data = new FormData();
@@ -46,4 +47,20 @@ test("primeiro gerente precisa de e-mail e senha", () => {
   assert.ok(validateManager({ ...ok, email: "maria" }));
   assert.ok(validateManager({ ...ok, password: "123" }));
   assert.ok(validateManager({ ...ok, cpf: "11111111111" }));
+});
+
+test("senha provisória da equipe do painel", () => {
+  const passwords = new Set(Array.from({ length: 50 }, () => temporaryPassword()));
+  assert.equal(passwords.size, 50);
+  for (const p of passwords) {
+    assert.match(p, /^[A-Z]{3}[a-z]{3}-[2-9]{4}!$/);
+    // Sem letras que se confundem ao ditar.
+    assert.doesNotMatch(p, /[OIlo01]/);
+  }
+});
+
+test("ninguém tira o próprio acesso nem o próprio papel de dono", () => {
+  assert.ok(teamChangeError({ id: "a" }, { id: "a" }, "bloquear"));
+  assert.ok(teamChangeError({ id: "a" }, { id: "a" }, "dono"));
+  assert.equal(teamChangeError({ id: "a" }, { id: "b" }, "bloquear"), null);
 });

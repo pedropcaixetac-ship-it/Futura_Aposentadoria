@@ -1119,6 +1119,16 @@ model PlatformUser {
   passwordHash String
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
+  // Dono: além de cuidar das clínicas, cadastra e bloqueia a equipe do painel.
+  owner              Boolean   @default(false)
+  // Senha provisória (criada pelo dono ou fraca): precisa trocar antes de usar o painel.
+  mustChangePassword Boolean   @default(false)
+  lastLoginAt        DateTime?
+  // Verificação em duas etapas, como a dos usuários das clínicas (segredo cifrado).
+  totpSecret         String?
+  totpEnabledAt      DateTime?
+  totpLastStep       Int?
+  totpRecoveryCodes  String[]  @default([])
 
   sessions  PlatformSession[]
   auditLogs PlatformAuditLog[]
