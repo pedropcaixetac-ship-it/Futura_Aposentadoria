@@ -8,7 +8,7 @@ import { displayName } from "@/lib/staff";
 import { issuerLabel } from "@/lib/nfse";
 import { ActionForm } from "../action-form";
 import { updateInvoiceSettings } from "./actions";
-import { PendingInvoice } from "./ui";
+import { InvoiceNumber, PendingInvoice } from "./ui";
 
 const chargeInclude = {
   patient: { select: { name: true, cpf: true } },
@@ -76,7 +76,7 @@ export default async function InvoicesPage() {
               {issued.map((inv) => (
                 <tr key={inv.id} className="border-t border-slate-100">
                   <td className="px-4 py-2">{formatDate(inv.issuedAt)}</td>
-                  <td className="px-4 py-2 font-medium">{inv.number}</td>
+                  <td className="px-4 py-2 font-medium"><InvoiceNumber invoice={inv} /></td>
                   <td className="px-4 py-2">{inv.charge.patient.name}</td>
                   <td className="px-4 py-2">
                     {inv.issuer === "CLINICA" ? "Clínica" : inv.charge.professional ? displayName(inv.charge.professional) : "Profissional"}

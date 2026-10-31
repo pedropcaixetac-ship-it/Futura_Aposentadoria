@@ -119,6 +119,8 @@ model Clinic {
   // Código do serviço na lista nacional (Medicina: 04.01.01) e alíquota do ISS em centésimos de % (2% = 200).
   serviceCode           String?
   issRateBasisPoints    Int?
+  // Último número de DPS (pedido de nota) enviado pela clínica na emissão automática.
+  lastDpsNumber         Int           @default(0)
   // CNES: registro do estabelecimento no Ministério da Saúde, exigido nas guias dos convênios.
   cnes              String?
   // Último número de guia de convênio emitido (as guias seguem uma sequência por clínica).
@@ -219,6 +221,8 @@ model User {
   sector            String?
   // Inscrição municipal do profissional que emite a própria nota como autônomo.
   municipalRegistration String?
+  // Último número de DPS enviado pelo profissional que emite a própria nota (cada emissor tem a sua sequência).
+  lastDpsNumber     Int       @default(0)
   // Porcentagem do valor recebido que fica com o profissional (repasse).
   commissionPercent Int?
   // Função ou cargo mostrado no cadastro de servidores (ex.: Médica, Recepcionista).
@@ -650,6 +654,13 @@ model ServiceInvoice {
   issuedById       String?
   provider         String               @default("manual")
   providerRef      String?
+  // Emissão automática: "processando" enquanto a prefeitura analisa, "erro" com o motivo em providerMessage.
+  providerStatus   String?
+  providerMessage  String?
+  // Consulta pública da nota no portal nacional e PDF (DANFSe).
+  url              String?
+  pdfUrl           String?
+  attempts         Int                  @default(0)
   notes            String?
 
   @@index([clinicId, status])

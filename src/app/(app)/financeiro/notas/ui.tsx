@@ -4,7 +4,8 @@ import { formatMoney } from "@/lib/money";
 import { dateInput, today } from "@/lib/finance";
 import { invoiceFields, invoiceMissing, NFSE_EMISSOR_URL, type InvoiceCharge, type InvoiceClinic, type InvoiceProfessional } from "@/lib/nfse";
 import { ActionForm } from "../action-form";
-import { cancelInvoice, markInvoiceIssued, requestInvoice } from "./actions";
+import { focusConfigured, focusIsProduction } from "@/lib/nfse-focus";
+import { cancelInvoice, emitInvoice, markInvoiceIssued, refreshInvoice, requestInvoice } from "./actions";
 
 type Props = {
   invoice: ServiceInvoice | null;
@@ -25,7 +26,7 @@ export function InvoiceStatus({ invoice, chargeId, canRequest, canIssue }: Props
     ) : null;
   }
   if (invoice.status === "EMITIDA") {
-    return <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">NF {invoice.number}</span>;
+    return <InvoiceNumber invoice={invoice} />;
   }
   return (
     <span className="flex items-center gap-2">
@@ -36,6 +37,44 @@ export function InvoiceStatus({ invoice, chargeId, canRequest, canIssue }: Props
         </form>
       )}
     </span>
+  );
+}
+
+// Número da nota emitida, com link para o PDF (ou a consulta no portal nacional) quando foi emitida pelo sistema.
+export function InvoiceNumber({ invoice }: { invoice: ServiceInvoice }) {
+  const link = invoice.pdfUrl ?? invoice.url;
+  const badge = <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">NF {invoice.number}</span>;
+  return link ? (
+    <a href={link} target="_blank" rel="noreferrer" title="Abrir a nota" className="hover:underline">{badge}</a>
+  ) : badge;
+}
+
+// Emissão automática pela Focus NFe: botão de emitir, situação do envio e motivo do erro.
+function AutomaticIssue({ invoice, missing }: { invoice: ServiceInvoice; missing: string[] }) {
+  const testMode = !focusIsProduction();
+  if (invoice.providerStatus === "processando") {
+    return (
+      <div className="flex flex-wrap items-center gap-3 rounded-md bg-marinho-50 px-3 py-2 text-sm text-marinho-800">
+        Nota enviada. A prefeitura está analisando.
+        <form action={refreshInvoice.bind(null, invoice.id)}>
+          <button className="btn-secondary px-3! py-1! text-xs!">Atualizar</button>
+        </form>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-2">
+      {invoice.providerStatus === "erro" && invoice.providerMessage && (
+        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          A última tentativa não foi aceita: {invoice.providerMessage}
+        </p>
+      )}
+      {missing.length === 0 && (
+        <ActionForm action={emitInvoice.bind(null, invoice.id)} submitLabel={invoice.providerStatus === "erro" ? "Tentar de novo" : "Emitir nota"} className="flex flex-wrap items-center gap-3">
+          {testMode && <span className="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800">Modo de teste: a nota não tem valor fiscal</span>}
+        </ActionForm>
+      )}
+    </div>
   );
 }
 
@@ -81,9 +120,12 @@ export function PendingInvoice({ invoice, issuer, clinic, professional, charge, 
           </div>
         ))}
       </dl>
+      {canIssue && focusConfigured() && <AutomaticIssue invoice={invoice} missing={missing} />}
       {canIssue ? (
         <details>
-          <summary className="cursor-pointer text-sm font-medium text-marinho-700">Já emiti: anotar o número</summary>
+          <summary className="cursor-pointer text-sm font-medium text-marinho-700">
+            {focusConfigured() ? "Emiti por fora do sistema: anotar o número" : "Já emiti: anotar o número"}
+          </summary>
           <ActionForm action={markInvoiceIssued.bind(null, invoice.id)} submitLabel="Anotar nota" className="mt-3 grid gap-3 sm:grid-cols-3">
             <div>
               <label className="label" htmlFor={`n-${invoice.id}`}>Número da nota *</label>

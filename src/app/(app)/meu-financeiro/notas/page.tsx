@@ -7,7 +7,7 @@ import { displayName } from "@/lib/staff";
 import { issuerLabel } from "@/lib/nfse";
 import { ActionForm } from "../../financeiro/action-form";
 import { updateMyMunicipalRegistration } from "../../financeiro/notas/actions";
-import { PendingInvoice } from "../../financeiro/notas/ui";
+import { InvoiceNumber, PendingInvoice } from "../../financeiro/notas/ui";
 
 // As notas fiscais dos atendimentos do próprio profissional: as pedidas e as já emitidas.
 export default async function MyInvoicesPage() {
@@ -63,7 +63,7 @@ export default async function MyInvoicesPage() {
               {issued.map((inv) => (
                 <tr key={inv.id} className="border-t border-slate-100">
                   <td className="px-4 py-2">{formatDate(inv.issuedAt)}</td>
-                  <td className="px-4 py-2 font-medium">{inv.number}</td>
+                  <td className="px-4 py-2 font-medium"><InvoiceNumber invoice={inv} /></td>
                   <td className="px-4 py-2">{inv.charge.patient.name}</td>
                   <td className="px-4 py-2 text-right">{formatMoney(inv.charge.amountCents)}</td>
                 </tr>

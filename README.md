@@ -82,7 +82,11 @@ Este é o primeiro módulo: **Prontuário**.
   A clínica escolhe quem emite: ela mesma (CNPJ) ou cada profissional, como autônomo (CPF). A aba Notas fiscais do Financeiro e a aba
   Notas fiscais do "Meu financeiro" (só as notas do próprio profissional) mostram os dados prontos para copiar no emissor nacional (www.nfse.gov.br), avisam o que
   falta no cadastro e guardam o número da nota emitida. Quem emite como pessoa física também marca, em cada pagamento,
-  o recibo lançado no Receita Saúde. A emissão automática por um provedor (ex.: Focus NFe) fica para depois
+  o recibo lançado no Receita Saúde
+- Emissão automática da NFS-e pela Focus NFe: com a chave `FOCUS_NFE_TOKEN`, cada nota pedida ganha o botão "Emitir nota",
+  que envia o pedido (DPS) à Focus, acompanha a análise da prefeitura e guarda o número, o código de verificação e o PDF.
+  Se a nota não for aceita, o motivo aparece na tela para corrigir e tentar de novo. Enquanto `FOCUS_NFE_AMBIENTE` não for
+  `producao`, tudo vai para o ambiente de teste da Focus, sem valor fiscal
 - O administrador vê tudo; a recepção lança cobranças e recebe pagamentos; cada profissional vê só o próprio repasse
 
 ### Cadastro de servidores
