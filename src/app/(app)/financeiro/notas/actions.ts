@@ -20,7 +20,7 @@ function text(formData: FormData, key: string) {
 
 function revalidate() {
   revalidatePath("/financeiro", "layout");
-  revalidatePath("/meu-financeiro");
+  revalidatePath("/meu-financeiro", "layout");
 }
 
 async function paidCharge(clinicId: string, chargeId: string) {
