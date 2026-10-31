@@ -8,6 +8,7 @@ export default async function FinanceLayout({ children }: { children: React.Reac
   const tabs = [
     ...(admin ? [{ href: "/financeiro", label: "Resumo" }] : []),
     ...(canManageCharges(user) ? [{ href: "/financeiro/receitas", label: "Receitas" }] : []),
+    ...(canManageCharges(user) ? [{ href: "/financeiro/notas", label: "Notas fiscais" }] : []),
     ...(admin ? [{ href: "/financeiro/despesas", label: "Despesas" }] : []),
     ...(admin ? [{ href: "/financeiro/compras", label: "Compras" }] : []),
     ...(admin ? [{ href: "/financeiro/repasse", label: "Repasse" }] : []),

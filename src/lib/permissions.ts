@@ -90,6 +90,17 @@ export function canViewCommission(user: PermissionUser, professionalId: string) 
   return canManageFinance(user) || user.id === professionalId;
 }
 
+// Nota fiscal de serviço: quem lança cobranças anota o pedido do paciente, e o profissional também,
+// na própria cobrança. Emite (anota o número) quem é o emissor: o financeiro, se a nota é da clínica,
+// ou o profissional da cobrança, se ele emite como autônomo. O financeiro pode anotar por ele.
+export function canRequestInvoice(user: PermissionUser, charge: { professionalId: string | null }) {
+  return canManageCharges(user) || user.id === charge.professionalId;
+}
+
+export function canIssueInvoice(user: PermissionUser, invoice: { issuer: "CLINICA" | "PROFISSIONAL" }, charge: { professionalId: string | null }) {
+  return canManageFinance(user) || (invoice.issuer === "PROFISSIONAL" && user.id === charge.professionalId);
+}
+
 // Modelos de atendimento: cada profissional cuida dos seus; o administrador cuida de todos,
 // inclusive dos modelos da clínica (sem dono), que qualquer profissional pode usar.
 export function canEditTemplate(user: PermissionUser, template: { ownerId: string | null }) {

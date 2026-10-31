@@ -78,6 +78,11 @@ Este é o primeiro módulo: **Prontuário**.
   do recurso enviado no portal e, depois, a resposta do convênio. O valor recuperado entra nas Receitas como pagamento por convênio
 - Repasse por profissional (porcentagem do valor recebido), que pode ser lançado como despesa
 - Recibo numerado, com valor por extenso, para imprimir ou salvar em PDF
+- Nota fiscal de serviço (NFS-e), primeira etapa: a nota só é feita quando o paciente pede ("Pedir nota" na cobrança paga).
+  A clínica escolhe quem emite: ela mesma (CNPJ) ou cada profissional, como autônomo (CPF). A aba Notas fiscais do Financeiro e a aba
+  Notas fiscais do "Meu financeiro" (só as notas do próprio profissional) mostram os dados prontos para copiar no emissor nacional (www.nfse.gov.br), avisam o que
+  falta no cadastro e guardam o número da nota emitida. Quem emite como pessoa física também marca, em cada pagamento,
+  o recibo lançado no Receita Saúde. A emissão automática por um provedor (ex.: Focus NFe) fica para depois
 - O administrador vê tudo; a recepção lança cobranças e recebe pagamentos; cada profissional vê só o próprio repasse
 
 ### Cadastro de servidores
