@@ -756,6 +756,16 @@ model Cid10 {
   @@index([description])
 }
 
+// Tabela de procedimentos do SUS (SIGTAP), para buscar o código nos laudos APAC e AIH.
+// Carregada de prisma/data/sigtap.tsv (ver seed.ts).
+model SigtapProcedure {
+  code       String  @id
+  name       String
+  // Nome sem acentos e em minúsculas, para a busca. O banco calcula sozinho
+  // (coluna gerada, ver a migração procedimentos_sigtap): nunca preencher pelo sistema.
+  searchName String?
+}
+
 // ---------- Contabilidade e parte trabalhista ----------
 
 // Dados de contrato de trabalho de um servidor. A pessoa em si (nome, CPF, função, setor,

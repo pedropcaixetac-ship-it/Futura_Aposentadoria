@@ -25,6 +25,27 @@ async function seedCid10() {
   console.log(`CID-10: ${rows.length} códigos`);
 }
 
+// Procedimentos do SUS (SIGTAP), competência 2026.08 (DATASUS). Nome atualizado quando a tabela muda.
+async function seedSigtap() {
+  const file = readFileSync(path.join(__dirname, "data", "sigtap.tsv"), "utf8");
+  const rows = file
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => {
+      const [code, name] = line.split("\t");
+      return { code, name };
+    });
+  const known = new Map((await prisma.sigtapProcedure.findMany({ select: { code: true, name: true } })).map((p) => [p.code, p.name]));
+  const missing = rows.filter((r) => !known.has(r.code));
+  for (let i = 0; i < missing.length; i += 2000) {
+    await prisma.sigtapProcedure.createMany({ data: missing.slice(i, i + 2000), skipDuplicates: true });
+  }
+  for (const r of rows.filter((r) => known.has(r.code) && known.get(r.code) !== r.name)) {
+    await prisma.sigtapProcedure.update({ where: { code: r.code }, data: { name: r.name } });
+  }
+  console.log(`SIGTAP: ${rows.length} procedimentos`);
+}
+
 const consultaGeral = [
   { key: "queixa", label: "Queixa principal", type: "textarea" },
   { key: "hda", label: "História da doença atual", type: "textarea" },
@@ -455,6 +476,7 @@ async function seedPlatformOwner() {
 
 async function main() {
   await seedCid10();
+  await seedSigtap();
   await seedDemo();
   await seedAgenda();
   await seedFinanceDemo();

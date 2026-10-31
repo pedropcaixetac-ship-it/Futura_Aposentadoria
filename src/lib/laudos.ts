@@ -23,7 +23,9 @@ type Option = { value: string; label: string };
 export type LaudoField = {
   key: string;
   label: string;
-  kind?: "text" | "textarea" | "date" | "select" | "cid";
+  // procedure: busca na tabela SIGTAP por nome ou código; ao escolher, preenche também o campo nameKey.
+  kind?: "text" | "textarea" | "date" | "select" | "cid" | "procedure";
+  nameKey?: string;
   options?: Option[];
   required?: boolean;
   // Largura no formulário, em sextos da linha (padrão: a linha inteira).
@@ -93,7 +95,7 @@ function requesterFields(): LaudoField[] {
 }
 
 const secondaryProcedures: LaudoField[] = [1, 2, 3, 4, 5].flatMap((n) => [
-  { key: `sec${n}Codigo`, label: `Código do procedimento secundário ${n}`, span: 2, max: 10 } as LaudoField,
+  { key: `sec${n}Codigo`, label: `Código do procedimento secundário ${n}`, kind: "procedure", nameKey: `sec${n}Nome`, span: 2 } as LaudoField,
   { key: `sec${n}Nome`, label: "Nome do procedimento", span: 3 } as LaudoField,
   { key: `sec${n}Qtde`, label: "Qtde.", span: 1, max: 4 } as LaudoField,
 ]);
@@ -118,7 +120,7 @@ export const laudoSections: Record<LaudoType, LaudoSection[]> = {
     {
       title: "Procedimento solicitado",
       fields: [
-        { key: "procCodigo", label: "Código do procedimento principal", required: true, span: 2, max: 10, hint: "Código da tabela SIGTAP, 10 números" },
+        { key: "procCodigo", label: "Código do procedimento principal", kind: "procedure", nameKey: "procNome", required: true, span: 2 },
         { key: "procNome", label: "Nome do procedimento principal", required: true, span: 3 },
         { key: "procQtde", label: "Qtde.", required: true, span: 1, max: 4 },
       ],
@@ -171,7 +173,7 @@ export const laudoSections: Record<LaudoType, LaudoSection[]> = {
       title: "Procedimento solicitado",
       fields: [
         { key: "procNome", label: "Descrição do procedimento solicitado", required: true, span: 4 },
-        { key: "procCodigo", label: "Código do procedimento", required: true, span: 2, max: 10, hint: "Código da tabela SIGTAP" },
+        { key: "procCodigo", label: "Código do procedimento", kind: "procedure", nameKey: "procNome", required: true, span: 2 },
         {
           key: "clinica",
           label: "Clínica",
@@ -356,6 +358,8 @@ export function parseLaudo(type: LaudoType, formData: FormData) {
     if (f.max) v = v.slice(0, f.max);
     if (f.options && v && !f.options.some((o) => o.value === v)) v = "";
     if (f.kind === "date" && v && !/^\d{4}-\d{2}-\d{2}$/.test(v)) v = "";
+    // Código SIGTAP: só os 10 números (um nome digitado sem escolher da lista não vale como código).
+    if (f.kind === "procedure") v = onlyDigits(v).length === 10 ? onlyDigits(v) : "";
     if (v) values[f.key] = v;
     else if (f.required) missing.push(f.label);
   }

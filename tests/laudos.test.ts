@@ -5,6 +5,7 @@ import type { Patient } from "@prisma/client";
 import { buildLaudoPdf } from "../src/lib/laudo-pdf";
 import { laudoDefaults, laudoText, LAUDO_TYPES, parseLaudo, laudoSummary } from "../src/lib/laudos";
 import { documentHash } from "../src/lib/record";
+import { procedureWhere } from "../src/lib/sigtap";
 
 const patient = {
   name: "Maria José da Conceição",
@@ -105,4 +106,20 @@ test("gera APAC, AIH e LME no formulário oficial, com folha extra para a assina
     const signed = await buildLaudoPdf({ type, values, stamp: [], clinicName: "Clínica", author: "x", signatureStamp: ["Assinado"] });
     assert.equal((await PDFDocument.load(signed)).getPageCount(), 2);
   }
+});
+
+test("código do procedimento: só vale com os 10 números da tabela SIGTAP", () => {
+  const form = new FormData();
+  form.set("laudo_procCodigo", "02.11.02.003-6");
+  form.set("laudo_sec1Codigo", "eletrocardiograma");
+  const { values } = parseLaudo("APAC", form);
+  assert.equal(values.procCodigo, "0211020036");
+  assert.equal(values.sec1Codigo, undefined);
+});
+
+test("busca de procedimento por código ou por palavras do nome", () => {
+  assert.deepEqual(procedureWhere("02.11"), { code: { startsWith: "0211" } });
+  assert.deepEqual(procedureWhere("Infarto  Miocárdio"), {
+    AND: [{ searchName: { contains: "infarto" } }, { searchName: { contains: "miocardio" } }],
+  });
 });
