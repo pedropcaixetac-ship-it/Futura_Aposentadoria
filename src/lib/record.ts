@@ -52,8 +52,12 @@ export function documentHash(data: {
   type: DocumentType;
   body: string;
   createdAt: Date;
+  // Campos dos laudos do SUS. O banco reordena as chaves, então entram em ordem alfabética.
+  fields?: unknown;
 }) {
-  const payload = JSON.stringify([data.id, data.patientId, data.authorId, data.type, data.body, data.createdAt.toISOString()]);
+  const base = [data.id, data.patientId, data.authorId, data.type, data.body, data.createdAt.toISOString()];
+  const fields = data.fields && typeof data.fields === "object" ? Object.entries(data.fields).sort(([a], [b]) => (a < b ? -1 : 1)) : null;
+  const payload = JSON.stringify(fields ? [...base, fields] : base);
   return createHash("sha256").update(payload).digest("hex");
 }
 

@@ -27,6 +27,8 @@ import { WhatsappButton } from "./whatsapp-button";
 import { displayName } from "@/lib/staff";
 import { availableProviders } from "@/lib/signature/providers";
 import { SignBox } from "./atendimentos/[encounterId]/sign-box";
+import { documentPreview, documentTypeLabel } from "@/lib/documents";
+import { LAUDO_TYPES } from "@/lib/laudos";
 
 export default async function PatientRecordPage({
   params,
@@ -84,6 +86,16 @@ export default async function PatientRecordPage({
       })
     : null;
 
+  // Laudos do SUS do paciente, emitidos no atendimento ou direto pela ficha.
+  const laudos = full
+    ? await prisma.clinicalDocument.findMany({
+        where: { patientId: id, clinicId: user.clinicId, type: { in: [...LAUDO_TYPES] } },
+        include: { author: true, signedPdf: { select: { id: true, signerName: true, signedAt: true, provider: true } } },
+        orderBy: { createdAt: "desc" },
+      })
+    : [];
+  const providers = availableProviders();
+
   const shown = filterEncounters(encounters, filters);
   // Opções dos filtros: só quem atendeu e os tipos usados neste paciente.
   const professionals = [...new Map(encounters.map((e) => [e.professional.id, e.professional])).values()];
@@ -136,7 +148,7 @@ export default async function PatientRecordPage({
               target={{ kind: "prontuario", id }}
               signed={null}
               canSign
-              providers={availableProviders()}
+              providers={providers}
               back={`/pacientes/${id}`}
               label="Assinar prontuário"
             />
@@ -179,6 +191,46 @@ export default async function PatientRecordPage({
               familyHistory: patient.familyHistory,
             }}
             action={full ? updateClinicalSummary.bind(null, id) : undefined} />
+
+          {full && (
+            <div id="laudos" className="card space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="font-semibold">Laudos do SUS</h2>
+                  <p className="text-sm text-slate-500">APAC, AIH e LME, no formulário oficial. Não precisa abrir atendimento.</p>
+                </div>
+                <Link href={`/pacientes/${id}/laudos/novo`} className="btn-primary">+ Novo laudo</Link>
+              </div>
+              {laudos.length > 0 && (
+                <ul className="divide-y divide-slate-100">
+                  {laudos.map((d) => (
+                    <li key={d.id} className="flex flex-wrap items-start justify-between gap-3 py-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium">
+                          {documentTypeLabel[d.type]}
+                          <span className="font-normal text-slate-500">
+                            {" "}· {formatDateTime(d.createdAt)} · {displayName(d.author)}
+                            {d.encounterId ? " · no atendimento" : ""}
+                          </span>
+                        </p>
+                        <p className="truncate text-sm text-slate-600">{documentPreview(d)}</p>
+                      </div>
+                      <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                        <SignBox
+                          target={{ kind: "documento", id: d.id }}
+                          signed={d.signedPdf}
+                          canSign={d.authorId === user.id}
+                          providers={providers}
+                          back={`/pacientes/${id}`}
+                        />
+                        <a href={`/api/pdf/documento/${d.id}`} target="_blank" className="btn-secondary">PDF</a>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
 
           {!full && (
             <p className="rounded-md border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600">

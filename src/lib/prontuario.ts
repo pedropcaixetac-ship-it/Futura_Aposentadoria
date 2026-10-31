@@ -1,7 +1,8 @@
 import { prisma } from "./db";
 
-// Dados do PDF do prontuário completo: o paciente e todos os atendimentos
-// finalizados, do mais antigo ao mais recente. Usado no PDF e na assinatura.
+// Dados do PDF do prontuário completo: o paciente, todos os atendimentos
+// finalizados, do mais antigo ao mais recente, e os laudos emitidos fora de
+// atendimento. Usado no PDF e na assinatura.
 export async function loadRecordForPdf(clinicId: string, patientId: string) {
   const patient = await prisma.patient.findFirst({ where: { id: patientId, clinicId } });
   if (!patient) return null;
@@ -15,5 +16,10 @@ export async function loadRecordForPdf(clinicId: string, patientId: string) {
     },
     orderBy: { startedAt: "asc" },
   });
-  return { patient, encounters };
+  const documents = await prisma.clinicalDocument.findMany({
+    where: { patientId, clinicId, encounterId: null },
+    include: { author: true },
+    orderBy: { createdAt: "asc" },
+  });
+  return { patient, encounters, documents };
 }

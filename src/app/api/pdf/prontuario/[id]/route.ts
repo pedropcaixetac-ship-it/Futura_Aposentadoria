@@ -18,7 +18,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (!record) return new NextResponse("Paciente não encontrado", { status: 404 });
   const { patient, encounters } = record;
 
-  const bytes = await buildPdf(recordPdfInput(user.clinic.name, patient, encounters, user));
+  const bytes = await buildPdf(recordPdfInput(user.clinic.name, patient, encounters, user, record.documents));
   await audit({
     clinicId: user.clinicId,
     userId: user.id,

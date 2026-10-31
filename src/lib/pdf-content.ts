@@ -2,7 +2,9 @@ import type { ClinicalDocument, Encounter, Patient, User } from "@prisma/client"
 import { age, formatCpf, formatDate, formatDateTime } from "./format";
 import { documentTypeLabel } from "./documents";
 import type { Diagnosis, TemplateField } from "./record";
-import type { PdfInput, PdfSection } from "./pdf";
+import { buildPdf, type PdfInput, type PdfSection } from "./pdf";
+import { buildLaudoPdf } from "./laudo-pdf";
+import { isLaudo, laudoStamp, type LaudoValues } from "./laudos";
 import { vitalsSummary, type Vitals } from "./vitals";
 import { displayName, councilLabel } from "./staff";
 
@@ -77,6 +79,8 @@ export function recordPdfInput(
     signedPdf?: { signerName: string; signedAt: Date; provider: string } | null;
   })[],
   generatedBy: { name: string; jobTitle: string | null; sex: string | null },
+  // Laudos (APAC, AIH, LME) emitidos pela ficha do paciente, sem atendimento.
+  documents: (ClinicalDocument & { author: StaffUser })[] = [],
 ): PdfInput {
   const sections: PdfSection[] = [
     { heading: true, title: "Resumo clínico", text: "" },
@@ -103,6 +107,14 @@ export function recordPdfInput(
     });
   }
   if (encounters.length === 0) sections.push({ heading: true, title: "Atendimentos", text: "Nenhum atendimento finalizado." });
+  if (documents.length) {
+    sections.push({ heading: true, title: "Laudos emitidos fora de atendimento", text: "" });
+    for (const d of documents) {
+      const who = [displayName(d.author), councilLabel(d.author)].filter(Boolean).join(" · ");
+      sections.push({ title: `${documentTypeLabel[d.type]} de ${formatDateTime(d.createdAt)} (${who})`, text: d.body });
+      sections.push({ text: `Código de integridade: ${d.contentHash}`, small: true });
+    }
+  }
 
   return {
     clinicName,
@@ -125,4 +137,24 @@ export function pdfFileName(kind: string, patientName: string, date: Date) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
   return `${slug}-${date.toISOString().slice(0, 10)}.pdf`;
+}
+
+// PDF de um documento emitido. Laudos do SUS saem no formulário oficial; o resto, no papel da clínica.
+export async function documentPdf(
+  clinicName: string,
+  doc: ClinicalDocument & { patient: Patient; author: StaffUser },
+  signatureStamp?: string[],
+) {
+  if (isLaudo(doc.type) && doc.fields) {
+    return buildLaudoPdf({
+      type: doc.type,
+      values: doc.fields as LaudoValues,
+      stamp: laudoStamp(doc.author),
+      clinicName,
+      author: displayName(doc.author),
+      integrityCode: doc.contentHash,
+      signatureStamp,
+    });
+  }
+  return buildPdf({ ...documentPdfInput(clinicName, doc), signatureStamp });
 }

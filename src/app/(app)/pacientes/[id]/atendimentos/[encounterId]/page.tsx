@@ -7,7 +7,8 @@ import { audit } from "@/lib/audit";
 import { canAddAddendum, canEditEncounter, canOpenEncounter, canViewClinical, canWorkClinical } from "@/lib/permissions";
 import { age, formatDate, formatDateTime } from "@/lib/format";
 import { documentHash, encounterHash, type Diagnosis, type TemplateField } from "@/lib/record";
-import { documentTypeLabel } from "@/lib/documents";
+import { documentPreview, documentTypeLabel } from "@/lib/documents";
+import { allLaudoDefaults } from "@/lib/laudos";
 import { addAddendum, autosaveEncounter, issueDocument } from "../../actions";
 import { updateClinicalSummary } from "../../../actions";
 import type { Vitals } from "@/lib/vitals";
@@ -280,7 +281,7 @@ export default async function EncounterPage({
 
       {(encounter.documents.length > 0 || canIssueDocuments) && (
         <div className="no-print card space-y-3">
-          <h2 className="font-semibold">Receitas, atestados e pedidos</h2>
+          <h2 className="font-semibold">Receitas, atestados, pedidos e laudos</h2>
           {encounter.documents.length > 0 && (
             <ul className="divide-y divide-slate-100">
               {encounter.documents.map((d) => (
@@ -290,7 +291,7 @@ export default async function EncounterPage({
                       {documentTypeLabel[d.type]}
                       <span className="font-normal text-slate-500"> · {formatDateTime(d.createdAt)} · {displayName(d.author)}</span>
                     </p>
-                    <p className="truncate text-sm text-slate-600">{d.body.split("\n").find((l) => l.trim())}</p>
+                    <p className="truncate text-sm text-slate-600">{documentPreview(d)}</p>
                     {d.contentHash !== documentHash(d) && (
                       <p className="text-xs font-semibold text-red-700">Atenção: este documento não confere com o emitido.</p>
                     )}
@@ -308,7 +309,17 @@ export default async function EncounterPage({
               ))}
             </ul>
           )}
-          {canIssueDocuments && <DocumentForm issue={issueDocument.bind(null, encounter.id)} />}
+          {canIssueDocuments && (
+            <DocumentForm
+              issue={issueDocument.bind(null, encounter.id)}
+              laudoDefaults={allLaudoDefaults({
+                clinic: user.clinic,
+                patient: encounter.patient,
+                professional: user,
+                vitals: encounter.vitals as Vitals | null,
+              })}
+            />
+          )}
         </div>
       )}
 

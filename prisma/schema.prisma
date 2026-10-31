@@ -89,6 +89,10 @@ enum DocumentType {
   ATESTADO
   PEDIDO_EXAME
   RELATORIO
+  // Laudos do SUS, preenchidos sobre o formulário oficial.
+  APAC
+  AIH
+  LME
 }
 
 model Clinic {
@@ -435,14 +439,17 @@ model ClinicalDocument {
   id          String       @id @default(cuid())
   clinicId    String
   clinic      Clinic       @relation(fields: [clinicId], references: [id])
-  encounterId String
-  encounter   Encounter    @relation(fields: [encounterId], references: [id])
+  // Vazio quando o laudo (APAC, AIH, LME) foi emitido direto pela ficha do paciente, sem atendimento.
+  encounterId String?
+  encounter   Encounter?   @relation(fields: [encounterId], references: [id], onDelete: Restrict)
   patientId   String
   patient     Patient      @relation(fields: [patientId], references: [id])
   authorId    String
   author      User         @relation(fields: [authorId], references: [id])
   type        DocumentType
   body        String
+  // Respostas de cada campo do laudo, para escrever no formulário oficial.
+  fields      Json?
   createdAt   DateTime     @default(now())
   // Impressão digital (SHA-256) do texto emitido, como nos atendimentos.
   contentHash String
@@ -450,6 +457,7 @@ model ClinicalDocument {
   signedPdf SignedPdf?
 
   @@index([encounterId])
+  @@index([patientId])
 }
 
 // Autorização que o profissional deu no app do certificado (BirdID, VIDaaS)
