@@ -3,13 +3,14 @@ import { notFound } from "next/navigation";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { canCancelCharge, canManageCharges } from "@/lib/permissions";
+import { canCancelCharge, canIssueInvoice, canManageCharges } from "@/lib/permissions";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { monthRange, paymentMethodLabel, today } from "@/lib/finance";
 import { cancelCharge, receiveCharge } from "../actions";
 import { MonthNav, PayForm, StatusBadge } from "../ui";
 import { displayName } from "@/lib/staff";
+import { InvoiceStatus } from "../notas/ui";
 
 const filters = [
   { value: "", label: "Todas" },
@@ -47,7 +48,7 @@ export default async function ChargesPage({ searchParams }: { searchParams: Prom
     // As mais recentes primeiro, para a recepção achar logo as cobranças do dia.
     prisma.charge.findMany({
       where,
-      include: { patient: true, professional: true },
+      include: { patient: true, professional: true, serviceInvoice: true },
       orderBy: [{ dueDate: "desc" }, { createdAt: "desc" }],
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
@@ -154,6 +155,14 @@ export default async function ChargesPage({ searchParams }: { searchParams: Prom
                 <td className="whitespace-nowrap px-4 py-2 text-right">
                   <div className="flex items-center justify-end gap-3">
                     {c.status === "PENDENTE" && <PayForm action={receiveCharge.bind(null, c.id)} label="Receber" />}
+                    {c.status === "PAGO" && (
+                      <InvoiceStatus
+                        invoice={c.serviceInvoice}
+                        chargeId={c.id}
+                        canRequest
+                        canIssue={!!c.serviceInvoice && canIssueInvoice(user, c.serviceInvoice, c)}
+                      />
+                    )}
                     {c.status === "PAGO" && (
                       <Link href={`/financeiro/receitas/${c.id}/recibo`} className="text-xs font-medium text-marinho-700 hover:underline">
                         Recibo
