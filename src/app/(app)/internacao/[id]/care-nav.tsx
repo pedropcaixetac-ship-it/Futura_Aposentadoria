@@ -2,6 +2,7 @@ import Link from "next/link";
 
 const tabs = [
   { key: "resumo", label: "Internação e evoluções", path: "" },
+  { key: "prescricao", label: "Prescrição e checagem", path: "/prescricao" },
   { key: "sinais", label: "Sinais vitais", path: "/sinais" },
   { key: "balanco", label: "Balanço hídrico", path: "/balanco" },
 ] as const;

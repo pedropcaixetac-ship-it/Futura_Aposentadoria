@@ -285,6 +285,44 @@ async function seedHospitalEmergency() {
   console.log("Hospital de demonstração: pacientes de exemplo no pronto-socorro");
 }
 
+// Prescrição de exemplo: Sebastião internado (antibiótico, analgésico se necessário, cuidados) e um paciente medicado no PS.
+async function seedHospitalPrescriptions() {
+  const hospital = await prisma.clinic.findUnique({ where: { slug: "hospital-demo" } });
+  if (!hospital || (await prisma.prescriptionItem.count({ where: { clinicId: hospital.id } })) > 0) return;
+  const ana = await prisma.user.findFirstOrThrow({ where: { clinicId: hospital.id, email: "ana@hospital.com" } });
+  const bruna = await prisma.user.findFirstOrThrow({ where: { clinicId: hospital.id, email: "enfermagem@hospital.com" } });
+  const hour = 3600_000;
+  // Primeira dose às 8h de Brasília de 3 dias atrás.
+  const today8 = new Date(Date.now() - 3 * hour);
+  today8.setUTCHours(11, 0, 0, 0);
+  const admission = await prisma.admission.findFirst({ where: { clinicId: hospital.id, dischargedAt: null, patient: { name: "Sebastião Rodrigues" } } });
+  if (admission) {
+    const base = { clinicId: hospital.id, patientId: admission.patientId, admissionId: admission.id, prescriberId: ana.id };
+    const ceftriaxona = await prisma.prescriptionItem.create({
+      data: { ...base, description: "Ceftriaxona 1 g", dose: "1 g diluído em 100 mL SF 0,9%", route: "Endovenosa (EV)", intervalHours: 12, startAt: new Date(today8.getTime() - 3 * 24 * hour), endAt: new Date(today8.getTime() + 4 * 24 * hour), note: "Correr em 30 minutos" },
+    });
+    await prisma.prescriptionItem.create({ data: { ...base, description: "Dipirona 500 mg/mL", dose: "2 mL", route: "Endovenosa (EV)", asNeeded: true, startAt: new Date(today8.getTime() - 3 * 24 * hour), note: "Se dor ou febre acima de 37,8 °C, até de 6/6h" } });
+    await prisma.prescriptionItem.create({ data: { ...base, kind: "CUIDADO", description: "Cabeceira elevada a 30°, fisioterapia respiratória", intervalHours: 6, startAt: new Date(today8.getTime() - 3 * 24 * hour) } });
+    await prisma.prescriptionItem.create({ data: { ...base, kind: "DIETA", description: "Dieta branda, hipossódica", intervalHours: 24, startAt: new Date(today8.getTime() - 3 * 24 * hour + 4 * hour) } });
+    // Dose das 8h de hoje já checada (se já passou).
+    if (today8.getTime() < Date.now()) {
+      await prisma.medicationCheck.create({ data: { clinicId: hospital.id, itemId: ceftriaxona.id, scheduledAt: today8, status: "FEITO", at: new Date(today8.getTime() + 10 * 60_000), recordedById: bruna.id } });
+    }
+  }
+  // PS: Mariana chamada pela médica, medicada com dipirona e aguardando reavaliação.
+  const visit = await prisma.emergencyVisit.findFirst({ where: { clinicId: hospital.id, closedAt: null, patient: { name: "Mariana Costa" } } });
+  if (visit) {
+    const calledAt = new Date(Date.now() - 40 * 60_000);
+    await prisma.emergencyVisit.update({ where: { id: visit.id }, data: { status: "EM_ATENDIMENTO", calledAt, doctorId: ana.id } });
+    const startAt = new Date(Date.now() - 30 * 60_000);
+    const dipirona = await prisma.prescriptionItem.create({
+      data: { clinicId: hospital.id, patientId: visit.patientId, emergencyVisitId: visit.id, prescriberId: ana.id, description: "Dipirona 500 mg/mL", dose: "2 mL", route: "Intramuscular (IM)", startAt, note: "Reavaliar febre após 40 minutos" },
+    });
+    await prisma.medicationCheck.create({ data: { clinicId: hospital.id, itemId: dipirona.id, scheduledAt: startAt, status: "FEITO", at: new Date(startAt.getTime() + 5 * 60_000), recordedById: bruna.id } });
+  }
+  console.log("Hospital de demonstração: prescrições e checagens de exemplo");
+}
+
 async function seedHospitalCare() {
   const hospital = await prisma.clinic.findUnique({ where: { slug: "hospital-demo" } });
   if (!hospital || (await prisma.vitalRecord.count({ where: { clinicId: hospital.id } })) > 0) return;
@@ -655,6 +693,7 @@ async function main() {
   await seedHospitalBeds();
   await seedHospitalCare();
   await seedHospitalEmergency();
+  await seedHospitalPrescriptions();
   await seedAgenda();
   await seedFinanceDemo();
   await seedPurchasesDemo();
