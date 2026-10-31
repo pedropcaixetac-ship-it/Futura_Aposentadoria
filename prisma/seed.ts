@@ -491,6 +491,70 @@ async function seedHospitalSurgery() {
   console.log("Hospital de demonstração: centro cirúrgico e CME de exemplo");
 }
 
+// Laboratório e imagem de exemplo: catálogo, exames do Sebastião (prontos e em análise), pedidos do PS e da UTI, e agendados pela recepção.
+async function seedHospitalExams() {
+  const hospital = await prisma.clinic.findUnique({ where: { slug: "hospital-demo" } });
+  if (!hospital || (await prisma.examType.count({ where: { clinicId: hospital.id } })) > 0) return;
+  const ana = await prisma.user.findFirstOrThrow({ where: { clinicId: hospital.id, email: "ana@hospital.com" } });
+  const bruna = await prisma.user.findFirstOrThrow({ where: { clinicId: hospital.id, email: "enfermagem@hospital.com" } });
+  const recepcao = await prisma.user.findFirstOrThrow({ where: { clinicId: hospital.id, email: "recepcao@hospital.com" } });
+  const f = (name: string, unit: string, min: number | null, max: number | null) => ({ name, unit, min, max });
+  const lab = [
+    { name: "Hemograma completo", sample: "Sangue, tubo roxo (EDTA)", fields: [f("Hemoglobina", "g/dL", 12, 16), f("Hematócrito", "%", 36, 48), f("Leucócitos", "/mm³", 4000, 11000), f("Plaquetas", "/mm³", 150000, 450000)] },
+    { name: "Proteína C reativa (PCR)", sample: "Sangue, tubo amarelo", fields: [f("PCR", "mg/L", null, 5)] },
+    { name: "Creatinina", sample: "Sangue, tubo amarelo", fields: [f("Creatinina", "mg/dL", 0.6, 1.2)] },
+    { name: "Sódio e potássio", sample: "Sangue, tubo amarelo", fields: [f("Sódio", "mEq/L", 135, 145), f("Potássio", "mEq/L", 3.5, 5.1)] },
+    { name: "Glicemia de jejum", sample: "Sangue, tubo cinza", preparation: "Jejum de 8 horas", fields: [f("Glicose", "mg/dL", 70, 99)] },
+    { name: "Hemocultura", sample: "Sangue, 2 frascos de locais diferentes", fields: [f("Resultado", "", null, null)] },
+  ];
+  const img = [
+    { name: "Raio X de tórax", modality: "Raio X" },
+    { name: "Ultrassom de abdome total", modality: "Ultrassom", preparation: "Jejum de 8 horas e bexiga cheia" },
+    { name: "Tomografia de crânio", modality: "Tomografia" },
+    { name: "Eletrocardiograma", modality: "Eletrocardiograma" },
+  ];
+  const t: Record<string, string> = {};
+  for (const e of lab) t[e.name] = (await prisma.examType.create({ data: { clinicId: hospital.id, sector: "LABORATORIO", ...e } })).id;
+  for (const e of img) t[e.name] = (await prisma.examType.create({ data: { clinicId: hospital.id, sector: "IMAGEM", ...e } })).id;
+
+  const hour = 3600_000;
+  const now = Date.now();
+  const sebastiao = await prisma.admission.findFirst({ where: { clinicId: hospital.id, dischargedAt: null, patient: { name: "Sebastião Rodrigues" } } });
+  if (sebastiao) {
+    const base = { clinicId: hospital.id, patientId: sebastiao.patientId, admissionId: sebastiao.id, requestedById: ana.id, createdById: ana.id, clinicalInfo: "Pneumonia, febre persistente", createdAt: new Date(now - 6 * hour) };
+    const done = { status: "LAUDADO" as const, collectedAt: new Date(now - 5 * hour), collectedById: bruna.id, resultAt: new Date(now - 3 * hour), resultById: ana.id };
+    const v = (name: string, unit: string, value: string, min: number | null, max: number | null) => ({ name, unit, value, min, max });
+    await prisma.examRequest.create({ data: { ...base, ...done, examTypeId: t["Hemograma completo"], values: [v("Hemoglobina", "g/dL", "12,8", 12, 16), v("Hematócrito", "%", "38", 36, 48), v("Leucócitos", "/mm³", "14500", 4000, 11000), v("Plaquetas", "/mm³", "210000", 150000, 450000)] } });
+    await prisma.examRequest.create({ data: { ...base, ...done, examTypeId: t["Proteína C reativa (PCR)"], values: [v("PCR", "mg/L", "48", null, 5)] } });
+    await prisma.examRequest.create({ data: { ...base, ...done, examTypeId: t["Raio X de tórax"], report: "Técnica: incidências PA e perfil.\nAchados: consolidação em lobo inferior direito, com broncograma aéreo. Seios costofrênicos livres. Área cardíaca normal.\nImpressão: pneumonia em lobo inferior direito." } });
+    await prisma.examRequest.create({ data: { ...base, examTypeId: t["Hemocultura"], status: "COLETADO", collectedAt: new Date(now - 5 * hour), collectedById: bruna.id } });
+  }
+  const helena = await prisma.admission.findFirst({ where: { clinicId: hospital.id, dischargedAt: null, patient: { name: "Helena Martins" } } });
+  if (helena) {
+    for (const name of ["Glicemia de jejum", "Sódio e potássio"]) {
+      await prisma.examRequest.create({ data: { clinicId: hospital.id, patientId: helena.patientId, admissionId: helena.id, examTypeId: t[name], requestedById: ana.id, createdById: ana.id, priority: "URGENTE", clinicalInfo: "Diabética, pós-operatório" } });
+    }
+  }
+  const visit = await prisma.emergencyVisit.findFirst({ where: { clinicId: hospital.id, closedAt: null, patient: { name: "Mariana Costa" } } });
+  if (visit) {
+    await prisma.examRequest.create({ data: { clinicId: hospital.id, patientId: visit.patientId, emergencyVisitId: visit.id, examTypeId: t["Hemograma completo"], requestedById: ana.id, createdById: ana.id, clinicalInfo: "Febre há 2 dias" } });
+  }
+  const local = new Date(now - 3 * hour);
+  const today = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()) + 3 * hour;
+  const agendados = [
+    { name: "Rosa Maria Alves", exam: "Ultrassom de abdome total", at: today + 15 * hour },
+    { name: "Carlos Eduardo Lima", exam: "Tomografia de crânio", at: today + 24 * hour + 9 * hour },
+  ];
+  for (const a of agendados) {
+    const patient = await prisma.patient.findFirst({ where: { clinicId: hospital.id, name: a.name } });
+    if (!patient) continue;
+    await prisma.examRequest.create({
+      data: { clinicId: hospital.id, patientId: patient.id, examTypeId: t[a.exam], externalRequester: "Dr. Paulo Lima, CRM 12345/MG", createdById: recepcao.id, status: "AGENDADO", scheduledAt: new Date(a.at) },
+    });
+  }
+  console.log("Hospital de demonstração: laboratório e imagem de exemplo");
+}
+
 async function seedHospitalCare() {
   const hospital = await prisma.clinic.findUnique({ where: { slug: "hospital-demo" } });
   if (!hospital || (await prisma.vitalRecord.count({ where: { clinicId: hospital.id } })) > 0) return;
@@ -865,6 +929,7 @@ async function main() {
   await seedHospitalPharmacy();
   await seedHospitalSectors();
   await seedHospitalSurgery();
+  await seedHospitalExams();
   await seedAgenda();
   await seedFinanceDemo();
   await seedPurchasesDemo();
