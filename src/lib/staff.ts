@@ -1,5 +1,5 @@
 import type { Role } from "@prisma/client";
-import { isValidCns, isValidCpf, onlyDigits, roleLabel } from "./format";
+import { isCalendarDate, isValidCns, isValidCpf, onlyDigits, roleLabel } from "./format";
 import { passwordProblem } from "./password";
 
 // Cadastro de servidores (equipe da clínica): o que vem do formulário e as regras de validação.
@@ -127,7 +127,7 @@ export function parseStaff(formData: FormData): StaffInput {
   return {
     name: stripHonorific(text(formData, "name") ?? ""),
     socialName: text(formData, "socialName"),
-    birthDate: birth && /^\d{4}-\d{2}-\d{2}$/.test(birth) ? new Date(`${birth}T00:00:00Z`) : null,
+    birthDate: isCalendarDate(birth) ? new Date(`${birth}T00:00:00Z`) : null,
     sex: text(formData, "sex"),
     rg: text(formData, "rg"),
     cns: onlyDigits(text(formData, "cns")) || null,

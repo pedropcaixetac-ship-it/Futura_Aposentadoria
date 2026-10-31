@@ -2,7 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { canAddAddendum, canEditEncounter, canEditTemplate, canUseTemplate, canViewClinical } from "../src/lib/permissions";
 import { encounterHash, parseDiagnoses, sanitizeContent } from "../src/lib/record";
-import { isValidCns, isValidCpf } from "../src/lib/format";
+import { isCalendarDate, isValidCns, isValidCpf } from "../src/lib/format";
+import { parseMoney } from "../src/lib/money";
 import { parsePatient, sameNameKey, validatePatient } from "../src/lib/patient";
 
 const medica = { id: "m1", role: "PROFISSIONAL" as const, councilNumber: "123" };
@@ -126,4 +127,17 @@ test("modelo de atendimento: cada profissional usa os seus e os da clínica", ()
   assert.equal(canEditTemplate(medica, daClinica), false);
   assert.equal(canEditTemplate(admin, daMedica), true);
   assert.equal(canEditTemplate(admin, daClinica), true);
+});
+
+test("datas que não existem no calendário são recusadas", () => {
+  assert.equal(isCalendarDate("2026-02-28"), true);
+  assert.equal(isCalendarDate("2028-02-29"), true);
+  assert.equal(isCalendarDate("2026-02-29"), false);
+  assert.equal(isCalendarDate("2027-02-31"), false);
+  assert.equal(isCalendarDate("2026-13-45"), false);
+  assert.equal(isCalendarDate("99999-01-01"), false);
+  assert.equal(isCalendarDate(""), false);
+  // Valores que não cabem no banco (erro de digitação) também.
+  assert.equal(parseMoney("99.999.999,99"), null);
+  assert.equal(parseMoney("1.250,50"), 125050);
 });

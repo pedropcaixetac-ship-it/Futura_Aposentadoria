@@ -1,5 +1,5 @@
 import type { Clinic, DocumentType, Patient, User } from "@prisma/client";
-import { formatCep, onlyDigits } from "./format";
+import { formatCep, isCalendarDate, onlyDigits } from "./format";
 import { councilLabel, displayName } from "./staff";
 
 // Laudos do SUS (APAC, AIH e LME): o profissional preenche campos fixos e o sistema
@@ -364,7 +364,7 @@ export function parseLaudo(type: LaudoType, formData: FormData) {
     if (f.kind !== "textarea") v = v.replace(/\s+/g, " ");
     if (f.max) v = v.slice(0, f.max);
     if (f.options && v && !f.options.some((o) => o.value === v)) v = "";
-    if (f.kind === "date" && v && !/^\d{4}-\d{2}-\d{2}$/.test(v)) v = "";
+    if (f.kind === "date" && v && !isCalendarDate(v)) v = "";
     // Código SIGTAP: só os 10 números (um nome digitado sem escolher da lista não vale como código).
     if (f.kind === "procedure") v = onlyDigits(v).length === 10 ? onlyDigits(v) : "";
     if (v) values[f.key] = v;

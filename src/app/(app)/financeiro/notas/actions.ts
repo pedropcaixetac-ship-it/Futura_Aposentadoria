@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import type { InvoiceIssuer } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
@@ -49,7 +50,12 @@ export async function requestInvoice(chargeId: string) {
         where: { id: charge.serviceInvoice.id },
         data: { ...data, number: null, verificationCode: null, issuedAt: null, issuedById: null },
       })
-    : await prisma.serviceInvoice.create({ data: { ...data, clinicId: user.clinicId, chargeId: charge.id } });
+    : await prisma.serviceInvoice.create({ data: { ...data, clinicId: user.clinicId, chargeId: charge.id } }).catch((e) => {
+        // Clique duplo em "Pedir nota": a primeira já pediu, a segunda não faz nada.
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return null;
+        throw e;
+      });
+  if (!invoice) return;
   await audit({ clinicId: user.clinicId, userId: user.id, action: "NOTA_PEDIDA", entity: "ServiceInvoice", entityId: invoice.id, patientId: charge.patientId });
   revalidate();
 }

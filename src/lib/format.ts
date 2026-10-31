@@ -1,3 +1,10 @@
+// Data "AAAA-MM-DD" que existe no calendário. O JavaScript aceita 31/02 e transforma em 03/03 sem avisar.
+export function isCalendarDate(value: string | null | undefined): value is string {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value);
+}
+
 export function formatDate(date: Date | null | undefined) {
   if (!date) return "";
   return date.toLocaleDateString("pt-BR", { timeZone: "UTC" });

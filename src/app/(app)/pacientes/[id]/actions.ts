@@ -79,7 +79,9 @@ function readForm(fields: TemplateField[], formData: FormData) {
 export async function autosaveEncounter(encounterId: string, formData: FormData) {
   const { user, encounter } = await loadEditable(encounterId);
   const { vitals, ...data } = readForm(encounter.fields as TemplateField[], formData);
-  await prisma.encounter.update({ where: { id: encounter.id }, data: { ...data, vitals: vitals ?? Prisma.DbNull } });
+  // Só grava enquanto for rascunho: um salvamento atrasado que chega depois da finalização é ignorado.
+  const { count } = await prisma.encounter.updateMany({ where: { id: encounter.id, clinicId: user.clinicId, status: "RASCUNHO" }, data: { ...data, vitals: vitals ?? Prisma.DbNull } });
+  if (count === 0) throw new Error("Este atendimento não pode mais ser editado");
 
   // Com o salvamento automático, registramos na auditoria no máximo um salvamento a cada 10 minutos.
   const recent = await prisma.auditLog.findFirst({
@@ -106,13 +108,17 @@ export async function autosaveEncounter(encounterId: string, formData: FormData)
 
 // Finaliza a partir da tela de revisão, com o que já está salvo no rascunho.
 export async function finalizeEncounter(encounterId: string) {
-  const { user, encounter } = await loadEditable(encounterId);
-  const finalizedAt = new Date();
-  const contentHash = encounterHash({ ...encounter, finalizedAt });
-
-  await prisma.encounter.update({
-    where: { id: encounter.id },
-    data: { status: "FINALIZADO", finalizedAt, contentHash },
+  const { user, encounter: loaded } = await loadEditable(encounterId);
+  // O código de integridade vale para o texto exato que fica guardado. A linha do atendimento fica travada enquanto
+  // finaliza: um salvamento automático que chegue nesse instante espera e depois não grava mais nada.
+  const { encounter, contentHash } = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "Encounter" WHERE id = ${loaded.id} FOR UPDATE`;
+    const encounter = await tx.encounter.findFirst({ where: { id: loaded.id, clinicId: user.clinicId, status: "RASCUNHO" } });
+    if (!encounter) throw new Error("Este atendimento não pode mais ser editado");
+    const finalizedAt = new Date();
+    const contentHash = encounterHash({ ...encounter, finalizedAt });
+    await tx.encounter.update({ where: { id: encounter.id }, data: { status: "FINALIZADO", finalizedAt, contentHash } });
+    return { encounter, contentHash };
   });
   await audit({
     clinicId: user.clinicId,

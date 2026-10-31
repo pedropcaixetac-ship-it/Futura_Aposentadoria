@@ -1,4 +1,4 @@
-import { age, isValidCns, isValidCpf, onlyDigits } from "./format";
+import { age, isCalendarDate, isValidCns, isValidCpf, onlyDigits } from "./format";
 
 // "completo": ficha inteira, com Nome, CPF, Celular (WhatsApp) e Data de nascimento obrigatórios.
 // "rapido": só Nome, Data de nascimento e Celular, para a recepção completar depois.
@@ -10,12 +10,13 @@ export const UFS = "AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN 
 
 const MAX_PHOTO_LENGTH = 400_000;
 
+// Nome do paciente: mais que isso é texto colado por engano (e o banco não aceita nomes gigantes).
+export const MAX_NAME = 150;
+
 type Get = (key: string) => string | null;
 
 function dateOrNull(value: string | null) {
-  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  const date = new Date(`${value}T00:00:00Z`);
-  return Number.isNaN(date.getTime()) ? null : date;
+  return isCalendarDate(value) ? new Date(`${value}T00:00:00Z`) : null;
 }
 
 export function readFormData(formData: FormData): Get {
@@ -79,6 +80,7 @@ const validPhone = (phone: string) => phone.length === 10 || phone.length === 11
 
 export function validatePatient(data: PatientInput, mode: RegistrationMode): string {
   if (data.name.length < 3 || !data.name.includes(" ")) return "Informe o nome completo do paciente (nome e sobrenome).";
+  if (data.name.length > MAX_NAME) return `O nome pode ter até ${MAX_NAME} letras.`;
   if (!data.birthDate) return "Informe a data de nascimento.";
   if (data.birthDate > new Date()) return "A data de nascimento está no futuro.";
   if ((age(data.birthDate) ?? 0) > 130) return "Confira a data de nascimento.";

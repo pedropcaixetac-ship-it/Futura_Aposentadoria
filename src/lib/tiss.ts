@@ -1,6 +1,8 @@
 // Tabelas e regras do padrão TISS (ANS) usadas nas guias de convênio.
 // Os códigos seguem as tabelas de domínio da TISS; conferir na versão vigente ao mudar algo.
 
+import { MAX_CENTS } from "./money";
+
 // Tabela 26 (conselho profissional), como na versão 4.03.00.
 const COUNCIL_CODES: Record<string, string> = {
   CRESS: "01",
@@ -162,6 +164,7 @@ export function parseClaimItems(
     if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) return { error: `${line}: quantidade inválida.` };
     const unitCents = parseMoney((get(`item_valor_${i}`) ?? "").trim());
     if (!unitCents) return { error: `${line}: valor inválido (ex.: 80,00).` };
+    if (unitCents * quantity > MAX_CENTS) return { error: `${line}: valor total grande demais.` };
     items.push({ sequence: items.length + 1, tussCode, description: price.description, quantity, unitCents, totalCents: unitCents * quantity });
   }
   if (items.length === 0) return { error: "Inclua ao menos um exame ou procedimento." };

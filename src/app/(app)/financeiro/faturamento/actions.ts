@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
+import { withLock } from "@/lib/lock";
 import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { canManageFinance } from "@/lib/permissions";
@@ -59,7 +60,9 @@ export async function createClaim(encounterId: string, kind: "CONSULTA" | "SPSAD
   if ("error" in details) return details;
 
   // Número da guia e gravação numa única operação, para duas guias ao mesmo tempo não pegarem o mesmo número.
-  const claim = await prisma.$transaction(async (tx) => {
+  // A trava faz o clique duplo em "Gerar guia" esperar o primeiro e não gerar duas guias do mesmo atendimento.
+  const claim = await withLock([`guia:${encounterId}:${kind}`], async (tx) => {
+    if (await tx.insuranceClaim.findFirst({ where: { clinicId: user.clinicId, encounterId, kind, status: "ABERTA" } })) return null;
     const { lastClaimNumber } = await tx.clinic.update({ where: { id: user.clinicId }, data: { lastClaimNumber: { increment: 1 } } });
     return tx.insuranceClaim.create({
       data: {
@@ -84,6 +87,7 @@ export async function createClaim(encounterId: string, kind: "CONSULTA" | "SPSAD
       },
     });
   });
+  if (!claim) return { error: "Este atendimento já tem guia deste tipo. Cancele a anterior para gerar outra." };
 
   // A carteirinha digitada na guia passa a valer na ficha do paciente.
   if (encounter.patient.insuranceNumber !== claim.cardNumber || (cardValidUntil && encounter.patient.insuranceValidUntil?.getTime() !== cardValidUntil.getTime())) {

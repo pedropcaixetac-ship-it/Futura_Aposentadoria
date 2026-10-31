@@ -1,4 +1,5 @@
 import type { FinanceStatus, PaymentMethod } from "@prisma/client";
+import { isCalendarDate } from "./format";
 
 export const paymentMethodLabel: Record<PaymentMethod, string> = {
   PIX: "Pix",
@@ -41,9 +42,7 @@ export function today() {
 
 // Lê uma data digitada no formato do campo de data (aaaa-mm-dd).
 export function parseDateInput(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  const date = new Date(`${value}T00:00:00Z`);
-  return Number.isNaN(date.getTime()) ? null : date;
+  return isCalendarDate(value) ? new Date(`${value}T00:00:00Z`) : null;
 }
 
 export function dateInput(date: Date) {

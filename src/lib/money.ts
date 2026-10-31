@@ -4,12 +4,16 @@ export function formatMoney(cents: number) {
   return (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+export const MAX_CENTS = 2_000_000_000;
+
 // Aceita "150", "150,5", "1.250,00" ou "R$ 1.250,00". Devolve null se não for um valor válido.
 export function parseMoney(input: string): number | null {
   const clean = input.replace(/R\$|\s/g, "");
   if (!/^\d{1,3}(\.\d{3})*(,\d{1,2})?$|^\d+(,\d{1,2})?$/.test(clean)) return null;
   const [reais, centavos = ""] = clean.replace(/\./g, "").split(",");
-  return Number(reais) * 100 + Number(centavos.padEnd(2, "0"));
+  const cents = Number(reais) * 100 + Number(centavos.padEnd(2, "0"));
+  // O banco guarda até R$ 21 milhões por lançamento; acima disso é erro de digitação.
+  return cents <= MAX_CENTS ? cents : null;
 }
 
 // Valor em reais no formato do campo de digitação (ex.: 1250,00).
