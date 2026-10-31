@@ -70,6 +70,20 @@ enum PaymentMethod {
   CONVENIO
 }
 
+// Quem emite a nota fiscal de serviço (NFS-e) da consulta particular: a clínica, pelo CNPJ,
+// ou o próprio profissional, como autônomo pelo CPF.
+enum InvoiceIssuer {
+  CLINICA
+  PROFISSIONAL
+}
+
+// Andamento da nota pedida pelo paciente.
+enum ServiceInvoiceStatus {
+  PEDIDA
+  EMITIDA
+  CANCELADA
+}
+
 enum DocumentType {
   RECEITA
   ATESTADO
@@ -97,6 +111,14 @@ model Clinic {
   accountantName    String?
   accountantEmail   String?
   accountantPhone   String?
+  // Nota fiscal de serviço (NFS-e): quem emite e os dados fiscais da clínica.
+  invoiceIssuer         InvoiceIssuer @default(PROFISSIONAL)
+  municipalRegistration String?
+  // Código IBGE da cidade onde o serviço é prestado (Goiânia: 5208707).
+  cityIbgeCode          String?
+  // Código do serviço na lista nacional (Medicina: 04.01.01) e alíquota do ISS em centésimos de % (2% = 200).
+  serviceCode           String?
+  issRateBasisPoints    Int?
   // CNES: registro do estabelecimento no Ministério da Saúde, exigido nas guias dos convênios.
   cnes              String?
   // Último número de guia de convênio emitido (as guias seguem uma sequência por clínica).
@@ -144,6 +166,7 @@ model Clinic {
   claimItems     ClaimItem[]
   claimAppeals   ClaimAppeal[]
   problems       ProblemReport[]
+  serviceInvoices ServiceInvoice[]
 }
 
 model User {
@@ -194,6 +217,8 @@ model User {
   specialty         String?
   // Setor onde a pessoa trabalha (ex.: Recepção, Consultório 2), mostrado na barra lateral.
   sector            String?
+  // Inscrição municipal do profissional que emite a própria nota como autônomo.
+  municipalRegistration String?
   // Porcentagem do valor recebido que fica com o profissional (repasse).
   commissionPercent Int?
   // Função ou cargo mostrado no cadastro de servidores (ex.: Médica, Recepcionista).
@@ -595,11 +620,39 @@ model Charge {
   updatedAt      DateTime       @updatedAt
   claim          InsuranceClaim?
   claimAppeal    ClaimAppeal?
+  // Dia em que o profissional (pessoa física) lançou o recibo no Receita Saúde, da Receita Federal.
+  healthReceiptAt DateTime?     @db.Date
+  serviceInvoice ServiceInvoice?
 
   @@unique([clinicId, receiptNumber])
   @@index([clinicId, dueDate])
   @@index([clinicId, paidAt])
   @@index([encounterId])
+}
+
+// Nota fiscal de serviço (NFS-e) de uma cobrança paga, pedida pelo paciente.
+// Por enquanto a nota é emitida fora do sistema (emissor nacional) e aqui se anota o número;
+// mais adiante um provedor (ex.: Focus NFe) emitirá direto daqui, preenchendo providerRef.
+model ServiceInvoice {
+  id               String               @id @default(cuid())
+  clinicId         String
+  clinic           Clinic               @relation(fields: [clinicId], references: [id])
+  chargeId         String               @unique
+  charge           Charge               @relation(fields: [chargeId], references: [id])
+  // Quem emite, guardado no pedido: mudar a configuração da clínica não muda notas já pedidas.
+  issuer           InvoiceIssuer
+  status           ServiceInvoiceStatus @default(PEDIDA)
+  requestedAt      DateTime             @default(now())
+  requestedById    String
+  number           String?
+  verificationCode String?
+  issuedAt         DateTime?
+  issuedById       String?
+  provider         String               @default("manual")
+  providerRef      String?
+  notes            String?
+
+  @@index([clinicId, status])
 }
 
 // Despesa: conta a pagar da clínica (aluguel, salários, materiais, repasses...).
@@ -1076,6 +1129,16 @@ model PlatformUser {
   passwordHash String
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
+  // Dono: além de cuidar das clínicas, cadastra e bloqueia a equipe do painel.
+  owner              Boolean   @default(false)
+  // Senha provisória (criada pelo dono ou fraca): precisa trocar antes de usar o painel.
+  mustChangePassword Boolean   @default(false)
+  lastLoginAt        DateTime?
+  // Verificação em duas etapas, como a dos usuários das clínicas (segredo cifrado).
+  totpSecret         String?
+  totpEnabledAt      DateTime?
+  totpLastStep       Int?
+  totpRecoveryCodes  String[]  @default([])
 
   sessions  PlatformSession[]
   auditLogs PlatformAuditLog[]

@@ -470,7 +470,10 @@ async function seedPlatformOwner() {
   if ((await prisma.platformUser.count()) > 0) return;
   const email = (process.env.PAINEL_EMAIL ?? "dono@futura.com").toLowerCase();
   const passwordHash = await bcrypt.hash(process.env.PAINEL_SENHA ?? "senha123", 10);
-  await prisma.platformUser.create({ data: { name: process.env.PAINEL_NOME ?? "Dono do sistema", email, passwordHash } });
+  // Sem PAINEL_SENHA, entra com a senha de demonstração e o painel obriga a trocar no primeiro acesso.
+  await prisma.platformUser.create({
+    data: { name: process.env.PAINEL_NOME ?? "Dono do sistema", email, passwordHash, owner: true, mustChangePassword: !process.env.PAINEL_SENHA },
+  });
   console.log(`Painel do dono: acesso criado para ${email}`);
 }
 
