@@ -20,6 +20,9 @@ export type TabKey =
   | "laboratorio"
   | "imagem"
   | "exames"
+  | "chamados"
+  | "almoxarifado"
+  | "manutencao"
   | "agenda"
   | "pacientes"
   | "modelos"
@@ -180,6 +183,30 @@ export const TABS: Tab[] = [
     href: "/exames",
     description: "A recepção agenda exames de laboratório e imagem, inclusive com pedido de médico de fora.",
     defaultRoles: RECEPTION_ROLES,
+    hospital: true,
+  },
+  {
+    key: "chamados",
+    label: "Pedidos e chamados",
+    href: "/chamados",
+    description: "Qualquer setor pede material ao almoxarifado e abre chamado de manutenção, e acompanha o andamento.",
+    defaultRoles: allRoles,
+    hospital: true,
+  },
+  {
+    key: "almoxarifado",
+    label: "Almoxarifado",
+    href: "/almoxarifado",
+    description: "Estoque de material de limpeza, escritório, rouparia e manutenção; entrega dos pedidos dos setores.",
+    defaultRoles: ["ADMIN", "ADMINISTRATIVO"],
+    hospital: true,
+  },
+  {
+    key: "manutencao",
+    label: "Manutenção",
+    href: "/manutencao",
+    description: "Chamados dos setores (equipamentos, elétrica, hidráulica, gases...) e preventiva dos equipamentos.",
+    defaultRoles: ["ADMIN", "ADMINISTRATIVO"],
     hospital: true,
   },
   {
