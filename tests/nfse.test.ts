@@ -53,3 +53,38 @@ test("quem pede e quem anota a nota", () => {
   assert.equal(canIssueInvoice(medica, { issuer: "CLINICA" }, c), false);
   assert.equal(canIssueInvoice(admin, { issuer: "CLINICA" }, c), true);
 });
+
+test("pedido de nota no formato da Focus NFe", async () => {
+  const { buildDps, readFocusResponse } = await import("../src/lib/nfse-focus");
+  const dps = buildDps({
+    issuer: "PROFISSIONAL",
+    clinic: { ...clinic, taxRegime: "Simples Nacional" },
+    professional,
+    charge: { ...charge, patient: { ...charge.patient, email: "joao@exemplo.com" } },
+    dpsNumber: 7,
+    now: new Date("2026-10-31T13:00:00Z"),
+  });
+  assert.equal(dps.data_emissao, "2026-10-31T10:00:00-03:00");
+  assert.equal(dps.data_competencia, "2026-10-30");
+  assert.equal(dps.numero_dps, 7);
+  assert.equal(dps.codigo_municipio_emissora, 5208707);
+  assert.equal((dps as { cpf_prestador?: string }).cpf_prestador, "52998224725");
+  assert.equal("cnpj_prestador" in dps, false);
+  assert.equal(dps.regime_especial_tributacao, "5");
+  assert.equal(dps.codigo_opcao_simples_nacional, "1");
+  assert.equal(dps.codigo_tributacao_nacional_iss, "040101");
+  assert.equal(dps.valor_servico, 300);
+  assert.equal(dps.cpf_tomador, "11144477735");
+
+  const daClinica = buildDps({ issuer: "CLINICA", clinic: { ...clinic, taxRegime: "Simples Nacional" }, professional, charge: { ...charge, patient: { ...charge.patient, email: null } }, dpsNumber: 1, now: new Date() });
+  assert.equal((daClinica as { cnpj_prestador?: string }).cnpj_prestador, "12345678000190");
+  assert.equal(daClinica.codigo_opcao_simples_nacional, "3");
+  assert.equal("email_tomador" in daClinica, false);
+
+  assert.deepEqual(readFocusResponse(202, { status: "processando_autorizacao" }), { state: "processando" });
+  assert.deepEqual(readFocusResponse(200, { status: "autorizado", numero: "74798", codigo_verificacao: "ABC123", url: "u", url_danfse: "p" }), {
+    state: "autorizada", number: "74798", verificationCode: "ABC123", url: "u", pdfUrl: "p",
+  });
+  assert.deepEqual(readFocusResponse(200, { status: "erro_autorizacao", erros: [{ codigo: "E0014", mensagem: "DPS repetida" }] }), { state: "erro", message: "E0014: DPS repetida" });
+  assert.equal(readFocusResponse(422, { mensagem: "CPF inválido" }).state, "erro");
+});

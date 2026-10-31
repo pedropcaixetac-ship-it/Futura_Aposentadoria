@@ -46,6 +46,7 @@ export const auditActionLabel: Record<string, string> = {
   RECIBO_EMITIDO: "Emitiu recibo",
   NOTA_PEDIDA: "Anotou pedido de nota fiscal",
   NOTA_EMITIDA: "Anotou nota fiscal emitida",
+  NOTA_ENVIADA: "Enviou nota fiscal para emissão automática",
   NOTA_CANCELADA: "Cancelou pedido de nota fiscal",
   NOTA_CONFIGURADA: "Alterou dados da nota fiscal",
   RECEITA_SAUDE_LANCADO: "Marcou recibo lançado no Receita Saúde",
