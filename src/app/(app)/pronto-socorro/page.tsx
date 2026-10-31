@@ -8,6 +8,7 @@ import { displayName } from "@/lib/staff";
 import { compareQueue, minutesBetween, overdue, RISKS, waitLabel, isPhysician } from "@/lib/pronto-socorro";
 import { AutoRefresh } from "./auto-refresh";
 import { RiskBadge } from "./risk-badge";
+import { medicationProgress } from "@/lib/prescricao";
 
 
 // Painel do pronto-socorro: quem espera triagem, a fila do médico por cor e quem está em atendimento ou observação.
@@ -18,6 +19,7 @@ export default async function EmergencyBoard() {
     include: {
       patient: { select: { name: true, socialName: true, birthDate: true } },
       doctor: { select: { name: true, sex: true, jobTitle: true } },
+      prescriptionItems: { include: { checks: { select: { scheduledAt: true, canceledAt: true } } } },
     },
     orderBy: { arrivedAt: "asc" },
   });
@@ -103,6 +105,7 @@ export default async function EmergencyBoard() {
               <span className="flex flex-wrap items-center gap-2">
                 <RiskBadge risk={v.risk} />
                 <strong>{name(v.patient)}</strong>
+                <MedicationTag items={v.prescriptionItems} now={now} />
                 <span className="text-slate-500">
                   {v.status === "OBSERVACAO" ? "em observação" : "em atendimento"}
                   {v.doctor && ` com ${displayName(v.doctor)}`}
@@ -116,4 +119,13 @@ export default async function EmergencyBoard() {
       </section>
     </div>
   );
+}
+
+// Medicação no PS: quantas doses já foram feitas; com tudo feito, o paciente aguarda a reavaliação do médico.
+function MedicationTag({ items, now }: { items: Parameters<typeof medicationProgress>[0]; now: Date }) {
+  if (!items.length) return null;
+  const p = medicationProgress(items, now);
+  if (p.waitingReview) return <span className="rounded-full bg-violet-600 px-2 py-0.5 text-xs font-semibold text-white">Aguardando reavaliação</span>;
+  if (!p.due) return null;
+  return <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">Em medicação: {p.done} de {p.due} feitas</span>;
 }

@@ -187,6 +187,8 @@ model Clinic {
   vitalRecords     VitalRecord[]
   fluidEntries     FluidEntry[]
   emergencyVisits  EmergencyVisit[]
+  prescriptionItems PrescriptionItem[]
+  medicationChecks MedicationCheck[]
 }
 
 model User {
@@ -295,6 +297,10 @@ model User {
   emergencyTriaged     EmergencyVisit[]   @relation("EmergencyTriager")
   emergencyAttended    EmergencyVisit[]   @relation("EmergencyDoctor")
   emergencyClosed      EmergencyVisit[]   @relation("EmergencyCloser")
+  prescribedItems      PrescriptionItem[] @relation("Prescriber")
+  suspendedItems       PrescriptionItem[] @relation("PrescriptionSuspender")
+  medicationChecks     MedicationCheck[]  @relation("CheckRecorder")
+  canceledChecks       MedicationCheck[]  @relation("CheckCanceler")
 }
 
 model Session {
@@ -405,6 +411,7 @@ model Patient {
   appSessions  PatientSession[]
   admissions   Admission[]
   emergencyVisits EmergencyVisit[]
+  prescriptionItems PrescriptionItem[]
 
   @@unique([clinicId, cpf])
   @@unique([clinicId, cns])
@@ -1403,6 +1410,7 @@ model Admission {
   evolutions Encounter[]
   vitalRecords VitalRecord[]
   fluidEntries FluidEntry[]
+  prescriptionItems PrescriptionItem[]
 
   @@index([clinicId, dischargedAt])
 }
@@ -1567,7 +1575,76 @@ model EmergencyVisit {
   closedById     String?
   closedBy       User?            @relation("EmergencyCloser", fields: [closedById], references: [id])
   closeNote      String?
+  prescriptionItems PrescriptionItem[]
 
   @@index([clinicId, status])
   @@index([clinicId, arrivedAt])
+}
+
+// ---- Prescrição hospitalar e checagem (internação e pronto-socorro) ----
+
+enum PrescriptionKind {
+  MEDICAMENTO
+  CUIDADO
+  DIETA
+}
+
+enum CheckStatus {
+  FEITO
+  NAO_FEITO
+}
+
+// Um item da prescrição do médico. Depois de prescrito não muda: para corrigir, suspende e prescreve de novo.
+// Sem intervalo e sem "se necessário" = dose única no início.
+model PrescriptionItem {
+  id               String           @id @default(cuid())
+  clinicId         String
+  clinic           Clinic           @relation(fields: [clinicId], references: [id])
+  patientId        String
+  patient          Patient          @relation(fields: [patientId], references: [id])
+  admissionId      String?
+  admission        Admission?       @relation(fields: [admissionId], references: [id])
+  emergencyVisitId String?
+  emergencyVisit   EmergencyVisit?  @relation(fields: [emergencyVisitId], references: [id])
+  prescriberId     String
+  prescriber       User             @relation("Prescriber", fields: [prescriberId], references: [id])
+  kind             PrescriptionKind @default(MEDICAMENTO)
+  description      String
+  dose             String?
+  route            String?
+  intervalHours    Int?
+  asNeeded         Boolean          @default(false)
+  startAt          DateTime
+  endAt            DateTime?
+  note             String?
+  createdAt        DateTime         @default(now())
+  suspendedAt      DateTime?
+  suspendedById    String?
+  suspendedBy      User?            @relation("PrescriptionSuspender", fields: [suspendedById], references: [id])
+  suspendReason    String?
+  checks           MedicationCheck[]
+
+  @@index([admissionId])
+  @@index([emergencyVisitId])
+}
+
+// Checagem da enfermagem: feito ou não feito (com motivo). Não muda nem some; só pode ser anulada.
+model MedicationCheck {
+  id           String           @id @default(cuid())
+  clinicId     String
+  clinic       Clinic           @relation(fields: [clinicId], references: [id])
+  itemId       String
+  item         PrescriptionItem @relation(fields: [itemId], references: [id])
+  scheduledAt  DateTime?
+  status       CheckStatus
+  at           DateTime         @default(now())
+  note         String?
+  recordedById String
+  recordedBy   User             @relation("CheckRecorder", fields: [recordedById], references: [id])
+  canceledAt   DateTime?
+  canceledById String?
+  canceledBy   User?            @relation("CheckCanceler", fields: [canceledById], references: [id])
+  cancelReason String?
+
+  @@index([itemId])
 }
