@@ -197,6 +197,12 @@ model Clinic {
   chemoProtocols   ChemoProtocol[]
   chemoPlans       ChemoPlan[]
   chemoSessions    ChemoSession[]
+  operatingRooms   OperatingRoom[]
+  surgeries        Surgery[]
+  surgeryChecks    SurgeryChecklist[]
+  cmeKits          CmeKit[]
+  sterilizations   SterilizationLoad[]
+  sterilePackages  SterilePackage[]
 }
 
 model User {
@@ -320,6 +326,15 @@ model User {
   chemoPlansEnded      ChemoPlan[]           @relation("ChemoPlanEnder")
   chemoReleased        ChemoSession[]        @relation("ChemoReleaser")
   chemoAdministered    ChemoSession[]        @relation("ChemoAdministrator")
+  surgeriesAsSurgeon   Surgery[]             @relation("Surgeon")
+  surgeriesAsAnesth    Surgery[]             @relation("Anesthetist")
+  surgeriesCreated     Surgery[]             @relation("SurgeryCreator")
+  surgeriesCanceled    Surgery[]             @relation("SurgeryCanceler")
+  surgeryChecks        SurgeryChecklist[]
+  sterilizationsRun    SterilizationLoad[]   @relation("LoadOperator")
+  sterilizationsJudged SterilizationLoad[]   @relation("LoadJudge")
+  packagesUsed         SterilePackage[]      @relation("PackageUser")
+  packagesDiscarded    SterilePackage[]      @relation("PackageDiscarder")
 }
 
 model Session {
@@ -434,6 +449,7 @@ model Patient {
   stockMovements StockMovement[]
   chemoPlans     ChemoPlan[]
   chemoSessions  ChemoSession[]
+  surgeries      Surgery[]
 
   @@unique([clinicId, cpf])
   @@unique([clinicId, cns])
@@ -1432,6 +1448,7 @@ model Admission {
   meals      MealDelivery[]
   isolations IsolationPrecaution[]
   infections HospitalInfection[]
+  surgeries  Surgery[]
   evolutions Encounter[]
   vitalRecords VitalRecord[]
   fluidEntries FluidEntry[]
@@ -1912,4 +1929,179 @@ model ChemoSession {
 
   @@unique([planId, cycle, day])
   @@index([clinicId, date])
+}
+
+// ---------- Centro cirúrgico ----------
+
+model OperatingRoom {
+  id        String    @id @default(cuid())
+  clinicId  String
+  clinic    Clinic    @relation(fields: [clinicId], references: [id])
+  name      String
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  surgeries Surgery[]
+
+  @@unique([clinicId, name])
+}
+
+enum SurgeryStatus {
+  AGENDADA
+  EM_SALA
+  REALIZADA
+  CANCELADA
+}
+
+enum AnesthesiaKind {
+  GERAL
+  RAQUI
+  PERIDURAL
+  SEDACAO
+  BLOQUEIO
+  LOCAL
+}
+
+// Cirurgia: do agendamento à saída da sala, com os tempos (entrada, anestesia, incisão, fim, saída).
+model Surgery {
+  id              String          @id @default(cuid())
+  clinicId        String
+  clinic          Clinic          @relation(fields: [clinicId], references: [id])
+  patientId       String
+  patient         Patient         @relation(fields: [patientId], references: [id])
+  admissionId     String?
+  admission       Admission?      @relation(fields: [admissionId], references: [id])
+  roomId          String
+  room            OperatingRoom   @relation(fields: [roomId], references: [id])
+  surgeonId       String
+  surgeon         User            @relation("Surgeon", fields: [surgeonId], references: [id])
+  anesthetistId   String?
+  anesthetist     User?           @relation("Anesthetist", fields: [anesthetistId], references: [id])
+  procedure       String
+  // Lado: direito, esquerdo, bilateral (ou vazio quando não se aplica).
+  laterality      String?
+  anesthesia      AnesthesiaKind?
+  scheduledAt     DateTime
+  expectedMinutes Int
+  status          SurgeryStatus   @default(AGENDADA)
+  note            String?
+  createdById     String
+  createdBy       User            @relation("SurgeryCreator", fields: [createdById], references: [id])
+  createdAt       DateTime        @default(now())
+  patientInAt     DateTime?
+  anesthesiaAt    DateTime?
+  incisionAt      DateTime?
+  endAt           DateTime?
+  patientOutAt    DateTime?
+  // Descrição cirúrgica feita pelo cirurgião.
+  operativeNote   String?
+  canceledAt      DateTime?
+  canceledById    String?
+  canceledBy      User?           @relation("SurgeryCanceler", fields: [canceledById], references: [id])
+  cancelReason    String?
+
+  checklists SurgeryChecklist[]
+  packages   SterilePackage[]
+
+  @@index([clinicId, scheduledAt])
+  @@index([roomId, scheduledAt])
+}
+
+enum ChecklistPhase {
+  ENTRADA
+  PAUSA
+  SAIDA
+}
+
+// Cirurgia segura (OMS): antes da anestesia, antes da incisão e antes de sair da sala. Não muda depois de feito.
+model SurgeryChecklist {
+  id        String         @id @default(cuid())
+  clinicId  String
+  clinic    Clinic         @relation(fields: [clinicId], references: [id])
+  surgeryId String
+  surgery   Surgery        @relation(fields: [surgeryId], references: [id])
+  phase     ChecklistPhase
+  answers   Json
+  note      String?
+  doneById  String
+  doneBy    User           @relation(fields: [doneById], references: [id])
+  doneAt    DateTime       @default(now())
+
+  @@unique([surgeryId, phase])
+}
+
+// ---------- CME (central de material e esterilização) ----------
+
+// Caixa ou pacote de instrumentais (ex.: caixa de laparotomia) e a validade da esterilização.
+model CmeKit {
+  id           String           @id @default(cuid())
+  clinicId     String
+  clinic       Clinic           @relation(fields: [clinicId], references: [id])
+  name         String
+  validityDays Int              @default(30)
+  active       Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  packages     SterilePackage[]
+
+  @@unique([clinicId, name])
+}
+
+enum SterilizationMethod {
+  VAPOR
+  PEROXIDO
+  OXIDO_ETILENO
+}
+
+enum LoadResult {
+  PENDENTE
+  LIBERADA
+  REPROVADA
+  RECOLHIDA
+}
+
+// Carga (ciclo) da autoclave ou do esterilizador. Os pacotes só podem ser usados depois de liberada.
+model SterilizationLoad {
+  id           String              @id @default(cuid())
+  clinicId     String
+  clinic       Clinic              @relation(fields: [clinicId], references: [id])
+  code         String
+  method       SterilizationMethod
+  equipment    String
+  startedAt    DateTime            @default(now())
+  operatorId   String
+  operator     User                @relation("LoadOperator", fields: [operatorId], references: [id])
+  result       LoadResult          @default(PENDENTE)
+  chemicalOk   Boolean?
+  biologicalOk Boolean?
+  resultAt     DateTime?
+  resultById   String?
+  resultBy     User?               @relation("LoadJudge", fields: [resultById], references: [id])
+  resultNote   String?
+  packages     SterilePackage[]
+
+  @@unique([clinicId, code])
+}
+
+// Pacote esterilizado: de qual carga, até quando vale e em qual cirurgia foi usado (rastreabilidade).
+model SterilePackage {
+  id            String            @id @default(cuid())
+  clinicId      String
+  clinic        Clinic            @relation(fields: [clinicId], references: [id])
+  loadId        String
+  load          SterilizationLoad @relation(fields: [loadId], references: [id])
+  kitId         String
+  kit           CmeKit            @relation(fields: [kitId], references: [id])
+  expiresAt     DateTime
+  surgeryId     String?
+  surgery       Surgery?          @relation(fields: [surgeryId], references: [id])
+  usedAt        DateTime?
+  usedById      String?
+  usedBy        User?             @relation("PackageUser", fields: [usedById], references: [id])
+  discardedAt   DateTime?
+  discardedById String?
+  discardedBy   User?             @relation("PackageDiscarder", fields: [discardedById], references: [id])
+  discardReason String?
+
+  @@index([clinicId, kitId])
+  @@index([loadId])
+  @@index([surgeryId])
 }

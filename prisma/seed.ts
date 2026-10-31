@@ -6,6 +6,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { encounterHash } from "../src/lib/record";
 import { bodySurface, buildSessions, protocolDrugs } from "../src/lib/quimio";
+import { CHECKLIST } from "../src/lib/centro-cirurgico";
+import { packageExpiry } from "../src/lib/cme";
 import { dateInput } from "../src/lib/finance";
 import { defaultObligations, obligationDueDate } from "../src/lib/accounting";
 
@@ -411,6 +413,84 @@ async function seedHospitalSectors() {
   console.log("Hospital de demonstração: cozinha, CCIH e quimioterapia de exemplo");
 }
 
+// Centro cirúrgico e CME de exemplo: salas, kits, cargas (liberada, pendente e uma antiga com pacote vencido) e as cirurgias do dia.
+async function seedHospitalSurgery() {
+  const hospital = await prisma.clinic.findUnique({ where: { slug: "hospital-demo" } });
+  if (!hospital || (await prisma.operatingRoom.count({ where: { clinicId: hospital.id } })) > 0) return;
+  const ana = await prisma.user.findFirstOrThrow({ where: { clinicId: hospital.id, email: "ana@hospital.com" } });
+  const bruna = await prisma.user.findFirstOrThrow({ where: { clinicId: hospital.id, email: "enfermagem@hospital.com" } });
+  const day = 24 * 3600_000;
+  const min = 60_000;
+  const local = new Date(Date.now() - 3 * 3600_000);
+  // Meia-noite de hoje em Brasília.
+  const today = new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()) + 3 * 3600_000);
+  const at = (h: number, m = 0, d = 0) => new Date(today.getTime() + d * day + (h * 60 + m) * min);
+
+  const [sala1, sala2] = await Promise.all(["Sala 1", "Sala 2", "Sala 3"].map((name) => prisma.operatingRoom.create({ data: { clinicId: hospital.id, name } })));
+  const kitData = [
+    { name: "Caixa de laparotomia", validityDays: 30 },
+    { name: "Caixa de videolaparoscopia", validityDays: 30 },
+    { name: "Pacote de campos cirúrgicos", validityDays: 30 },
+    { name: "Caixa de pequena cirurgia", validityDays: 7 },
+  ];
+  const kits = [];
+  for (const k of kitData) kits.push(await prisma.cmeKit.create({ data: { clinicId: hospital.id, ...k } }));
+  const [lapa, video, campos, pequena] = kits;
+
+  async function load(code: string, startedAt: Date, result: "LIBERADA" | "PENDENTE", items: [typeof lapa, number][]) {
+    const l = await prisma.sterilizationLoad.create({
+      data: {
+        clinicId: hospital!.id, code, method: "VAPOR", equipment: "Autoclave 1", startedAt, operatorId: bruna.id,
+        ...(result === "LIBERADA" ? { result, chemicalOk: true, biologicalOk: true, resultAt: new Date(startedAt.getTime() + 3 * 3600_000), resultById: bruna.id } : {}),
+      },
+    });
+    for (const [kit, qty] of items) {
+      await prisma.sterilePackage.createMany({ data: Array.from({ length: qty }, () => ({ clinicId: hospital!.id, loadId: l.id, kitId: kit.id, expiresAt: packageExpiry(startedAt, kit.validityDays) })) });
+    }
+    return l;
+  }
+  const ymd = (d: Date) => new Date(d.getTime() - 3 * 3600_000).toISOString().slice(0, 10).replace(/-/g, "");
+  await load(`AUTOCL-${ymd(at(0, 0, -10))}-01`, at(9, 0, -10), "LIBERADA", [[pequena, 2]]);
+  const ok = await load(`AUTOCL-${ymd(at(0, 0, -2))}-01`, at(9, 0, -2), "LIBERADA", [[lapa, 3], [video, 2], [campos, 6]]);
+  await load(`AUTOCL-${ymd(today)}-01`, at(7, 30), "PENDENTE", [[video, 2], [campos, 4]]);
+
+  const patient = (name: string) => prisma.patient.findFirst({ where: { clinicId: hospital.id, name } });
+  const admissionOf = (patientId: string) => prisma.admission.findFirst({ where: { clinicId: hospital.id, patientId, dischargedAt: null }, select: { id: true } });
+  const base = { clinicId: hospital.id, surgeonId: ana.id, createdById: bruna.id };
+  const check = (surgeryId: string, phase: "ENTRADA" | "PAUSA" | "SAIDA", doneAt: Date) =>
+    prisma.surgeryChecklist.create({ data: { clinicId: hospital.id, surgeryId, phase, answers: CHECKLIST[phase].items.map((item) => ({ item, ok: true })), doneById: bruna.id, doneAt } });
+
+  const helena = await patient("Helena Martins");
+  if (helena) {
+    const s = await prisma.surgery.create({
+      data: {
+        ...base, patientId: helena.id, admissionId: (await admissionOf(helena.id))?.id ?? null, roomId: sala1.id, procedure: "Colecistectomia videolaparoscópica", anesthesia: "GERAL",
+        scheduledAt: at(8), expectedMinutes: 90, status: "REALIZADA", patientInAt: at(8, 5), anesthesiaAt: at(8, 20), incisionAt: at(8, 40), endAt: at(9, 55), patientOutAt: at(10, 10),
+        operativeNote: "Vesícula com paredes espessadas e cálculos múltiplos. Colecistectomia sem intercorrências. Peça enviada para anatomia patológica.",
+      },
+    });
+    await check(s.id, "ENTRADA", at(8, 10));
+    await check(s.id, "PAUSA", at(8, 35));
+    await check(s.id, "SAIDA", at(10, 0));
+    const pkgs = await prisma.sterilePackage.findMany({ where: { clinicId: hospital.id, loadId: ok.id, kitId: { in: [video.id, campos.id] } }, take: 2, distinct: ["kitId"] });
+    for (const p of pkgs) await prisma.sterilePackage.update({ where: { id: p.id }, data: { surgeryId: s.id, usedAt: at(8, 15), usedById: bruna.id } });
+  }
+  const lucas = await patient("Lucas Henrique Souza");
+  if (lucas) {
+    const s = await prisma.surgery.create({
+      data: { ...base, patientId: lucas.id, roomId: sala2.id, procedure: "Artroscopia de joelho", laterality: "Esquerdo", anesthesia: "RAQUI", scheduledAt: at(12, 30), expectedMinutes: 60, status: "EM_SALA", patientInAt: at(12, 35) },
+    });
+    await check(s.id, "ENTRADA", at(12, 40));
+  }
+  const jose = await patient("José Antônio Pereira");
+  if (jose) {
+    await prisma.surgery.create({
+      data: { ...base, patientId: jose.id, roomId: sala1.id, procedure: "Herniorrafia inguinal", laterality: "Direito", anesthesia: "RAQUI", scheduledAt: at(15), expectedMinutes: 60, note: "Hipertenso: manter losartana no dia" },
+    });
+  }
+  console.log("Hospital de demonstração: centro cirúrgico e CME de exemplo");
+}
+
 async function seedHospitalCare() {
   const hospital = await prisma.clinic.findUnique({ where: { slug: "hospital-demo" } });
   if (!hospital || (await prisma.vitalRecord.count({ where: { clinicId: hospital.id } })) > 0) return;
@@ -784,6 +864,7 @@ async function main() {
   await seedHospitalPrescriptions();
   await seedHospitalPharmacy();
   await seedHospitalSectors();
+  await seedHospitalSurgery();
   await seedAgenda();
   await seedFinanceDemo();
   await seedPurchasesDemo();
