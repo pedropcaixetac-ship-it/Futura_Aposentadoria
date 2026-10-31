@@ -5,7 +5,7 @@ import { canWorkInfectionControl } from "@/lib/hospital-roles";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { displayName } from "@/lib/staff";
 import { compareBedCodes } from "@/lib/internacao";
-import { frequencyLabel } from "@/lib/prescricao";
+import { frequencyLabel, isDailyItem, treatmentStart } from "@/lib/prescricao";
 import { DEVICES, infectionDensity, isAntimicrobial, isolationHint, isolationLabel, isolationStyle, needsReview, patientDays, siteLabel, therapyDay, ANTIMICROBIALS } from "@/lib/ccih";
 import { ActionForm } from "../financeiro/action-form";
 import { cancelInfection, endIsolation, reportInfection, startIsolation } from "./actions";
@@ -79,7 +79,35 @@ export default async function CcihPage() {
   const bedName = (b: { code: string; ward: { name: string } }) => `${b.ward.name} · ${b.code}`;
   const beds = [...open].sort((a, b) => a.bed.ward.name.localeCompare(b.bed.ward.name) || compareBedCodes(a.bed.code, b.bed.code));
   // Todos contam nos números; a tabela mostra primeiro os de uso mais longo (os que pedem revisão), até ATB_LIMIT linhas.
-  const allAtb = antimicrobials.filter((i) => isAntimicrobial(i.description));
+  const activeAtb = antimicrobials.filter((i) => isAntimicrobial(i.description));
+  // A prescrição é renovada todo dia: cada dia é um item novo do mesmo remédio. Para contar o D do tratamento,
+  // volta pelos itens anteriores do mesmo paciente; e, de manhã, quando a de ontem e a de hoje valem juntas, mostra um só.
+  const history = activeAtb.length
+    ? await prisma.prescriptionItem.findMany({
+        where: {
+          clinicId: user.clinicId,
+          kind: "MEDICAMENTO",
+          OR: [
+            { admissionId: { in: activeAtb.flatMap((i) => (i.admissionId ? [i.admissionId] : [])) } },
+            { emergencyVisitId: { in: activeAtb.flatMap((i) => (i.emergencyVisitId ? [i.emergencyVisitId] : [])) } },
+          ],
+        },
+        select: { description: true, startAt: true, endAt: true, suspendedAt: true, admissionId: true, emergencyVisitId: true },
+      })
+    : [];
+  const latest = new Map<string, (typeof activeAtb)[number]>();
+  for (const i of activeAtb) {
+    const key = `${i.admissionId ?? i.emergencyVisitId}|${i.description.trim().toLowerCase()}`;
+    const prev = latest.get(key);
+    if (!prev || prev.startAt < i.startAt) latest.set(key, i);
+  }
+  const allAtb = [...latest.values()]
+    .map((i) => ({
+      ...i,
+      daily: isDailyItem(i),
+      therapyStart: treatmentStart(i, history.filter((h) => (i.admissionId ? h.admissionId === i.admissionId : h.emergencyVisitId === i.emergencyVisitId))),
+    }))
+    .sort((a, b) => a.therapyStart.getTime() - b.therapyStart.getTime());
   const atb = allAtb.slice(0, ATB_LIMIT);
   const valid = infections.filter((i) => !i.canceledAt);
   const thisMonth = valid.filter((i) => i.diagnosedAt.getTime() >= monthStart.getTime());
@@ -171,8 +199,8 @@ export default async function CcihPage() {
                       <span className="block text-xs text-slate-500">{i.admission ? bedName(i.admission.bed) : "Pronto-socorro"}</span>
                     </td>
                     <td className="py-1.5 pr-3">{i.description}<span className="block text-xs text-slate-500">{[i.dose, i.route, frequencyLabel(i)].filter(Boolean).join(" · ")}</span></td>
-                    <td className="py-1.5 pr-3 font-medium">D{therapyDay(i.startAt, now)}{needsReview(i, now) && <span className="ml-1 rounded bg-amber-100 px-1 text-xs text-amber-800">revisar</span>}</td>
-                    <td className="py-1.5 pr-3">{i.endAt ? formatDate(i.endAt) : <span className="text-amber-700">sem data</span>}</td>
+                    <td className="py-1.5 pr-3 font-medium">D{therapyDay(i.therapyStart, now)}{needsReview({ startAt: i.therapyStart, endAt: i.daily ? null : i.endAt }, now) && <span className="ml-1 rounded bg-amber-100 px-1 text-xs text-amber-800">revisar</span>}</td>
+                    <td className="py-1.5 pr-3">{i.daily ? <span className="text-slate-500">renovada todo dia</span> : i.endAt ? formatDate(i.endAt) : <span className="text-amber-700">sem data</span>}</td>
                     <td className="py-1.5">{displayName(i.prescriber)}</td>
                   </tr>
                 ))}

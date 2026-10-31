@@ -7,7 +7,8 @@ import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { canViewClinical, canWorkClinical } from "@/lib/permissions";
 import { isPhysician } from "@/lib/pronto-socorro";
-import { FREQUENCIES, isDoseTime, kindLabel, ROUTES } from "@/lib/prescricao";
+import { FREQUENCIES, isDoseTime, kindLabel, localMidnight, prescriptionDayEnd, repeatableFromPreviousDay, repeatedStart, ROUTES } from "@/lib/prescricao";
+import { withLock } from "@/lib/lock";
 
 export type FormState = { error: string; ok?: string };
 // Onde a prescrição vale: uma internação ou uma passagem pelo pronto-socorro.
@@ -55,9 +56,6 @@ export async function addPrescriptionItem(ctx: RxContext, _: FormState, formData
   if (!frequency) return { error: "Escolha a frequência." };
   const startAt = brasilia(text(formData, "startAt"));
   if (!startAt) return { error: "Confira o horário de início." };
-  const daysRaw = text(formData, "days");
-  const days = daysRaw === null ? null : Number(daysRaw);
-  if (days !== null && !(Number.isInteger(days) && days >= 1 && days <= 30)) return { error: "A duração vai de 1 a 30 dias." };
 
   const item = await prisma.prescriptionItem.create({
     data: {
@@ -72,13 +70,56 @@ export async function addPrescriptionItem(ctx: RxContext, _: FormState, formData
       intervalHours: frequency.intervalHours,
       asNeeded: frequency.asNeeded,
       startAt,
-      endAt: days ? new Date(startAt.getTime() + days * 24 * 3600_000) : null,
+      // A prescrição do dia vale até as 12h do dia seguinte. Depois o médico renova.
+      endAt: prescriptionDayEnd(startAt),
       note: text(formData, "note"),
     },
   });
   await audit({ clinicId: user.clinicId, userId: user.id, action: "PRESCRICAO_ITEM", entity: "PrescriptionItem", entityId: item.id, patientId, details: { item: description } });
   revalidatePath(path);
   return { error: "", ok: `Prescrito: ${description}.` };
+}
+
+// "Repetir a prescrição de ontem": copia para hoje tudo o que valia ontem e não foi suspenso,
+// seguindo os mesmos horários. Depois o médico suspende ou acrescenta o que mudou.
+export async function repeatPreviousDay(ctx: RxContext): Promise<FormState> {
+  const { user, patientId, link, path } = await openContext(ctx);
+  if (!isPhysician(user)) return { error: "Só o médico prescreve." };
+  const today = localMidnight(new Date());
+  const created = await withLock([`prescricao:${ctx.id}`], async (tx) => {
+    // Confere de novo dentro da trava: dois cliques seguidos não duplicam a prescrição.
+    const items = await tx.prescriptionItem.findMany({
+      where: { clinicId: user.clinicId, ...link },
+      orderBy: { createdAt: "asc" },
+    });
+    const toCopy = repeatableFromPreviousDay(items, today);
+    for (const item of toCopy) {
+      const startAt = repeatedStart(item);
+      await tx.prescriptionItem.create({
+        data: {
+          clinicId: user.clinicId,
+          patientId,
+          ...link,
+          prescriberId: user.id,
+          kind: item.kind,
+          description: item.description,
+          dose: item.dose,
+          route: item.route,
+          intervalHours: item.intervalHours,
+          asNeeded: item.asNeeded,
+          startAt,
+          // Faz parte da prescrição de hoje: vale até as 12h de amanhã.
+          endAt: prescriptionDayEnd(today),
+          note: item.note,
+        },
+      });
+    }
+    return toCopy.length;
+  });
+  if (created === 0) return { error: "Não há nada de ontem para repetir." };
+  await audit({ clinicId: user.clinicId, userId: user.id, action: "PRESCRICAO_REPETIDA", entity: ctx.kind === "internacao" ? "Admission" : "EmergencyVisit", entityId: ctx.id, patientId, details: { itens: created } });
+  revalidatePath(path);
+  return { error: "", ok: `Prescrição de ontem repetida: ${created} ${created === 1 ? "item" : "itens"}.` };
 }
 
 export async function suspendPrescriptionItem(ctx: RxContext, itemId: string, formData: FormData) {
