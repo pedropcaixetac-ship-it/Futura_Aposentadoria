@@ -39,6 +39,8 @@ type Tab = {
   menu?: false;
   // Setor hospitalar: só existe quando a instituição é um hospital.
   hospital?: true;
+  // Nome da aba no hospital, quando é diferente do nome na clínica.
+  hospitalLabel?: string;
 };
 
 const allRoles: Role[] = ["ADMIN", "PROFISSIONAL", "TECNICO", "RECEPCAO", "ADMINISTRATIVO"];
@@ -55,6 +57,7 @@ export const TABS: Tab[] = [
   {
     key: "atender",
     label: "Atender",
+    hospitalLabel: "Ambulatório",
     href: "/atender",
     description: "Sala de espera e agenda do dia do próprio profissional, de onde ele inicia o atendimento.",
     defaultRoles: allRoles,
@@ -167,6 +170,11 @@ export const TABS: Tab[] = [
 ];
 
 // A aba existe neste tipo de instituição? O hospital tem tudo o que a clínica tem e mais os setores hospitalares.
+// Nome que aparece para a pessoa: no hospital, "Atender" vira "Ambulatório".
+export function tabLabel(tab: Pick<Tab, "label" | "hospitalLabel">, institution: string | null | undefined) {
+  return (institution === "HOSPITAL" && tab.hospitalLabel) || tab.label;
+}
+
 export function tabInInstitution(institution: string | null | undefined, key: TabKey) {
   const tab = TABS.find((t) => t.key === key);
   return !!tab && (!tab.hospital || institution === "HOSPITAL");

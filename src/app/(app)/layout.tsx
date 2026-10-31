@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { userTabs } from "@/lib/tabs";
+import { tabLabel, userTabs } from "@/lib/tabs";
 import { roleLabel } from "@/lib/format";
 import { logout } from "../login/actions";
 import { SidebarNav, type NavItem } from "./sidebar-nav";
@@ -37,7 +37,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const items: NavItem[] = [
     ...userTabs(user).filter((tab) => tab.menu !== false).map((tab) => ({
       href: tab.href,
-      label: tab.label,
+      label: tabLabel(tab, user.institution),
       // A tela do atendimento fica dentro de Pacientes, mas para quem atende ela pertence à aba Atender.
       ...(tab.key === "atender" && { alsoActive: "^/pacientes/[^/]+/atendimentos/" }),
     })),

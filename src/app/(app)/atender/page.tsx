@@ -36,7 +36,7 @@ export default async function AttendPage({ searchParams }: { searchParams: Promi
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-semibold">Atender</h1>
+        <h1 className="text-2xl font-semibold">{user.institution === "HOSPITAL" ? "Ambulatório" : "Atender"}</h1>
         <p className="text-sm text-slate-500">{formatDayLabel(date)} (hoje)</p>
       </div>
 

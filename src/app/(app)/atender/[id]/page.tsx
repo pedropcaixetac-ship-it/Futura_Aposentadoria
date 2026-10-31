@@ -21,7 +21,7 @@ export default async function AttendAppointmentPage({ params }: { params: Promis
 
   return (
     <div className="max-w-3xl space-y-4">
-      <Link href="/atender" className="text-sm text-marinho-700 hover:underline">← Voltar para Atender</Link>
+      <Link href="/atender" className="text-sm text-marinho-700 hover:underline">← Voltar para {user.institution === "HOSPITAL" ? "Ambulatório" : "Atender"}</Link>
 
       <div className="card space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-3">

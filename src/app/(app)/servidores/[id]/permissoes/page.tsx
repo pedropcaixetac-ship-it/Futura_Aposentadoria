@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { roleLabel } from "@/lib/format";
-import { hasTab, TABS, tabInInstitution } from "@/lib/tabs";
+import { hasTab, TABS, tabInInstitution, tabLabel } from "@/lib/tabs";
 import { resetPermissions, savePermissions } from "../../actions";
 import { displayName, staffEditBlock } from "@/lib/staff";
 
@@ -47,7 +47,7 @@ export default async function PermissionsPage({ params }: { params: Promise<{ id
                     className="mt-1 h-4 w-4 accent-marinho-700"
                   />
                   <span>
-                    <span className={`block font-medium ${blocked ? "text-slate-400" : "text-marinho-800"}`}>{tab.label}</span>
+                    <span className={`block font-medium ${blocked ? "text-slate-400" : "text-marinho-800"}`}>{tabLabel(tab, user.institution)}</span>
                     <span className="block text-sm text-slate-500">{tab.description}</span>
                     {blocked && <span className="block text-xs text-amber-700">{blocked}</span>}
                   </span>
