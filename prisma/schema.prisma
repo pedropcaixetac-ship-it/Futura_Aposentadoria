@@ -184,6 +184,8 @@ model Clinic {
   admissions       Admission[]
   bedMovements     BedMovement[]
   visits           Visit[]
+  vitalRecords     VitalRecord[]
+  fluidEntries     FluidEntry[]
 }
 
 model User {
@@ -284,6 +286,10 @@ model User {
   admissionsDischarged Admission[]        @relation("AdmissionDischarger")
   bedMovements        BedMovement[]
   visitsRegistered    Visit[]
+  vitalRecords        VitalRecord[]       @relation("VitalRecorder")
+  vitalRecordsCanceled VitalRecord[]      @relation("VitalCanceler")
+  fluidEntries        FluidEntry[]        @relation("FluidRecorder")
+  fluidEntriesCanceled FluidEntry[]       @relation("FluidCanceler")
 }
 
 model Session {
@@ -446,6 +452,11 @@ model Encounter {
   finalizedAt    DateTime?
   // Impressão digital (SHA-256) do conteúdo finalizado, para detectar adulteração.
   contentHash    String?
+  // Hospital: evolução de paciente internado (médica, de enfermagem por turno ou multiprofissional).
+  admissionId    String?
+  admission      Admission?      @relation(fields: [admissionId], references: [id])
+  evolutionKind  EvolutionKind?
+  shift          Shift?
 
   addenda     Addendum[]
   documents   ClinicalDocument[]
@@ -456,6 +467,7 @@ model Encounter {
   claims      InsuranceClaim[]
 
   @@index([clinicId, patientId, startedAt])
+  @@index([admissionId])
 }
 
 // Receita, atestado, pedido de exame ou relatório emitido num atendimento.
@@ -1381,6 +1393,9 @@ model Admission {
 
   movements BedMovement[]
   visits    Visit[]
+  evolutions Encounter[]
+  vitalRecords VitalRecord[]
+  fluidEntries FluidEntry[]
 
   @@index([clinicId, dischargedAt])
 }
@@ -1419,4 +1434,69 @@ model Visit {
   registeredBy   User      @relation(fields: [registeredById], references: [id])
 
   @@index([clinicId, enteredAt])
+}
+
+enum EvolutionKind {
+  MEDICA
+  ENFERMAGEM
+  MULTIPROFISSIONAL
+}
+
+enum Shift {
+  MANHA
+  TARDE
+  NOITE
+}
+
+// Sinais vitais do paciente internado, aferidos pela enfermagem ao longo do dia.
+// Registro de prontuário: não muda nem é apagado; um lançamento errado é anulado com o motivo.
+model VitalRecord {
+  id           String    @id @default(cuid())
+  clinicId     String
+  clinic       Clinic    @relation(fields: [clinicId], references: [id])
+  admissionId  String
+  admission    Admission @relation(fields: [admissionId], references: [id])
+  takenAt      DateTime
+  vitals       Json
+  // Escala de dor de 0 a 10.
+  pain         Int?
+  note         String?
+  recordedById String
+  recordedBy   User      @relation("VitalRecorder", fields: [recordedById], references: [id])
+  createdAt    DateTime  @default(now())
+  canceledAt   DateTime?
+  canceledById String?
+  canceledBy   User?     @relation("VitalCanceler", fields: [canceledById], references: [id])
+  cancelReason String?
+
+  @@index([admissionId, takenAt])
+}
+
+enum FluidDirection {
+  ENTRADA
+  SAIDA
+}
+
+// Balanço hídrico: cada entrada (soro, dieta, água...) ou saída (diurese, dreno, vômito...) em mL.
+// Mesmo cuidado dos sinais vitais: não muda nem é apagado, só anulado.
+model FluidEntry {
+  id           String         @id @default(cuid())
+  clinicId     String
+  clinic       Clinic         @relation(fields: [clinicId], references: [id])
+  admissionId  String
+  admission    Admission      @relation(fields: [admissionId], references: [id])
+  at           DateTime
+  direction    FluidDirection
+  kind         String
+  volumeMl     Int
+  note         String?
+  recordedById String
+  recordedBy   User           @relation("FluidRecorder", fields: [recordedById], references: [id])
+  createdAt    DateTime       @default(now())
+  canceledAt   DateTime?
+  canceledById String?
+  canceledBy   User?          @relation("FluidCanceler", fields: [canceledById], references: [id])
+  cancelReason String?
+
+  @@index([admissionId, at])
 }

@@ -243,6 +243,82 @@ async function seedHospitalBeds() {
   console.log("Hospital de demonstração: alas, leitos e internações de exemplo criados");
 }
 
+// Modelos de evolução e um dia de cuidados (evoluções, sinais vitais, balanço) no hospital de demonstração.
+const evolucaoMedica = [
+  { key: "subjetivo", label: "S: queixas e relato", type: "textarea" },
+  { key: "objetivo", label: "O: exame físico e exames", type: "textarea" },
+  { key: "avaliacao", label: "A: avaliação", type: "textarea" },
+  { key: "plano", label: "P: plano e condutas", type: "textarea" },
+];
+const evolucaoEnfermagem = [
+  { key: "estado", label: "Estado geral e nível de consciência", type: "textarea" },
+  { key: "cuidados", label: "Cuidados realizados (acessos, curativos, sondas, mudança de decúbito)", type: "textarea" },
+  { key: "intercorrencias", label: "Intercorrências e pendências para o próximo plantão", type: "textarea" },
+];
+
+async function seedHospitalCare() {
+  const hospital = await prisma.clinic.findUnique({ where: { slug: "hospital-demo" } });
+  if (!hospital || (await prisma.vitalRecord.count({ where: { clinicId: hospital.id } })) > 0) return;
+  const ana = await prisma.user.findFirstOrThrow({ where: { clinicId: hospital.id, email: "ana@hospital.com" } });
+  const bruna = await prisma.user.findFirstOrThrow({ where: { clinicId: hospital.id, email: "enfermagem@hospital.com" } });
+  if (!(await prisma.recordTemplate.findFirst({ where: { clinicId: hospital.id, name: "Evolução médica diária (SOAP)" } }))) {
+    await prisma.recordTemplate.createMany({
+      data: [
+        { clinicId: hospital.id, name: "Evolução médica diária (SOAP)", fields: evolucaoMedica },
+        { clinicId: hospital.id, name: "Evolução de enfermagem", fields: evolucaoEnfermagem },
+      ],
+    });
+  }
+  const admission = await prisma.admission.findFirst({ where: { clinicId: hospital.id, dischargedAt: null, patient: { name: "Sebastião Rodrigues" } } });
+  if (!admission) return;
+  const templateId = async (name: string) => (await prisma.recordTemplate.findFirst({ where: { clinicId: hospital.id, name } }))?.id;
+  const medicaTemplate = await templateId("Evolução médica diária (SOAP)");
+  const enfermagemTemplate = await templateId("Evolução de enfermagem");
+  const hoursAgo = (h: number) => new Date(Date.now() - h * 3600 * 1000);
+
+  const evolutions = [
+    { professionalId: ana.id, kind: "MEDICA" as const, shift: "MANHA" as const, templateId: medicaTemplate, fields: evolucaoMedica, h: 5, content: {
+      subjetivo: "Refere melhora da tosse e da falta de ar. Aceitando bem a dieta.",
+      objetivo: "BEG, corado, eupneico em ar ambiente. MV presente com estertores em base direita, menos que ontem. Afebril há 24 h.",
+      avaliacao: "Pneumonia comunitária em melhora clínica no 3º dia de ceftriaxona.",
+      plano: "Manter antibiótico. Fisioterapia respiratória. Programar troca para via oral amanhã se seguir afebril.",
+    } },
+    { professionalId: bruna.id, kind: "ENFERMAGEM" as const, shift: "MANHA" as const, templateId: enfermagemTemplate, fields: evolucaoEnfermagem, h: 3, content: {
+      estado: "Consciente, orientado, deambulando com auxílio.",
+      cuidados: "Acesso venoso periférico em MSE pérvio, sem sinais flogísticos. Banho de aspersão. Antibiótico administrado no horário.",
+      intercorrencias: "Sem intercorrências. Pendente: coleta de hemograma amanhã às 6h.",
+    } },
+  ];
+  for (const e of evolutions) {
+    const startedAt = hoursAgo(e.h);
+    const encounter = await prisma.encounter.create({
+      data: {
+        clinicId: hospital.id, patientId: admission.patientId, professionalId: e.professionalId, templateId: e.templateId, fields: e.fields, content: e.content,
+        startedAt, admissionId: admission.id, evolutionKind: e.kind, shift: e.shift,
+      },
+    });
+    const finalizedAt = new Date(startedAt.getTime() + 15 * 60_000);
+    await prisma.encounter.update({ where: { id: encounter.id }, data: { status: "FINALIZADO", finalizedAt, contentHash: encounterHash({ ...encounter, finalizedAt }) } });
+  }
+
+  await prisma.vitalRecord.createMany({
+    data: [
+      { h: 10, vitals: { pas: 128, pad: 78, fc: 96, fr: 22, temp: 37.9, spo2: 93, glicemia: 142 }, pain: 3 },
+      { h: 6, vitals: { pas: 122, pad: 76, fc: 88, fr: 20, temp: 37.2, spo2: 95 }, pain: 2 },
+      { h: 2, vitals: { pas: 118, pad: 74, fc: 82, fr: 18, temp: 36.8, spo2: 96 }, pain: 1 },
+    ].map((v) => ({ clinicId: hospital.id, admissionId: admission.id, takenAt: hoursAgo(v.h), vitals: v.vitals, pain: v.pain, recordedById: bruna.id })),
+  });
+  await prisma.fluidEntry.createMany({
+    data: [
+      { h: 5, direction: "ENTRADA" as const, kind: "Soro / medicação venosa", volumeMl: 500 },
+      { h: 4, direction: "ENTRADA" as const, kind: "Via oral (água, sucos)", volumeMl: 600 },
+      { h: 3, direction: "SAIDA" as const, kind: "Diurese", volumeMl: 450 },
+      { h: 1, direction: "SAIDA" as const, kind: "Diurese", volumeMl: 300 },
+    ].map((f) => ({ clinicId: hospital.id, admissionId: admission.id, at: hoursAgo(f.h), direction: f.direction, kind: f.kind, volumeMl: f.volumeMl, recordedById: bruna.id })),
+  });
+  console.log("Hospital de demonstração: evoluções, sinais vitais e balanço hídrico de exemplo criados");
+}
+
 // Horário de Brasília (sem horário de verão): hora local + 3 = UTC.
 function brasilia(daysFromToday: number, hour: number, minute = 0) {
   const now = new Date(Date.now() - 3 * 3600 * 1000);
@@ -548,6 +624,7 @@ async function main() {
   await seedDemo();
   await seedHospitalDemo();
   await seedHospitalBeds();
+  await seedHospitalCare();
   await seedAgenda();
   await seedFinanceDemo();
   await seedPurchasesDemo();

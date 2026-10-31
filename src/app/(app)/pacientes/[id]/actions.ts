@@ -131,6 +131,8 @@ export async function finalizeEncounter(encounterId: string) {
   });
   // Se o atendimento veio da agenda, a consulta passa para "Atendido".
   const { count } = await prisma.appointment.updateMany({ where: { encounterId: encounter.id }, data: { status: "ATENDIDO" } });
+  // Evolução de paciente internado: volta para a internação.
+  if (encounter.admissionId && hasTab(user, "internacao")) redirect(`/internacao/${encounter.admissionId}`);
   // Veio da aba Atender: volta para ela, para o profissional chamar o próximo paciente.
   if (count > 0 && hasTab(user, "atender")) redirect(`/atender?finalizado=${encounter.id}`);
   redirect(`/pacientes/${encounter.patientId}/atendimentos/${encounter.id}?finalizado=1`);
