@@ -17,6 +17,9 @@ export type TabKey =
   | "quimioterapia"
   | "centro-cirurgico"
   | "cme"
+  | "laboratorio"
+  | "imagem"
+  | "exames"
   | "agenda"
   | "pacientes"
   | "modelos"
@@ -153,6 +156,30 @@ export const TABS: Tab[] = [
     href: "/cme",
     description: "Central de material e esterilização: kits, cargas da autoclave, liberação pelos indicadores, validade e rastreio dos pacotes.",
     defaultRoles: ["ADMIN", "PROFISSIONAL", "TECNICO"],
+    hospital: true,
+  },
+  {
+    key: "laboratorio",
+    label: "Laboratório",
+    href: "/laboratorio",
+    description: "Fila de coleta, resultados com valores de referência e catálogo de exames.",
+    defaultRoles: ["ADMIN", "PROFISSIONAL", "TECNICO"],
+    hospital: true,
+  },
+  {
+    key: "imagem",
+    label: "Imagem",
+    href: "/imagem",
+    description: "Agenda do dia por aparelho, exames a realizar e laudos (raio X, ultrassom, tomografia...).",
+    defaultRoles: ["ADMIN", "PROFISSIONAL", "TECNICO"],
+    hospital: true,
+  },
+  {
+    key: "exames",
+    label: "Agendar exames",
+    href: "/exames",
+    description: "A recepção agenda exames de laboratório e imagem, inclusive com pedido de médico de fora.",
+    defaultRoles: RECEPTION_ROLES,
     hospital: true,
   },
   {

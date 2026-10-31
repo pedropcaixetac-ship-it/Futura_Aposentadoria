@@ -203,6 +203,8 @@ model Clinic {
   cmeKits          CmeKit[]
   sterilizations   SterilizationLoad[]
   sterilePackages  SterilePackage[]
+  examTypes        ExamType[]
+  examRequests     ExamRequest[]
 }
 
 model User {
@@ -335,6 +337,11 @@ model User {
   sterilizationsJudged SterilizationLoad[]   @relation("LoadJudge")
   packagesUsed         SterilePackage[]      @relation("PackageUser")
   packagesDiscarded    SterilePackage[]      @relation("PackageDiscarder")
+  examsRequested       ExamRequest[]         @relation("ExamRequester")
+  examsCreated         ExamRequest[]         @relation("ExamCreator")
+  examsCollected       ExamRequest[]         @relation("ExamCollector")
+  examsReported        ExamRequest[]         @relation("ExamReporter")
+  examsCanceled        ExamRequest[]         @relation("ExamCanceler")
 }
 
 model Session {
@@ -450,6 +457,7 @@ model Patient {
   chemoPlans     ChemoPlan[]
   chemoSessions  ChemoSession[]
   surgeries      Surgery[]
+  examRequests   ExamRequest[]
 
   @@unique([clinicId, cpf])
   @@unique([clinicId, cns])
@@ -1449,6 +1457,7 @@ model Admission {
   isolations IsolationPrecaution[]
   infections HospitalInfection[]
   surgeries  Surgery[]
+  exams      ExamRequest[]
   evolutions Encounter[]
   vitalRecords VitalRecord[]
   fluidEntries FluidEntry[]
@@ -1618,6 +1627,7 @@ model EmergencyVisit {
   closedBy       User?            @relation("EmergencyCloser", fields: [closedById], references: [id])
   closeNote      String?
   prescriptionItems PrescriptionItem[]
+  exams             ExamRequest[]
 
   @@index([clinicId, status])
   @@index([clinicId, arrivedAt])
@@ -2104,4 +2114,90 @@ model SterilePackage {
   @@index([clinicId, kitId])
   @@index([loadId])
   @@index([surgeryId])
+}
+
+// ---------- Laboratório e imagem ----------
+
+enum ExamSector {
+  LABORATORIO
+  IMAGEM
+}
+
+enum ExamPriority {
+  ROTINA
+  URGENTE
+}
+
+enum ExamStatus {
+  SOLICITADO
+  AGENDADO
+  COLETADO
+  LAUDADO
+  CANCELADO
+}
+
+// Exame do catálogo. Laboratório: campos do resultado com unidade e referência (fields: [{ name, unit, min, max }]).
+// Imagem: modalidade (raio X, tomografia...) e laudo em texto.
+model ExamType {
+  id          String        @id @default(cuid())
+  clinicId    String
+  clinic      Clinic        @relation(fields: [clinicId], references: [id])
+  sector      ExamSector
+  name        String
+  modality    String?
+  sample      String?
+  preparation String?
+  fields      Json          @default("[]")
+  active      Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  requests    ExamRequest[]
+
+  @@unique([clinicId, name])
+}
+
+// Pedido de exame: do médico do hospital (internação ou PS) ou de médico de fora (recepção agenda).
+// Coletado (laboratório) ou realizado (imagem), depois laudado. Laudado ou cancelado não muda mais.
+model ExamRequest {
+  id                String        @id @default(cuid())
+  clinicId          String
+  clinic            Clinic        @relation(fields: [clinicId], references: [id])
+  patientId         String
+  patient           Patient       @relation(fields: [patientId], references: [id])
+  examTypeId        String
+  examType          ExamType      @relation(fields: [examTypeId], references: [id])
+  admissionId       String?
+  admission         Admission?    @relation(fields: [admissionId], references: [id])
+  emergencyVisitId  String?
+  emergencyVisit    EmergencyVisit? @relation(fields: [emergencyVisitId], references: [id])
+  requestedById     String?
+  requestedBy       User?         @relation("ExamRequester", fields: [requestedById], references: [id])
+  // Médico de fora (nome e CRM), quando o pedido vem de outro serviço.
+  externalRequester String?
+  createdById       String
+  createdBy         User          @relation("ExamCreator", fields: [createdById], references: [id])
+  createdAt         DateTime      @default(now())
+  priority          ExamPriority  @default(ROTINA)
+  clinicalInfo      String?
+  status            ExamStatus    @default(SOLICITADO)
+  scheduledAt       DateTime?
+  collectedAt       DateTime?
+  collectedById     String?
+  collectedBy       User?         @relation("ExamCollector", fields: [collectedById], references: [id])
+  resultAt          DateTime?
+  resultById        String?
+  resultBy          User?         @relation("ExamReporter", fields: [resultById], references: [id])
+  values            Json?
+  report            String?
+  // Valor crítico: a quem foi comunicado e quando.
+  criticalNote      String?
+  canceledAt        DateTime?
+  canceledById      String?
+  canceledBy        User?         @relation("ExamCanceler", fields: [canceledById], references: [id])
+  cancelReason      String?
+
+  @@index([clinicId, status])
+  @@index([clinicId, scheduledAt])
+  @@index([admissionId])
+  @@index([emergencyVisitId])
+  @@index([patientId])
 }

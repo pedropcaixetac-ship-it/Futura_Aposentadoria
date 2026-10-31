@@ -12,6 +12,7 @@ import { ActionForm } from "../../financeiro/action-form";
 import { callPatient, closeVisit, triageVisit } from "../actions";
 import { RiskBadge } from "../risk-badge";
 import { PrescriptionPanel } from "../../prescricao/panel";
+import { ExamPanel } from "../../exames/panel";
 
 const triageFields = vitalFields.filter((f) => f.key !== "altura");
 const staff = { select: { name: true, sex: true, jobTitle: true } } as const;
@@ -163,6 +164,7 @@ export default async function EmergencyVisitPage({ params, searchParams }: { par
       {nurse && visit.doctorId && (
         <PrescriptionPanel ctx={{ kind: "ps", id: visit.id }} user={user} open={open} />
       )}
+      {nurse && visit.doctorId && <ExamPanel ctx={{ kind: "ps", id: visit.id }} user={user} open={open} />}
 
       {open && (
         <ActionForm action={closeVisit.bind(null, visit.id)} submitLabel="Registrar" resetOnSuccess={false}>
