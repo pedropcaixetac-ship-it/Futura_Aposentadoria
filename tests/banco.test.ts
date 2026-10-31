@@ -3,6 +3,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { PrismaClient } from "@prisma/client";
 import { patientNameWhere } from "../src/lib/patient";
+import { procedureWhere } from "../src/lib/sigtap";
 
 const prisma = new PrismaClient();
 after(() => prisma.$disconnect());
@@ -121,4 +122,15 @@ test("laudo do SUS pode ser emitido sem atendimento e também não muda depois",
   });
   assert.equal(doc.encounterId, null);
   await assert.rejects(prisma.clinicalDocument.update({ where: { id: doc.id }, data: { fields: {} } }), /não podem ser alterados/);
+});
+
+test("tabela SIGTAP: busca sem acento pelo nome", async () => {
+  const code = `99${Date.now().toString().slice(-8)}`;
+  await prisma.sigtapProcedure.create({ data: { code, name: "TRATAMENTO DE INFARTO AGUDO DO MIOCÁRDIO (TESTE)" } });
+  try {
+    const found = await prisma.sigtapProcedure.findMany({ where: procedureWhere("infarto miocardio teste") });
+    assert.ok(found.some((p) => p.code === code));
+  } finally {
+    await prisma.sigtapProcedure.delete({ where: { code } });
+  }
 });

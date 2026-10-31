@@ -13,10 +13,26 @@ const SPAN = {
   6: "sm:col-span-6",
 } as const;
 
-// Campo de CID-10: digita código ou nome e escolhe da lista; fica só o código.
-function CidInput({ name, defaultValue, required }: { name: string; defaultValue: string; required?: boolean }) {
+type Found = { code: string; text: string };
+
+// Campo com busca: digita código ou nome e escolhe da lista; fica só o código.
+function LookupInput({
+  name,
+  defaultValue,
+  required,
+  search,
+  placeholder,
+  onPick,
+}: {
+  name: string;
+  defaultValue: string;
+  required?: boolean;
+  search: (q: string, signal: AbortSignal) => Promise<Found[]>;
+  placeholder: string;
+  onPick?: (found: Found) => void;
+}) {
   const [value, setValue] = useState(defaultValue);
-  const [results, setResults] = useState<{ code: string; description: string }[]>([]);
+  const [results, setResults] = useState<Found[]>([]);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -28,8 +44,7 @@ function CidInput({ name, defaultValue, required }: { name: string; defaultValue
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/cid?q=${encodeURIComponent(q)}`, { signal: controller.signal });
-        if (res.ok) setResults(await res.json());
+        setResults(await search(q, controller.signal));
       } catch {
         // busca cancelada porque a pessoa continuou digitando
       }
@@ -38,7 +53,7 @@ function CidInput({ name, defaultValue, required }: { name: string; defaultValue
       clearTimeout(timer);
       controller.abort();
     };
-  }, [value, open]);
+  }, [value, open, search]);
 
   return (
     <div className="relative">
@@ -49,7 +64,7 @@ function CidInput({ name, defaultValue, required }: { name: string; defaultValue
         value={value}
         required={required}
         autoComplete="off"
-        placeholder="Código ou nome"
+        placeholder={placeholder}
         onChange={(e) => {
           setValue(e.target.value);
           setOpen(true);
@@ -57,7 +72,7 @@ function CidInput({ name, defaultValue, required }: { name: string; defaultValue
         onBlur={() => setTimeout(() => setOpen(false), 150)}
       />
       {open && results.length > 0 && (
-        <ul className="absolute z-10 mt-1 max-h-56 w-72 overflow-auto rounded-md border border-slate-200 bg-white shadow-lg">
+        <ul className="absolute z-10 mt-1 max-h-64 w-[min(28rem,85vw)] overflow-auto rounded-md border border-slate-200 bg-white shadow-lg">
           {results.map((r) => (
             <li key={r.code}>
               <button
@@ -66,10 +81,11 @@ function CidInput({ name, defaultValue, required }: { name: string; defaultValue
                 onClick={() => {
                   setValue(r.code);
                   setOpen(false);
+                  onPick?.(r);
                 }}
                 className="w-full px-3 py-2 text-left text-sm hover:bg-marinho-50"
               >
-                <strong>{r.code}</strong> {r.description}
+                <strong>{r.code}</strong> {r.text}
               </button>
             </li>
           ))}
@@ -79,9 +95,40 @@ function CidInput({ name, defaultValue, required }: { name: string; defaultValue
   );
 }
 
+async function getJson<T>(url: string, signal: AbortSignal): Promise<T[]> {
+  const res = await fetch(url, { signal });
+  return res.ok ? res.json() : [];
+}
+
+const searchCid = async (q: string, signal: AbortSignal) =>
+  (await getJson<{ code: string; description: string }>(`/api/cid?q=${encodeURIComponent(q)}`, signal)).map((r) => ({ code: r.code, text: r.description }));
+
+const searchProcedure = async (q: string, signal: AbortSignal) =>
+  (await getJson<{ code: string; name: string }>(`/api/sigtap?q=${encodeURIComponent(q)}`, signal)).map((r) => ({ code: r.code, text: r.name }));
+
+// Ao escolher o procedimento, o nome vai para o campo ao lado (que continua editável).
+function fillName(nameKey: string | undefined, name: string) {
+  const input = nameKey ? (document.getElementById(`laudo_${nameKey}`) as HTMLInputElement | null) : null;
+  if (input) input.value = name;
+}
+
 function Field({ field, value }: { field: LaudoField; value: string }) {
   const name = `laudo_${field.key}`;
-  if (field.kind === "cid") return <CidInput name={name} defaultValue={value} required={field.required} />;
+  if (field.kind === "cid") {
+    return <LookupInput name={name} defaultValue={value} required={field.required} search={searchCid} placeholder="Código ou nome" />;
+  }
+  if (field.kind === "procedure") {
+    return (
+      <LookupInput
+        name={name}
+        defaultValue={value}
+        required={field.required}
+        search={searchProcedure}
+        placeholder="Busque por nome ou código"
+        onPick={(p) => fillName(field.nameKey, p.text)}
+      />
+    );
+  }
   if (field.kind === "textarea") {
     return <textarea className="input" id={name} name={name} rows={3} maxLength={field.max} defaultValue={value} required={field.required} />;
   }
