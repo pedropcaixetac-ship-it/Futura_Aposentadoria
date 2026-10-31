@@ -4,6 +4,9 @@ import { revalidatePath } from "next/cache";
 import { Prisma, type InfectionSite, type IsolationKind } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { canWorkInfectionControl } from "@/lib/hospital-roles";
+
+const onlyCcih = "Só médicos e enfermeiros registram na CCIH.";
 import { audit } from "@/lib/audit";
 import { DEVICES, isolationLabel, siteLabel } from "@/lib/ccih";
 
@@ -16,6 +19,7 @@ function text(formData: FormData, key: string) {
 
 export async function startIsolation(_: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser("ccih");
+  if (!canWorkInfectionControl(user)) return { error: onlyCcih };
   const kind = text(formData, "kind") as IsolationKind | null;
   if (!kind || !(kind in isolationLabel)) return { error: "Escolha o tipo de isolamento." };
   const reason = text(formData, "reason");
@@ -35,6 +39,7 @@ export async function startIsolation(_: FormState, formData: FormData): Promise<
 
 export async function endIsolation(isolationId: string, _: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser("ccih");
+  if (!canWorkInfectionControl(user)) return { error: onlyCcih };
   const endReason = text(formData, "endReason");
   if (!endReason) return { error: "Informe por que o isolamento acabou." };
   const record = await prisma.isolationPrecaution.findFirst({ where: { id: isolationId, clinicId: user.clinicId, endedAt: null }, include: { admission: { select: { patientId: true } } } });
@@ -47,6 +52,7 @@ export async function endIsolation(isolationId: string, _: FormState, formData: 
 
 export async function reportInfection(_: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser("ccih");
+  if (!canWorkInfectionControl(user)) return { error: onlyCcih };
   const site = text(formData, "site") as InfectionSite | null;
   if (!site || !(site in siteLabel)) return { error: "Escolha o tipo de infecção." };
   const dateRaw = text(formData, "diagnosedAt");
@@ -68,6 +74,7 @@ export async function reportInfection(_: FormState, formData: FormData): Promise
 
 export async function cancelInfection(infectionId: string, _: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser("ccih");
+  if (!canWorkInfectionControl(user)) return { error: onlyCcih };
   const reason = text(formData, "reason");
   if (!reason) return { error: "Informe o motivo da anulação." };
   const record = await prisma.hospitalInfection.findFirst({ where: { id: infectionId, clinicId: user.clinicId, canceledAt: null }, include: { admission: { select: { patientId: true } } } });

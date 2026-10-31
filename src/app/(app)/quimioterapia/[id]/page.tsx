@@ -2,8 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { canAdministerChemo } from "@/lib/hospital-roles";
 import { audit } from "@/lib/audit";
-import { canWorkClinical } from "@/lib/permissions";
 import { isPhysician } from "@/lib/pronto-socorro";
 import { kitchenDate as todayDate } from "@/lib/cozinha";
 import { age, formatDate, formatDateTime } from "@/lib/format";
@@ -72,7 +72,7 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
           <h2 className="font-semibold text-marinho-800">Ciclo {c}</h2>
           <ul className="space-y-2">
             {plan.sessions.filter((s) => s.cycle === c).map((s) => (
-              <SessionRow key={s.id} s={s} doctor={doctor} nursing={canWorkClinical(user)} today={today} open={open} />
+              <SessionRow key={s.id} s={s} doctor={doctor} nursing={canAdministerChemo(user)} today={today} open={open} />
             ))}
           </ul>
         </section>

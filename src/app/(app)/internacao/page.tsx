@@ -7,6 +7,7 @@ import { age } from "@/lib/format";
 import { displayName } from "@/lib/staff";
 import { bedState, bedStateLabel, compareBedCodes, daysAdmitted, daysLabel, occupancy, type BedState } from "@/lib/internacao";
 import { isolationLabel, isolationStyle } from "@/lib/ccih";
+import { canAdmit } from "@/lib/hospital-roles";
 import { markBedClean } from "./actions";
 
 const tileStyle: Record<BedState, string> = {
@@ -56,7 +57,7 @@ export default async function BedMapPage() {
         <div className="flex flex-wrap gap-2">
           {canWorkClinical(user) && wards.length > 0 && <Link href="/internacao/plantao" className="btn-secondary">Passagem de plantão</Link>}
           {hasTab(user, "leitos") && <Link href="/internacao/leitos" className="btn-secondary">Alas e leitos</Link>}
-          {total.livres > 0 && <Link href="/internacao/internar" className="btn-primary">Internar paciente</Link>}
+          {total.livres > 0 && canAdmit(user) && <Link href="/internacao/internar" className="btn-primary">Internar paciente</Link>}
         </div>
       </div>
 
@@ -121,7 +122,7 @@ export default async function BedMapPage() {
                     return (
                       <div key={bed.id} className={`space-y-2 rounded-lg border p-3 ${tileStyle[state]}`}>
                         {header}
-                        {state === "LIVRE" && (
+                        {state === "LIVRE" && canAdmit(user) && (
                           <Link href={`/internacao/internar?leito=${bed.id}`} className="text-sm text-emerald-800 hover:underline">Internar neste leito</Link>
                         )}
                         {state === "LIMPEZA" && (

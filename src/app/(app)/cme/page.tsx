@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { canJudgeSterilization } from "@/lib/hospital-roles";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { displayName } from "@/lib/staff";
 import { loadResultLabel, methodLabel, packageState, packageStateLabel, type PackageState } from "@/lib/cme";
@@ -12,6 +13,7 @@ const resultTone = { PENDENTE: "bg-amber-100 text-amber-900", LIBERADA: "bg-emer
 // CME: cargas aguardando indicadores, estoque de pacotes estéreis por kit e nova carga.
 export default async function CmePage() {
   const user = await requireUser("cme");
+  const judge = canJudgeSterilization(user);
   const now = new Date();
   const [kits, loads, packages] = await Promise.all([
     prisma.cmeKit.findMany({ where: { clinicId: user.clinicId, active: true }, orderBy: { name: "asc" } }),
@@ -43,7 +45,10 @@ export default async function CmePage() {
       {pending.length > 0 && (
         <section className="card space-y-3 border-amber-300">
           <h2 className="font-semibold text-amber-800">Cargas aguardando indicadores ({pending.length})</h2>
-          {pending.map((l) => (
+          {!judge && <p className="text-sm text-slate-600">O resultado dos indicadores é registrado pelo enfermeiro (COREN).</p>}
+          {pending.map((l) => !judge ? (
+            <p key={l.id} className="text-sm"><Link href={`/cme/carga/${l.id}`} className="font-semibold text-marinho-700 hover:underline">{l.code}</Link> · {methodLabel[l.method]} · {l.equipment} · {l._count.packages} pacote(s) · {formatDateTime(l.startedAt)}</p>
+          ) : (
             <ActionForm key={l.id} action={judgeLoad.bind(null, l.id)} submitLabel="Registrar resultado" className="space-y-2 rounded-md border border-slate-200 p-3 text-sm">
               <p><Link href={`/cme/carga/${l.id}`} className="font-semibold text-marinho-700 hover:underline">{l.code}</Link> · {methodLabel[l.method]} · {l.equipment} · {l._count.packages} pacote(s) · {formatDateTime(l.startedAt)}</p>
               <div className="flex flex-wrap gap-4">

@@ -1,5 +1,6 @@
 import type { Role } from "@prisma/client";
 import { tabInPlan } from "./plans";
+import { hospitalTabsFor } from "./hospital-roles";
 import { canManageCharges, canManageTemplates, canViewClinical, canWorkClinical, RECEPTION_ROLES, type PermissionUser } from "./permissions";
 
 // Abas do sistema que o administrador pode liberar ou tirar de cada pessoa
@@ -37,7 +38,15 @@ export type TabKey =
 
 // modules: módulos do plano da clínica (só vem de quem está conectado; ausente = sem restrição de plano).
 // institution: tipo da instituição (CLINICA ou HOSPITAL); as abas hospitalares só existem no hospital.
-export type TabUser = PermissionUser & { customTabs: boolean; allowedTabs: string[]; modules?: string[] | null; institution?: string | null };
+export type TabUser = PermissionUser & {
+  customTabs: boolean;
+  allowedTabs: string[];
+  modules?: string[] | null;
+  institution?: string | null;
+  // Cargo: no hospital, as abas dos setores vêm pela profissão (ver hospitalTabsFor).
+  councilType?: string | null;
+  jobTitle?: string | null;
+};
 
 type Tab = {
   key: TabKey;
@@ -321,7 +330,10 @@ export function hasTab(user: TabUser, key: TabKey) {
   // Módulo fora do plano da clínica: ninguém tem a aba, nem o gerente.
   if (!tabInPlan(user.modules, key)) return false;
   if (user.role === "ADMIN") return true;
-  return user.customTabs ? user.allowedTabs.includes(key) : tab.defaultRoles.includes(user.role);
+  if (user.customTabs) return user.allowedTabs.includes(key);
+  // No hospital, os setores hospitalares vêm pelo cargo (médico, enfermeiro, farmacêutico...).
+  const byJob = tab.hospital ? hospitalTabsFor(user) : null;
+  return byJob ? byJob.includes(key) : tab.defaultRoles.includes(user.role);
 }
 
 export function userTabs(user: TabUser) {

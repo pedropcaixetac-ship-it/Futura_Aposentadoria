@@ -605,6 +605,25 @@ async function seedHospitalBilling() {
   }
 }
 
+// Farmacêutico e técnico de enfermagem do hospital-demo, para mostrar as regras de cada profissão.
+async function seedHospitalStaff() {
+  const hospital = await prisma.clinic.findUnique({ where: { slug: "hospital-demo" } });
+  if (!hospital || (await prisma.user.findFirst({ where: { clinicId: hospital.id, email: "farmacia@hospital.com" } }))) return;
+  const passwordHash = await bcrypt.hash("senha123", 10);
+  await prisma.user.createMany({
+    data: [
+      {
+        clinicId: hospital.id, name: "Carlos Lima", sex: "M", jobTitle: "Farmacêutico(a)", email: "farmacia@hospital.com", passwordHash, role: "PROFISSIONAL",
+        councilType: "CRF", councilNumber: "11223", councilUf: "GO", sector: "Farmácia",
+      },
+      {
+        clinicId: hospital.id, name: "Diego Rocha", sex: "M", jobTitle: "Técnico(a) de enfermagem", email: "tecnico@hospital.com", passwordHash, role: "TECNICO",
+        councilType: "COREN", councilNumber: "778899", councilUf: "GO", sector: "Enfermaria",
+      },
+    ],
+  });
+}
+
 async function seedHospitalExams() {
   const hospital = await prisma.clinic.findUnique({ where: { slug: "hospital-demo" } });
   if (!hospital || (await prisma.examType.count({ where: { clinicId: hospital.id } })) > 0) return;
@@ -1045,6 +1064,7 @@ async function main() {
   await seedHospitalExams();
   await seedHospitalSupport();
   await seedHospitalBilling();
+  await seedHospitalStaff();
   await seedAgenda();
   await seedFinanceDemo();
   await seedPurchasesDemo();

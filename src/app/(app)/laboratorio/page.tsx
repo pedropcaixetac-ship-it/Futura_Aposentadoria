@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { canViewClinical, canWorkClinical } from "@/lib/permissions";
+import { canReleaseLabResult } from "@/lib/hospital-roles";
+import { canWorkClinical } from "@/lib/permissions";
 import { formatDateTime } from "@/lib/format";
 import { asFields, referenceLabel } from "@/lib/exames";
 import { kitchenDate as todayDate } from "@/lib/cozinha";
@@ -16,7 +17,7 @@ export default async function LabPage() {
   const tomorrow = new Date(todayDate().getTime() + 27 * 3600_000);
   const { toCollect, toRelease, released } = await loadQueue(user.clinicId, "LABORATORIO", tomorrow);
   const team = canWorkClinical(user);
-  const releaser = canViewClinical(user);
+  const releaser = canReleaseLabResult(user);
 
   return (
     <div className="max-w-5xl space-y-6">

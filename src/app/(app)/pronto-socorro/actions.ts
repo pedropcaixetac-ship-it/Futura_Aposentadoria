@@ -5,9 +5,9 @@ import { revalidatePath } from "next/cache";
 import { Prisma, type EmergencyOutcome, type RiskLevel } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { canTriage } from "@/lib/hospital-roles";
 import { audit } from "@/lib/audit";
 import { patientNameWhere } from "@/lib/patient";
-import { canWorkClinical } from "@/lib/permissions";
 import { hasTab } from "@/lib/tabs";
 import { onlyDigits } from "@/lib/format";
 import { createEncounter } from "@/lib/encounter";
@@ -89,7 +89,7 @@ async function openVisit(clinicId: string, visitId: string) {
 // Enfermagem: classificação de risco. Pode refazer enquanto o médico ainda não chamou.
 export async function triageVisit(visitId: string, _: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser("pronto-socorro");
-  if (!canWorkClinical(user)) return { error: "A triagem é feita pela enfermagem ou pelo médico." };
+  if (!canTriage(user)) return { error: "A classificação de risco é feita pelo enfermeiro ou pelo médico." };
   const visit = await openVisit(user.clinicId, visitId);
   if (!visit || (visit.status !== "AGUARDANDO_TRIAGEM" && visit.status !== "AGUARDANDO_MEDICO")) {
     return { error: "Este paciente já foi chamado pelo médico ou saiu do pronto-socorro." };

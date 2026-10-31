@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { canDischarge } from "@/lib/hospital-roles";
 import { audit } from "@/lib/audit";
 import { canOpenEncounter, canViewClinical, canWorkClinical } from "@/lib/permissions";
 import { listUsableTemplates } from "@/lib/templates";
@@ -211,7 +212,7 @@ export default async function AdmissionPage({ params }: { params: Promise<{ id: 
             </div>
           </ActionForm>
 
-          {clinical ? (
+          {canDischarge(user) ? (
             <ActionForm action={dischargePatient.bind(null, admission.id)} submitLabel="Registrar alta" resetOnSuccess={false}>
               <h2 className="font-semibold text-marinho-800">Alta</h2>
               <div>
@@ -231,7 +232,7 @@ export default async function AdmissionPage({ params }: { params: Promise<{ id: 
               </div>
             </ActionForm>
           ) : (
-            <p className="card text-sm text-slate-500">A alta é registrada pelo médico ou outro profissional de saúde com registro em conselho.</p>
+            <p className="card text-sm text-slate-500">A alta é registrada pelo médico (CRM).</p>
           )}
         </div>
       )}

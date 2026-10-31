@@ -4,9 +4,10 @@ import { revalidatePath } from "next/cache";
 import { Prisma, type ExamPriority, type ExamSector } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { canReleaseLabResult } from "@/lib/hospital-roles";
 import { audit } from "@/lib/audit";
 import { withLock } from "@/lib/lock";
-import { canViewClinical, canWorkClinical } from "@/lib/permissions";
+import { canWorkClinical } from "@/lib/permissions";
 import { isPhysician } from "@/lib/pronto-socorro";
 import { hasTab, type TabKey } from "@/lib/tabs";
 import { asFields, MODALITIES, parseFields, sectorLabel, type ResultValue } from "@/lib/exames";
@@ -142,7 +143,7 @@ export async function collectExam(examId: string): Promise<FormState> {
 // Resultado do laboratório: um valor por campo do catálogo. Liberado por profissional com conselho.
 export async function saveLabResult(examId: string, _: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser("laboratorio");
-  if (!canViewClinical(user)) return { error: "Só profissional com conselho (biomédico, farmacêutico, médico) libera resultado." };
+  if (!canReleaseLabResult(user)) return { error: "O resultado é liberado pelo biomédico, farmacêutico ou médico." };
   const exam = await prisma.examRequest.findFirst({ where: { id: examId, clinicId: user.clinicId }, include: { examType: true } });
   if (!exam || exam.examType.sector !== "LABORATORIO") return { error: "Exame não encontrado." };
   const fields = asFields(exam.examType.fields);
