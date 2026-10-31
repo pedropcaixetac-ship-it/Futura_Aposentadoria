@@ -178,6 +178,34 @@ async function seedDemo() {
   console.log("Clínica de demonstração criada (senha de todos: senha123)");
 }
 
+// Hospital de demonstração: só a parte clínica, sem a gestão da clínica. Código "hospital-demo".
+async function seedHospitalDemo() {
+  if (await prisma.clinic.findUnique({ where: { slug: "hospital-demo" } })) return;
+  const hospital = await prisma.clinic.create({ data: { name: "Hospital Demonstração", slug: "hospital-demo", kind: "HOSPITAL" } });
+  const passwordHash = await bcrypt.hash("senha123", 10);
+  await prisma.user.createMany({
+    data: [
+      { clinicId: hospital.id, name: "Administrador", email: "admin@hospital.com", passwordHash, role: "ADMIN", jobTitle: "Gerente do sistema", sector: "Administração" },
+      {
+        clinicId: hospital.id, name: "Ana Souza", sex: "F", jobTitle: "Médico(a)", email: "ana@hospital.com", passwordHash, role: "PROFISSIONAL",
+        councilType: "CRM", councilNumber: "123456", councilUf: "GO", specialty: "Clínica médica", sector: "Enfermaria",
+      },
+      {
+        clinicId: hospital.id, name: "Bruna Alves", sex: "F", jobTitle: "Enfermeiro(a)", email: "enfermagem@hospital.com", passwordHash, role: "PROFISSIONAL",
+        councilType: "COREN", councilNumber: "654321", councilUf: "GO", sector: "Enfermaria",
+      },
+      { clinicId: hospital.id, name: "Júlia Recepção", email: "recepcao@hospital.com", passwordHash, role: "RECEPCAO", jobTitle: "Recepcionista", sector: "Recepção" },
+    ],
+  });
+  await prisma.recordTemplate.createMany({
+    data: [
+      { clinicId: hospital.id, name: "Consulta (primeira vez)", fields: consultaGeral },
+      { clinicId: hospital.id, name: "Retorno", fields: retorno },
+    ],
+  });
+  console.log("Hospital de demonstração criado (código hospital-demo, senha de todos: senha123)");
+}
+
 // Horário de Brasília (sem horário de verão): hora local + 3 = UTC.
 function brasilia(daysFromToday: number, hour: number, minute = 0) {
   const now = new Date(Date.now() - 3 * 3600 * 1000);
@@ -481,6 +509,7 @@ async function main() {
   await seedCid10();
   await seedSigtap();
   await seedDemo();
+  await seedHospitalDemo();
   await seedAgenda();
   await seedFinanceDemo();
   await seedPurchasesDemo();

@@ -48,6 +48,7 @@ export default async function ClinicPage({ params, searchParams }: { params: Pro
       <Link href="/painel" className="text-sm text-marinho-600 hover:underline">← Clínicas</Link>
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-semibold text-marinho-800">{clinic.name}</h1>
+        {clinic.kind === "HOSPITAL" && <span className="rounded-full bg-marinho-100 px-2 py-0.5 text-xs text-marinho-800">Hospital</span>}
         {clinic.active
           ? <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">Ativa</span>
           : <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs text-red-700">Suspensa</span>}
@@ -85,7 +86,7 @@ export default async function ClinicPage({ params, searchParams }: { params: Pro
       <ClinicForm
         action={updateClinic.bind(null, clinic.id)}
         clinic={{
-          name: clinic.name, slug: clinic.slug, cnpj: clinic.cnpj, address: clinic.address, phone: clinic.phone,
+          name: clinic.name, slug: clinic.slug, kind: clinic.kind, cnpj: clinic.cnpj, address: clinic.address, phone: clinic.phone,
           contactName: clinic.contactName, contactEmail: clinic.contactEmail, contactPhone: clinic.contactPhone,
         }}
       />

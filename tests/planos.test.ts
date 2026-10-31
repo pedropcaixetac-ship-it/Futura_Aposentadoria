@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { billingStatus, clinicBlocked, nextPaidUntil, sanitizeModules, tabInPlan } from "../src/lib/plans";
+import { billingStatus, clinicBlocked, institutionModules, nextPaidUntil, sanitizeModules, tabInPlan } from "../src/lib/plans";
 import { hasTab } from "../src/lib/tabs";
 
 const day = (s: string) => new Date(`${s}T00:00:00Z`);
@@ -46,4 +46,20 @@ test("módulos fora do plano somem até para o gerente do sistema", () => {
   assert.equal(hasTab({ ...gerente, modules: ["financeiro"] }, "contabilidade"), false);
   assert.equal(hasTab({ ...gerente, modules: ["financeiro"] }, "financeiro"), true);
   assert.equal(hasTab({ ...gerente, modules: [] }, "pacientes"), true);
+});
+
+test("hospital fica sem a gestão da clínica; clínica não muda", () => {
+  // Clínica: exatamente o que o plano libera.
+  assert.equal(institutionModules("CLINICA", null), null);
+  assert.deepEqual(institutionModules("CLINICA", ["financeiro"]), ["financeiro"]);
+  // Hospital: sem financeiro e contabilidade, mesmo sem plano ou com plano que os tenha.
+  assert.deepEqual(institutionModules("HOSPITAL", null), ["assinatura"]);
+  assert.deepEqual(institutionModules("HOSPITAL", ["financeiro", "contabilidade", "assinatura"]), ["assinatura"]);
+
+  const gerente = { id: "g", role: "ADMIN" as const, councilNumber: null, customTabs: false, allowedTabs: [], modules: institutionModules("HOSPITAL", null) };
+  for (const tab of ["financeiro", "meu-financeiro", "contabilidade"] as const) assert.equal(hasTab(gerente, tab), false);
+  for (const tab of ["recepcao", "agenda", "pacientes", "modelos", "auditoria", "servidores"] as const) assert.equal(hasTab(gerente, tab), true);
+  const medica = { id: "m", role: "PROFISSIONAL" as const, councilNumber: "123", customTabs: false, allowedTabs: [], modules: institutionModules("HOSPITAL", null) };
+  for (const tab of ["atender", "agenda", "modelos", "textos-prontos", "assinatura"] as const) assert.equal(hasTab(medica, tab), true);
+  assert.equal(hasTab(medica, "meu-financeiro"), false);
 });

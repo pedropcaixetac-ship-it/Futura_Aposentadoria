@@ -15,6 +15,16 @@ export function moduleOfTab(tab: string): ModuleKey | null {
   return MODULES.find((m) => (m.tabs as readonly string[]).includes(tab))?.key ?? null;
 }
 
+// Gestão da clínica: no hospital estes módulos ficam de fora, mesmo que o plano os tenha.
+export const CLINIC_MANAGEMENT_MODULES: ModuleKey[] = ["financeiro", "contabilidade"];
+
+// Módulos que valem para a instituição: os do plano (sem plano, todos) menos a gestão, se for hospital.
+// Clínica devolve exatamente o do plano, para nada mudar nela.
+export function institutionModules(kind: string | null | undefined, planModules: string[] | null | undefined) {
+  if (kind !== "HOSPITAL") return planModules ?? null;
+  return (planModules ?? MODULES.map((m) => m.key)).filter((m) => !(CLINIC_MANAGEMENT_MODULES as string[]).includes(m));
+}
+
 // modules null = clínica sem plano (ex.: demonstração): tudo liberado.
 export function tabInPlan(modules: string[] | null | undefined, tab: string) {
   if (!modules) return true;

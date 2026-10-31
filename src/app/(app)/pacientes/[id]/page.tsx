@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { hasTab } from "@/lib/tabs";
 import { audit } from "@/lib/audit";
 import { canEditEncounter, canManageCharges, canViewClinical, canWorkClinical } from "@/lib/permissions";
 import { age, formatCpf, formatDate, formatDateTime, formatPhone } from "@/lib/format";
@@ -136,7 +137,7 @@ export default async function PatientRecordPage({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {canWhatsapp && <WhatsappButton patientId={id} />}
-          {canManageCharges(user) && (
+          {canManageCharges(user) && hasTab(user, "financeiro") && (
             <Link href={`/financeiro/receitas/nova?paciente=${id}`} className="btn-secondary">Nova cobrança</Link>
           )}
           <Link href={`/agenda/novo?paciente=${id}`} className="btn-secondary">Agendar consulta</Link>

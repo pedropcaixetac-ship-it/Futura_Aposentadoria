@@ -95,10 +95,18 @@ enum DocumentType {
   LME
 }
 
+// Tipo de instituição: a mesma base serve clínicas e hospitais. No hospital, a gestão
+// da clínica (financeiro, contabilidade) fica de fora e entram os setores hospitalares.
+enum InstitutionKind {
+  CLINICA
+  HOSPITAL
+}
+
 model Clinic {
   id                String   @id @default(cuid())
   name              String
   slug              String   @unique
+  kind              InstitutionKind @default(CLINICA)
   createdAt         DateTime @default(now())
   // Dados que aparecem no recibo.
   cnpj              String?

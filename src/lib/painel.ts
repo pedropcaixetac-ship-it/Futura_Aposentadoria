@@ -48,9 +48,17 @@ export function formatCnpj(value: string | null | undefined) {
 const text = (formData: FormData, key: string) => String(formData.get(key) ?? "").trim() || null;
 const email = (formData: FormData, key: string) => text(formData, key)?.toLowerCase() ?? null;
 
+export type InstitutionKind = "CLINICA" | "HOSPITAL";
+
+export const INSTITUTION_KINDS: { key: InstitutionKind; label: string; hint: string }[] = [
+  { key: "CLINICA", label: "Clínica", hint: "Consultório ou clínica: atendimento, agenda e gestão (financeiro, contabilidade...)." },
+  { key: "HOSPITAL", label: "Hospital", hint: "Parte clínica (agenda, atender, recepção, modelos, textos) e setores hospitalares, sem a gestão da clínica." },
+];
+
 export type ClinicInput = {
   name: string;
   slug: string;
+  kind: InstitutionKind;
   // CNPJ, ou CPF para quem atende como pessoa física. Só números.
   cnpj: string | null;
   address: string | null;
@@ -64,6 +72,7 @@ export function parseClinic(formData: FormData): ClinicInput {
   return {
     name: text(formData, "name") ?? "",
     slug: (text(formData, "slug") ?? "").toLowerCase(),
+    kind: formData.get("kind") === "HOSPITAL" ? "HOSPITAL" : "CLINICA",
     cnpj: onlyDigits(text(formData, "cnpj")) || null,
     address: text(formData, "address"),
     phone: text(formData, "phone"),

@@ -92,6 +92,7 @@ export default async function ClinicsPage({ searchParams }: { searchParams: Prom
               <tr key={c.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3">
                   <Link href={`/painel/clinicas/${c.id}`} className="font-medium text-marinho-700 hover:underline">{c.name}</Link>
+                  {c.kind === "HOSPITAL" && <span className="ml-2 rounded-full bg-marinho-100 px-2 py-0.5 text-xs text-marinho-800">Hospital</span>}
                   {c.contactName && <p className="text-xs text-slate-500">{c.contactName}</p>}
                 </td>
                 <td className="px-4 py-3 font-mono text-xs">{c.slug}</td>
