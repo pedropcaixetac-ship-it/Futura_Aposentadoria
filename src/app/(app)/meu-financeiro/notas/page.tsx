@@ -12,14 +12,14 @@ import { PendingInvoice } from "../../financeiro/notas/ui";
 // As notas fiscais dos atendimentos do próprio profissional: as pedidas e as já emitidas.
 export default async function MyInvoicesPage() {
   const user = await requireUser("meu-financeiro");
-  const mine = { clinicId: user.clinicId, charge: { professionalId: user.id } };
+  const mine = { charge: { professionalId: user.id } };
   const include = { charge: { include: { patient: { select: { name: true, cpf: true } } } } };
 
   const [clinic, me, pending, issued] = await Promise.all([
     prisma.clinic.findUniqueOrThrow({ where: { id: user.clinicId } }),
     prisma.user.findUniqueOrThrow({ where: { id: user.id }, select: { name: true, cpf: true, municipalRegistration: true, jobTitle: true, sex: true } }),
-    prisma.serviceInvoice.findMany({ where: { ...mine, status: "PEDIDA" }, include, orderBy: { requestedAt: "asc" } }),
-    prisma.serviceInvoice.findMany({ where: { ...mine, status: "EMITIDA" }, include, orderBy: { issuedAt: "desc" }, take: 50 }),
+    prisma.serviceInvoice.findMany({ where: { clinicId: user.clinicId, ...mine, status: "PEDIDA" }, include, orderBy: { requestedAt: "asc" } }),
+    prisma.serviceInvoice.findMany({ where: { clinicId: user.clinicId, ...mine, status: "EMITIDA" }, include, orderBy: { issuedAt: "desc" }, take: 50 }),
   ]);
   const professional = { ...me, name: displayName(me) };
   const selfEmployed = clinic.invoiceIssuer === "PROFISSIONAL";
