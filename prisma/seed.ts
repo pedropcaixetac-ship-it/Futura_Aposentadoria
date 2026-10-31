@@ -558,6 +558,53 @@ async function seedHospitalSupport() {
   });
 }
 
+// Tabela de preços do hospital-demo e uma internação particular com alta, com a conta pronta para fechar.
+async function seedHospitalBilling() {
+  const hospital = await prisma.clinic.findUnique({ where: { slug: "hospital-demo" } });
+  if (!hospital || (await prisma.hospitalPrice.count({ where: { clinicId: hospital.id } })) > 0) return;
+  const ana = await prisma.user.findFirstOrThrow({ where: { clinicId: hospital.id, email: "ana@hospital.com" } });
+  const recepcao = await prisma.user.findFirstOrThrow({ where: { clinicId: hospital.id, email: "recepcao@hospital.com" } });
+  const price = (key: string, priceCents: number) => prisma.hospitalPrice.create({ data: { clinicId: hospital.id, key, priceCents } });
+  await price("diaria:Enfermaria", 45000);
+  await price("diaria:UTI adulto", 220000);
+  await price("sala:hora", 60000);
+  const examPrices: Record<string, number> = { "Hemograma completo": 2500, "Proteína C reativa (PCR)": 3000, "Creatinina": 1500, "Sódio e potássio": 2800, "Glicemia de jejum": 1200, "Hemocultura": 9000, "Raio X de tórax": 12000, "Ultrassom de abdome total": 25000, "Tomografia de crânio": 60000, "Eletrocardiograma": 8000 };
+  for (const e of await prisma.examType.findMany({ where: { clinicId: hospital.id } })) {
+    if (examPrices[e.name]) await price(`exame:${e.id}`, examPrices[e.name]);
+  }
+  const medPrices: [string, number][] = [["Dipirona", 450], ["Ceftriaxona", 3800], ["Soro fisiológico", 900], ["Ondansetrona", 1100], ["Morfina", 1900]];
+  for (const pr of await prisma.pharmacyProduct.findMany({ where: { clinicId: hospital.id } })) {
+    const hit = medPrices.find(([n]) => pr.name.startsWith(n));
+    if (hit) await price(`med:${pr.id}`, hit[1]);
+  }
+
+  // Internação particular de 3 dias, já com alta: hemograma e raio X; o resto a equipe lança à mão.
+  const patient = await prisma.patient.create({ data: { clinicId: hospital.id, name: "Marcos Vieira", sex: "M", birthDate: new Date("1979-06-12"), insurance: "Particular", phone: "62988887777" } });
+  const ward = await prisma.ward.findFirstOrThrow({ where: { clinicId: hospital.id, kind: "Enfermaria" } });
+  const bed = await prisma.bed.findFirstOrThrow({ where: { wardId: ward.id }, orderBy: { code: "desc" } });
+  const day = 86400_000;
+  const admittedAt = new Date(Date.now() - 4 * day);
+  const dischargedAt = new Date(Date.now() - day);
+  const admission = await prisma.admission.create({
+    data: {
+      clinicId: hospital.id, patientId: patient.id, bedId: bed.id, attendingId: ana.id, admittedById: recepcao.id, admittedAt,
+      origin: "Pronto-socorro", reason: "Pielonefrite", cidCode: "N10", cidDescription: "Nefrite túbulo-intersticial aguda", insurance: "Particular",
+      dischargedAt, dischargeKind: "MELHORADO", dischargeNote: "Alta com antibiótico oral", dischargedById: ana.id,
+    },
+  });
+  await prisma.bedMovement.create({ data: { clinicId: hospital.id, admissionId: admission.id, toBedId: bed.id, movedAt: admittedAt, movedById: recepcao.id } });
+  for (const name of ["Hemograma completo", "Raio X de tórax"]) {
+    const type = await prisma.examType.findFirstOrThrow({ where: { clinicId: hospital.id, name } });
+    await prisma.examRequest.create({
+      data: {
+        clinicId: hospital.id, patientId: patient.id, examTypeId: type.id, admissionId: admission.id, requestedById: ana.id, createdById: ana.id,
+        createdAt: new Date(admittedAt.getTime() + 3600_000), status: "LAUDADO", collectedAt: new Date(admittedAt.getTime() + 2 * 3600_000), collectedById: ana.id,
+        resultAt: new Date(admittedAt.getTime() + 5 * 3600_000), resultById: ana.id, report: "Sem alterações relevantes.",
+      },
+    });
+  }
+}
+
 async function seedHospitalExams() {
   const hospital = await prisma.clinic.findUnique({ where: { slug: "hospital-demo" } });
   if (!hospital || (await prisma.examType.count({ where: { clinicId: hospital.id } })) > 0) return;
@@ -997,6 +1044,7 @@ async function main() {
   await seedHospitalSurgery();
   await seedHospitalExams();
   await seedHospitalSupport();
+  await seedHospitalBilling();
   await seedAgenda();
   await seedFinanceDemo();
   await seedPurchasesDemo();

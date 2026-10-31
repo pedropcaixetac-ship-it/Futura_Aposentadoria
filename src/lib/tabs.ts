@@ -23,6 +23,7 @@ export type TabKey =
   | "chamados"
   | "almoxarifado"
   | "manutencao"
+  | "contas"
   | "agenda"
   | "pacientes"
   | "modelos"
@@ -206,6 +207,14 @@ export const TABS: Tab[] = [
     label: "Manutenção",
     href: "/manutencao",
     description: "Chamados dos setores (equipamentos, elétrica, hidráulica, gases...) e preventiva dos equipamentos.",
+    defaultRoles: ["ADMIN", "ADMINISTRATIVO"],
+    hospital: true,
+  },
+  {
+    key: "contas",
+    label: "Contas hospitalares",
+    href: "/contas",
+    description: "Conta de cada internação (diárias, medicamentos, exames, centro cirúrgico), fechamento na alta e tabela de preços do hospital.",
     defaultRoles: ["ADMIN", "ADMINISTRATIVO"],
     hospital: true,
   },
