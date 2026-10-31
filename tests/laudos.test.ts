@@ -123,3 +123,21 @@ test("busca de procedimento por código ou por palavras do nome", () => {
     AND: [{ searchName: { contains: "infarto" } }, { searchName: { contains: "miocardio" } }],
   });
 });
+
+test("LME no modelo atual: 6 medicamentos, 6 meses e CNS do médico", async () => {
+  const lme = laudoDefaults("LME", { clinic, patient, professional: { ...professional, cns: "702005808366893" } });
+  assert.equal(lme.profissionalCns, "702005808366893");
+  assert.equal(lme.profissionalDoc, undefined);
+
+  const form = new FormData();
+  form.set("laudo_med6", "Metotrexato");
+  form.set("laudo_med6Mes6", "4");
+  const { values, missing } = parseLaudo("LME", form);
+  assert.equal(values.med6Mes6, "4");
+  assert.ok(missing.includes("CNS do médico solicitante"));
+  assert.equal(laudoSummary("LME", { med1: "A", med6: "B" }), "A, B");
+
+  // LME emitida no modelo antigo continua saindo no formulário antigo.
+  const old = await buildLaudoPdf({ type: "LME", values: { pacienteNome: "X", profissionalDocTipo: "CPF", profissionalDoc: "52998224725", med1Mes3: "2" }, stamp: [], clinicName: "C", author: "x" });
+  assert.equal((await PDFDocument.load(old)).getPageCount(), 1);
+});

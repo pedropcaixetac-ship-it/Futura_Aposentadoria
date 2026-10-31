@@ -100,11 +100,10 @@ const secondaryProcedures: LaudoField[] = [1, 2, 3, 4, 5].flatMap((n) => [
   { key: `sec${n}Qtde`, label: "Qtde.", span: 1, max: 4 } as LaudoField,
 ]);
 
-const medications: LaudoField[] = [1, 2, 3, 4, 5].flatMap((n) => [
-  { key: `med${n}`, label: `Medicamento ${n}`, required: n === 1, span: 3 } as LaudoField,
-  { key: `med${n}Mes1`, label: "Qtde. 1º mês", required: n === 1, span: 1, max: 6 } as LaudoField,
-  { key: `med${n}Mes2`, label: "Qtde. 2º mês", span: 1, max: 6 } as LaudoField,
-  { key: `med${n}Mes3`, label: "Qtde. 3º mês", span: 1, max: 6 } as LaudoField,
+// Modelo atual da LME: até 6 medicamentos, com a quantidade de cada um dos 6 meses.
+const medications: LaudoField[] = [1, 2, 3, 4, 5, 6].flatMap((n) => [
+  { key: `med${n}`, label: `Medicamento ${n}`, required: n === 1, span: 6 } as LaudoField,
+  ...[1, 2, 3, 4, 5, 6].map((m) => ({ key: `med${n}Mes${m}`, label: `Qtde. ${m}º mês`, required: n === 1 && m === 1, span: 1, max: 6 }) as LaudoField),
 ]);
 
 export const laudoSections: Record<LaudoType, LaudoSection[]> = {
@@ -246,7 +245,7 @@ export const laudoSections: Record<LaudoType, LaudoSection[]> = {
         { key: "nomeMae", label: "Nome da mãe do paciente", required: true },
       ],
     },
-    { title: "Medicamentos solicitados", hint: "Até 5 medicamentos, com a quantidade de cada mês.", fields: medications },
+    { title: "Medicamentos solicitados", hint: "Até 6 medicamentos, com a quantidade de cada mês (até 6 meses).", fields: medications },
     {
       title: "Justificativa",
       fields: [
@@ -254,12 +253,19 @@ export const laudoSections: Record<LaudoType, LaudoSection[]> = {
         { key: "diagnostico", label: "Diagnóstico", span: 4 },
         { key: "anamnese", label: "Anamnese", kind: "textarea", required: true, max: 900 },
         { key: "tratamentoPrevio", label: "Fez tratamento prévio ou está em tratamento da doença?", kind: "select", options: SIM_NAO, required: true, span: 3 },
-        { key: "tratamentoRelato", label: "Se sim, relatar", kind: "textarea", max: 300 },
+        { key: "tratamentoRelato", label: "Se sim, relatar", kind: "textarea", max: 200, hint: "Cabe uma linha no formulário." },
         { key: "incapaz", label: "O paciente é considerado incapaz?", kind: "select", options: SIM_NAO, required: true, span: 3 },
         { key: "responsavel", label: "Se sim, nome do responsável", span: 3 },
       ],
     },
-    { title: "Médico solicitante", fields: requesterFields() },
+    {
+      title: "Médico solicitante",
+      fields: [
+        { key: "profissionalNome", label: "Nome do médico solicitante", required: true, span: 3 },
+        { key: "profissionalCns", label: "CNS do médico solicitante", required: true, span: 2, max: 15, hint: "O modelo atual da LME pede o CNS." },
+        { key: "dataSolicitacao", label: "Data da solicitação", kind: "date", required: true, span: 1 },
+      ],
+    },
     {
       title: "Dados preenchidos pelo paciente ou responsável",
       hint: "Opcional: podem ser preenchidos à mão pelo paciente.",
@@ -335,6 +341,7 @@ export function laudoDefaults(
     dataSolicitacao: isoDate(today),
     profissionalDocTipo: proDoc,
     profissionalDoc: proDoc === "CNS" ? onlyDigits(professional.cns) : onlyDigits(professional.cpf),
+    profissionalCns: onlyDigits(professional.cns),
   };
   if (type === "LME") {
     values.peso = vitals?.peso ? String(vitals.peso).replace(".", ",") : "";
@@ -403,7 +410,7 @@ export function allLaudoDefaults(input: Parameters<typeof laudoDefaults>[1]) {
 export function laudoSummary(type: LaudoType, values: LaudoValues) {
   const asked =
     type === "LME"
-      ? [1, 2, 3, 4, 5].map((n) => values[`med${n}`]).filter(Boolean).join(", ")
+      ? [1, 2, 3, 4, 5, 6].map((n) => values[`med${n}`]).filter(Boolean).join(", ")
       : [values.procCodigo, values.procNome].filter(Boolean).join(" ");
   return [asked, values.cidPrincipal && `CID ${values.cidPrincipal}`].filter(Boolean).join(" · ");
 }
