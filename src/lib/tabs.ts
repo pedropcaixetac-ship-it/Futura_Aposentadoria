@@ -1,5 +1,5 @@
 import type { Role } from "@prisma/client";
-import { tabInPlan } from "./plans";
+import { institutionModules, tabInPlan } from "./plans";
 import { canManageCharges, canManageTemplates, canViewClinical, canWorkClinical, RECEPTION_ROLES, type PermissionUser } from "./permissions";
 
 // Abas do sistema que o administrador pode liberar ou tirar de cada pessoa
@@ -7,6 +7,8 @@ import { canManageCharges, canManageTemplates, canViewClinical, canWorkClinical,
 export type TabKey =
   | "recepcao"
   | "atender"
+  | "internacao"
+  | "leitos"
   | "agenda"
   | "pacientes"
   | "modelos"
@@ -19,7 +21,8 @@ export type TabKey =
   | "servidores";
 
 // modules: módulos do plano da clínica (só vem de quem está conectado; ausente = sem restrição de plano).
-export type TabUser = PermissionUser & { customTabs: boolean; allowedTabs: string[]; modules?: string[] | null };
+// institution: tipo da instituição (CLINICA ou HOSPITAL); as abas hospitalares só existem no hospital.
+export type TabUser = PermissionUser & { customTabs: boolean; allowedTabs: string[]; modules?: string[] | null; institution?: string | null };
 
 type Tab = {
   key: TabKey;
@@ -33,6 +36,8 @@ type Tab = {
   blockedReason?: (user: PermissionUser) => string | null;
   // false: vale como permissão, mas não tem item próprio no menu (ex.: assinatura fica dentro de "Meu cadastro").
   menu?: false;
+  // Setor hospitalar: só existe quando a instituição é um hospital.
+  hospital?: true;
 };
 
 const allRoles: Role[] = ["ADMIN", "PROFISSIONAL", "TECNICO", "RECEPCAO", "ADMINISTRATIVO"];
@@ -53,6 +58,23 @@ export const TABS: Tab[] = [
     description: "Sala de espera e agenda do dia do próprio profissional, de onde ele inicia o atendimento.",
     defaultRoles: allRoles,
     blockedReason: (u) => (canWorkClinical(u) ? null : "Só para profissionais de saúde."),
+  },
+  {
+    key: "internacao",
+    label: "Internação",
+    href: "/internacao",
+    description: "Mapa de leitos, internar, trocar de leito e dar alta (a alta só profissional de saúde com conselho).",
+    defaultRoles: allRoles,
+    hospital: true,
+  },
+  {
+    key: "leitos",
+    label: "Alas e leitos",
+    href: "/internacao/leitos",
+    description: "Cadastrar alas e leitos, bloquear e desbloquear leitos.",
+    menu: false,
+    defaultRoles: ["ADMIN", "ADMINISTRATIVO"],
+    hospital: true,
   },
   {
     key: "agenda",
@@ -134,6 +156,14 @@ export const TABS: Tab[] = [
   },
 ];
 
+// A aba existe neste tipo de instituição? Hospital: sem a gestão da clínica; clínica: sem os setores hospitalares.
+export function tabInInstitution(institution: string | null | undefined, key: TabKey) {
+  const tab = TABS.find((t) => t.key === key);
+  if (!tab) return false;
+  if (institution === "HOSPITAL") return tabInPlan(institutionModules("HOSPITAL", null), key);
+  return !tab.hospital;
+}
+
 export function tabBlockedReason(user: PermissionUser, key: TabKey) {
   return TABS.find((t) => t.key === key)?.blockedReason?.(user) ?? null;
 }
@@ -142,6 +172,7 @@ export function tabBlockedReason(user: PermissionUser, key: TabKey) {
 export function hasTab(user: TabUser, key: TabKey) {
   const tab = TABS.find((t) => t.key === key);
   if (!tab || tab.blockedReason?.(user)) return false;
+  if (!tabInInstitution(user.institution, key)) return false;
   // Módulo fora do plano da clínica: ninguém tem a aba, nem o gerente.
   if (!tabInPlan(user.modules, key)) return false;
   if (user.role === "ADMIN") return true;

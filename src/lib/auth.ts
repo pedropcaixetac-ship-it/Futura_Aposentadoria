@@ -63,7 +63,11 @@ export async function getCurrentUser() {
     await prisma.session.update({ where: { id: session.id }, data: { lastSeenAt: new Date(now) } });
   }
   // Módulos do plano da clínica; sem plano, tudo liberado. Hospital fica sem a gestão da clínica (ver src/lib/plans.ts).
-  return { ...session.user, modules: institutionModules(session.user.clinic.kind, session.user.clinic.plan?.modules) };
+  return {
+    ...session.user,
+    modules: institutionModules(session.user.clinic.kind, session.user.clinic.plan?.modules),
+    institution: session.user.clinic.kind,
+  };
 }
 
 export type CurrentUser = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;

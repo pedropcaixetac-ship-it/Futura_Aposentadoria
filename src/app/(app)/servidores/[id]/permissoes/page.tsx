@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { roleLabel } from "@/lib/format";
-import { hasTab, TABS } from "@/lib/tabs";
+import { hasTab, TABS, tabInInstitution } from "@/lib/tabs";
 import { resetPermissions, savePermissions } from "../../actions";
 import { displayName, staffEditBlock } from "@/lib/staff";
 
@@ -32,9 +32,9 @@ export default async function PermissionsPage({ params }: { params: Promise<{ id
 
       <form action={savePermissions.bind(null, staff.id)} className="card space-y-4">
         <ul className="divide-y divide-slate-100">
-          {TABS.map((tab) => {
+          {TABS.filter((tab) => tabInInstitution(user.institution, tab.key)).map((tab) => {
             const blocked = tab.blockedReason?.(staff) ?? null;
-            const checked = hasTab(staff, tab.key);
+            const checked = hasTab({ ...staff, institution: user.institution }, tab.key);
             return (
               <li key={tab.key} className="py-3">
                 <label className={`flex items-start gap-3 ${blocked || isAdmin ? "cursor-not-allowed" : "cursor-pointer"}`}>

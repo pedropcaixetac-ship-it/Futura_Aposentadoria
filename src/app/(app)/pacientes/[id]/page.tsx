@@ -44,6 +44,10 @@ export default async function PatientRecordPage({
   const filtered = hasFilters(filters);
   const patient = await prisma.patient.findFirst({ where: { id, clinicId: user.clinicId } });
   if (!patient) notFound();
+  // Hospital: internação em andamento aparece no topo da ficha.
+  const admission = hasTab(user, "internacao")
+    ? await prisma.admission.findFirst({ where: { patientId: id, clinicId: user.clinicId, dischargedAt: null }, include: { bed: { include: { ward: true } } } })
+    : null;
 
   // full: acesso completo ao prontuário. clinical: completo ou restrito (técnico/auxiliar de enfermagem),
   // que só vê os próprios atendimentos.
@@ -139,6 +143,11 @@ export default async function PatientRecordPage({
           {canWhatsapp && <WhatsappButton patientId={id} />}
           {canManageCharges(user) && hasTab(user, "financeiro") && (
             <Link href={`/financeiro/receitas/nova?paciente=${id}`} className="btn-secondary">Nova cobrança</Link>
+          )}
+          {admission ? (
+            <Link href={`/internacao/${admission.id}`} className="btn-secondary">Internado(a): {admission.bed.ward.name} · {admission.bed.code}</Link>
+          ) : (
+            hasTab(user, "internacao") && <Link href={`/internacao/internar?paciente=${id}`} className="btn-secondary">Internar</Link>
           )}
           <Link href={`/agenda/novo?paciente=${id}`} className="btn-secondary">Agendar consulta</Link>
           {full && (
