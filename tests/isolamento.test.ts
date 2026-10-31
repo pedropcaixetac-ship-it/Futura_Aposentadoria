@@ -85,6 +85,8 @@ test("banco recusa consulta, atendimento e cobrança ligados a paciente de outra
 const REVIEWED = new Map([
   ["src/app/teleconsulta/[token]/actions.ts|teleconsultation.updateMany", "pela teleconsulta já achada pelo link"],
   ["src/app/painel/(area)/registro/page.tsx|platformAuditLog.findMany", "registro da própria empresa, só no Painel do dono"],
+  ["src/app/painel/(area)/financeiro/page.tsx|clinicPayment.findMany", "mensalidades pagas à empresa, só no Painel do dono"],
+  ["src/app/painel/(area)/financeiro/planilha/route.ts|clinicPayment.findMany", "mensalidades pagas à empresa, só no Painel do dono"],
   ["src/app/(app)/auditoria/page.tsx|auditLog.findMany", "filtro 'where' montado com clinicId"],
   ["src/app/(app)/auditoria/page.tsx|auditLog.count", "filtro 'where' montado com clinicId"],
   ["src/app/(app)/agenda/actions.ts|teleconsultation.updateMany", "pelo agendamento já conferido na clínica"],

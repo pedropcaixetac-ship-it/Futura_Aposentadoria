@@ -167,6 +167,7 @@ model Clinic {
   claimAppeals   ClaimAppeal[]
   problems       ProblemReport[]
   serviceInvoices ServiceInvoice[]
+  platformPayments ClinicPayment[]
 }
 
 model User {
@@ -1142,6 +1143,8 @@ model PlatformUser {
 
   sessions  PlatformSession[]
   auditLogs PlatformAuditLog[]
+  paymentsRegistered ClinicPayment[] @relation("PaymentRegisteredBy")
+  paymentsCanceled   ClinicPayment[] @relation("PaymentCanceledBy")
 }
 
 model PlatformSession {
@@ -1200,4 +1203,29 @@ model Plan {
   createdAt  DateTime @default(now())
 
   clinics Clinic[]
+}
+
+// Mensalidade que a clínica pagou à empresa, registrada à mão no Painel do dono.
+// previousPaidUntil/paidUntil: o "pago até" antes e depois, para poder desfazer um lançamento errado.
+model ClinicPayment {
+  id                String        @id @default(cuid())
+  clinicId          String
+  clinic            Clinic        @relation(fields: [clinicId], references: [id])
+  amountCents       Int
+  paidAt            DateTime      @db.Date
+  // pix, boleto, cartao, transferencia, dinheiro
+  method            String
+  notes             String?
+  previousPaidUntil DateTime?     @db.Date
+  paidUntil         DateTime      @db.Date
+  createdById       String
+  createdBy         PlatformUser  @relation("PaymentRegisteredBy", fields: [createdById], references: [id])
+  createdAt         DateTime      @default(now())
+  canceledAt        DateTime?
+  canceledById      String?
+  canceledBy        PlatformUser? @relation("PaymentCanceledBy", fields: [canceledById], references: [id])
+  cancelReason      String?
+
+  @@index([clinicId, createdAt])
+  @@index([paidAt])
 }

@@ -141,6 +141,7 @@ export const platformActionLabel: Record<string, string> = {
   PLANO_ALTERADO: "Alterou plano",
   CLINICA_PLANO: "Mudou o plano ou o vencimento da clínica",
   PAGAMENTO_REGISTRADO: "Registrou pagamento da mensalidade",
+  PAGAMENTO_DESFEITO: "Desfez pagamento da mensalidade",
   PROBLEMA_RESOLVIDO: "Marcou problema como resolvido",
   PROBLEMA_REABERTO: "Reabriu problema",
   PAINEL_SENHA_ALTERADA: "Trocou a própria senha",

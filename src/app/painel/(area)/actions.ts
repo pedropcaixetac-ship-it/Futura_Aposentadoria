@@ -7,7 +7,8 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { platformAudit, requirePlatformUser } from "@/lib/painel-auth";
 import { parseClinic, parseManager, STARTER_TEMPLATES, validateClinic, validateManager } from "@/lib/painel";
-import { nextPaidUntil, sanitizeModules } from "@/lib/plans";
+import { nextPaidUntil, sanitizeModules, todayDate } from "@/lib/plans";
+import { isPaymentMethod } from "@/lib/painel-financeiro";
 import { parseMoney } from "@/lib/money";
 
 export type FormState = { error: string; ok?: string };
@@ -154,15 +155,63 @@ export async function registerPayment(id: string, _: FormState, formData: FormDa
   const clinic = await prisma.clinic.findUnique({ where: { id }, include: { plan: true } });
   if (!clinic) return { error: "Clínica não encontrada." };
   const amountCents = parseMoney(String(formData.get("amount") ?? "")) ?? clinic.plan?.priceCents ?? null;
+  if (!amountCents || amountCents <= 0) return { error: "Informe o valor recebido." };
+  const method = String(formData.get("method") ?? "pix");
+  if (!isPaymentMethod(method)) return { error: "Escolha a forma de pagamento." };
+  const paidAtText = String(formData.get("paidAt") ?? "");
+  const paidAt = paidAtText ? new Date(`${paidAtText}T00:00:00Z`) : todayDate();
+  if (Number.isNaN(paidAt.getTime()) || paidAt > todayDate()) return { error: "Confira a data do pagamento (não pode ser no futuro)." };
+  const notes = String(formData.get("notes") ?? "").trim() || null;
   const paidUntil = nextPaidUntil(clinic.paidUntil);
 
-  await prisma.clinic.update({ where: { id }, data: { paidUntil } });
+  await prisma.$transaction([
+    prisma.clinic.update({ where: { id }, data: { paidUntil } }),
+    prisma.clinicPayment.create({
+      data: { clinicId: id, amountCents, paidAt, method, notes, previousPaidUntil: clinic.paidUntil, paidUntil, createdById: owner.id },
+    }),
+  ]);
   await platformAudit({
     userId: owner.id,
     action: "PAGAMENTO_REGISTRADO",
     clinicId: id,
-    details: { valor: amountCents, pagoAte: paidUntil.toISOString().slice(0, 10), antes: clinic.paidUntil?.toISOString().slice(0, 10) ?? null },
+    details: { valor: amountCents, forma: method, pagoAte: paidUntil.toISOString().slice(0, 10), antes: clinic.paidUntil?.toISOString().slice(0, 10) ?? null },
   });
   revalidatePath("/painel", "layout");
   return { error: "", ok: `Pagamento registrado. A mensalidade agora vale até ${paidUntil.toISOString().slice(0, 10).split("-").reverse().join("/")}.` };
+}
+
+// Lançamento errado: só o último pagamento da clínica pode ser desfeito, e o "pago até" volta ao que era antes dele.
+// O lançamento fica no histórico marcado como desfeito (nada some do financeiro).
+export async function cancelPayment(paymentId: string, _: FormState, formData: FormData): Promise<FormState> {
+  const owner = await requirePlatformUser();
+  const reason = String(formData.get("reason") ?? "").trim();
+  if (!reason) return { error: "Diga por que o pagamento está sendo desfeito." };
+  const payment = await prisma.clinicPayment.findUnique({ where: { id: paymentId }, include: { clinic: true } });
+  if (!payment || payment.canceledAt) return { error: "Pagamento não encontrado ou já desfeito." };
+  const latest = await prisma.clinicPayment.findFirst({
+    where: { clinicId: payment.clinicId, canceledAt: null },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+  });
+  if (latest?.id !== payment.id) return { error: "Só o último pagamento registrado pode ser desfeito. Desfaça os mais novos antes." };
+
+  // Se alguém mudou o "pago até" à mão depois do pagamento, não mexe na data.
+  const sameDate = payment.clinic.paidUntil?.getTime() === payment.paidUntil.getTime();
+  await prisma.$transaction([
+    prisma.clinicPayment.update({ where: { id: paymentId }, data: { canceledAt: new Date(), canceledById: owner.id, cancelReason: reason } }),
+    ...(sameDate ? [prisma.clinic.update({ where: { id: payment.clinicId }, data: { paidUntil: payment.previousPaidUntil } })] : []),
+  ]);
+  await platformAudit({
+    userId: owner.id,
+    action: "PAGAMENTO_DESFEITO",
+    clinicId: payment.clinicId,
+    details: { pagamento: paymentId, valor: payment.amountCents, motivo: reason },
+  });
+  revalidatePath("/painel", "layout");
+  return {
+    error: "",
+    ok: sameDate
+      ? "Pagamento desfeito. O \"pago até\" voltou para a data anterior."
+      : "Pagamento desfeito. O \"pago até\" foi mudado à mão depois dele, então confira a data abaixo.",
+  };
 }

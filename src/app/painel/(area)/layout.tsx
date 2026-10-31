@@ -14,6 +14,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
           <nav className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-marinho-100">
             <Link href="/painel" className="hover:text-dourado-300">Clínicas</Link>
             <Link href="/painel/planos" className="hover:text-dourado-300">Planos</Link>
+            <Link href="/painel/financeiro" className="hover:text-dourado-300">Financeiro</Link>
             <Link href="/painel/problemas" className="hover:text-dourado-300">
               Problemas
               {openProblems > 0 && <span className="ml-1 rounded-full bg-red-600 px-1.5 py-0.5 text-xs font-medium text-white">{openProblems}</span>}
