@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
-import { Prisma } from "@prisma/client";
+import { Prisma, type DocumentType } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
@@ -11,6 +11,7 @@ import { audit } from "@/lib/audit";
 import { canAddAddendum, canEditEncounter, canViewClinical, canWorkClinical } from "@/lib/permissions";
 import { createEncounter } from "@/lib/encounter";
 import { documentTypes } from "@/lib/documents";
+import { isLaudo, LAUDO_TYPES, laudoText, parseLaudo, type LaudoValues } from "@/lib/laudos";
 import { documentHash, encounterHash, parseDiagnoses, sanitizeContent, type TemplateField } from "@/lib/record";
 import { parseVitals } from "@/lib/vitals";
 import { LINK_HOURS, newTeleconsultationToken } from "@/lib/teleconsulta";
@@ -149,29 +150,39 @@ export async function addAddendum(encounterId: string, formData: FormData) {
   revalidatePath(`/pacientes/${encounter.patientId}/atendimentos/${encounter.id}`);
 }
 
-// Emite receita, atestado, pedido de exame ou relatório dentro do atendimento.
-// Só o profissional do atendimento emite; depois de emitido não muda mais.
-export async function issueDocument(encounterId: string, formData: FormData) {
-  const user = await requireUser("pacientes");
-  const encounter = await prisma.encounter.findFirst({ where: { id: encounterId, clinicId: user.clinicId } });
-  if (!encounter || !canViewClinical(user) || encounter.professionalId !== user.id) throw new Error("Sem permissão");
-
-  const type = documentTypes.find((t) => t === formData.get("type"));
+// Lê o documento do formulário: texto livre (receita, atestado...) ou campos do laudo do SUS.
+function readDocument(formData: FormData, allowed: readonly DocumentType[]) {
+  const type = allowed.find((t) => t === formData.get("type"));
+  if (!type) return { error: "Escolha o tipo de documento." };
+  if (isLaudo(type)) {
+    const { values, missing } = parseLaudo(type, formData);
+    if (missing.length) return { error: `Preencha: ${missing.join(", ")}.` };
+    return { doc: { type, body: laudoText(type, values), fields: values } };
+  }
   const body = String(formData.get("body") ?? "").trim();
-  if (!type || !body) return;
+  if (!body) return { error: "Escreva o texto do documento." };
+  return { doc: { type, body, fields: null } };
+}
 
+async function saveDocument(
+  user: { id: string; clinicId: string },
+  patientId: string,
+  encounterId: string | null,
+  doc: { type: DocumentType; body: string; fields: LaudoValues | null },
+) {
   const id = randomUUID();
   const createdAt = new Date();
-  const contentHash = documentHash({ id, patientId: encounter.patientId, authorId: user.id, type, body, createdAt });
+  const contentHash = documentHash({ id, patientId, authorId: user.id, createdAt, ...doc });
   await prisma.clinicalDocument.create({
     data: {
       id,
       clinicId: user.clinicId,
       encounterId,
-      patientId: encounter.patientId,
+      patientId,
       authorId: user.id,
-      type,
-      body,
+      type: doc.type,
+      body: doc.body,
+      fields: doc.fields ?? Prisma.DbNull,
       createdAt,
       contentHash,
     },
@@ -182,8 +193,35 @@ export async function issueDocument(encounterId: string, formData: FormData) {
     action: "DOCUMENTO_EMITIDO",
     entity: "ClinicalDocument",
     entityId: id,
-    patientId: encounter.patientId,
-    details: { type, contentHash },
+    patientId,
+    details: { type: doc.type, contentHash, ...(!encounterId && { semAtendimento: true }) },
   });
+}
+
+// Emite receita, atestado, pedido de exame, relatório ou laudo do SUS dentro do atendimento.
+// Só o profissional do atendimento emite; depois de emitido não muda mais.
+export async function issueDocument(encounterId: string, formData: FormData): Promise<{ error?: string }> {
+  const user = await requireUser("pacientes");
+  const encounter = await prisma.encounter.findFirst({ where: { id: encounterId, clinicId: user.clinicId } });
+  if (!encounter || !canViewClinical(user) || encounter.professionalId !== user.id) throw new Error("Sem permissão");
+
+  const { doc, error } = readDocument(formData, documentTypes);
+  if (!doc) return { error };
+  await saveDocument(user, encounter.patientId, encounter.id, doc);
   revalidatePath(`/pacientes/${encounter.patientId}/atendimentos/${encounter.id}`);
+  return {};
+}
+
+// Laudo do SUS (APAC, AIH, LME) emitido direto pela ficha do paciente, sem abrir atendimento.
+export async function issueLaudo(patientId: string, formData: FormData): Promise<{ error?: string }> {
+  const user = await requireUser("pacientes");
+  if (!canViewClinical(user)) throw new Error("Sem permissão");
+  const patient = await prisma.patient.findFirst({ where: { id: patientId, clinicId: user.clinicId } });
+  if (!patient) throw new Error("Paciente não encontrado");
+
+  const { doc, error } = readDocument(formData, LAUDO_TYPES);
+  if (!doc) return { error };
+  await saveDocument(user, patientId, null, doc);
+  revalidatePath(`/pacientes/${patientId}`);
+  redirect(`/pacientes/${patientId}#laudos`);
 }

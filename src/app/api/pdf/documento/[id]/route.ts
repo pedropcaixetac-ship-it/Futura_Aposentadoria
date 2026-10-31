@@ -5,8 +5,7 @@ import { audit } from "@/lib/audit";
 import { canViewClinical } from "@/lib/permissions";
 import { hasTab } from "@/lib/tabs";
 import { documentTypeLabel } from "@/lib/documents";
-import { buildPdf } from "@/lib/pdf";
-import { documentPdfInput, pdfFileName } from "@/lib/pdf-content";
+import { documentPdf, pdfFileName } from "@/lib/pdf-content";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
@@ -19,7 +18,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   });
   if (!doc) return new NextResponse("Documento não encontrado", { status: 404 });
 
-  const bytes = await buildPdf(documentPdfInput(user.clinic.name, doc));
+  const bytes = await documentPdf(user.clinic.name, doc);
   await audit({
     clinicId: user.clinicId,
     userId: user.id,

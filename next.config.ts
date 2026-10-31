@@ -15,6 +15,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Formulários oficiais em branco dos laudos do SUS, lidos ao gerar o PDF (ver src/lib/laudo-pdf.ts).
+  outputFileTracingIncludes: { "/**": ["./src/lib/laudos-modelos/*.pdf"] },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

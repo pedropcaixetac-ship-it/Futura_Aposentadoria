@@ -101,3 +101,24 @@ test("busca de paciente não liga para acentos nem maiúsculas", async () => {
   assert.equal(await find("ze angelo"), 1);
   assert.equal(await find("maria"), 0);
 });
+
+test("laudo do SUS pode ser emitido sem atendimento e também não muda depois", async () => {
+  const clinic = await testClinic();
+  const professional = await prisma.user.create({
+    data: { clinicId: clinic.id, name: "Teste", email: "t@t.com", passwordHash: "-", role: "PROFISSIONAL" },
+  });
+  const patient = await prisma.patient.create({ data: { clinicId: clinic.id, name: "Paciente Teste" } });
+  const doc = await prisma.clinicalDocument.create({
+    data: {
+      clinicId: clinic.id,
+      patientId: patient.id,
+      authorId: professional.id,
+      type: "APAC",
+      body: "Laudo",
+      fields: { pacienteNome: "Paciente Teste" },
+      contentHash: "-",
+    },
+  });
+  assert.equal(doc.encounterId, null);
+  await assert.rejects(prisma.clinicalDocument.update({ where: { id: doc.id }, data: { fields: {} } }), /não podem ser alterados/);
+});

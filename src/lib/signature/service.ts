@@ -4,7 +4,7 @@ import { audit } from "../audit";
 import { formatCpf, formatDateTime } from "../format";
 import { documentTypeLabel } from "../documents";
 import { buildPdf } from "../pdf";
-import { documentPdfInput, encounterPdfInput, recordPdfInput } from "../pdf-content";
+import { documentPdf, encounterPdfInput, recordPdfInput } from "../pdf-content";
 import { loadRecordForPdf } from "../prontuario";
 import { canViewClinical } from "../permissions";
 import type { CurrentUser } from "../auth";
@@ -40,7 +40,8 @@ async function loadTarget(user: CurrentUser, target: SignTarget) {
       back: `/pacientes/${record.patient.id}`,
       label: `Prontuário de ${record.patient.name}`,
       link: {},
-      input: recordPdfInput(user.clinic.name, record.patient, record.encounters, user),
+      render: (stamp: string[]) =>
+        buildPdf({ ...recordPdfInput(user.clinic.name, record.patient, record.encounters, user, record.documents), signatureStamp: stamp }),
     };
   }
   if (target.kind === "atendimento") {
@@ -60,7 +61,7 @@ async function loadTarget(user: CurrentUser, target: SignTarget) {
       back: `/pacientes/${encounter.patientId}/atendimentos/${encounter.id}`,
       label: `Atendimento de ${encounter.patient.name}`,
       link: { encounterId: encounter.id },
-      input: encounterPdfInput(user.clinic.name, encounter),
+      render: (stamp: string[]) => buildPdf({ ...encounterPdfInput(user.clinic.name, encounter), signatureStamp: stamp }),
     };
   }
   const doc = await prisma.clinicalDocument.findFirst({
@@ -71,10 +72,10 @@ async function loadTarget(user: CurrentUser, target: SignTarget) {
   return {
     already: !!doc.signedPdf,
     patientId: doc.patientId,
-    back: `/pacientes/${doc.patientId}/atendimentos/${doc.encounterId}`,
+    back: doc.encounterId ? `/pacientes/${doc.patientId}/atendimentos/${doc.encounterId}` : `/pacientes/${doc.patientId}`,
     label: `${documentTypeLabel[doc.type]} de ${doc.patient.name}`,
     link: { documentId: doc.id },
-    input: documentPdfInput(user.clinic.name, doc),
+    render: (stamp: string[]) => documentPdf(user.clinic.name, doc, stamp),
   };
 }
 
@@ -108,7 +109,7 @@ export async function signTarget(user: CurrentUser, target: SignTarget, provider
     `Em ${formatDateTime(signedAt)} · Certificado em nuvem ${providerLabel[provider]} · Série ${holder.serial}`,
     "Confira a assinatura em validar.iti.gov.br",
   ];
-  const unsigned = await buildPdf({ ...t.input, signatureStamp: stamp });
+  const unsigned = await t.render(stamp);
   const pdf = await signPdf(unsigned, holder.name, signer.chain, signer.sign);
 
   const saved = await prisma.signedPdf.create({
