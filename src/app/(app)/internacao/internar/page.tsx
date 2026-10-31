@@ -6,7 +6,7 @@ import { canViewClinical } from "@/lib/permissions";
 import { compareBedCodes } from "@/lib/internacao";
 import { AdmitForm } from "./admit-form";
 
-export default async function AdmitPage({ searchParams }: { searchParams: Promise<{ leito?: string; paciente?: string }> }) {
+export default async function AdmitPage({ searchParams }: { searchParams: Promise<{ leito?: string; paciente?: string; origem?: string }> }) {
   const user = await requireUser("internacao");
   const params = await searchParams;
 
@@ -42,6 +42,7 @@ export default async function AdmitPage({ searchParams }: { searchParams: Promis
           defaultAttending={professionals.some((p) => p.id === user.id) ? user.id : ""}
           patient={patient}
           showCid={canViewClinical(user)}
+          defaultOrigin={params.origem === "ps" ? "Pronto-socorro" : ""}
         />
       )}
     </div>

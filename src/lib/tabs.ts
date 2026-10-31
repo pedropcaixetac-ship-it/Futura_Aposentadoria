@@ -7,6 +7,7 @@ import { canManageCharges, canManageTemplates, canViewClinical, canWorkClinical,
 export type TabKey =
   | "recepcao"
   | "atender"
+  | "pronto-socorro"
   | "internacao"
   | "leitos"
   | "visitas"
@@ -62,6 +63,15 @@ export const TABS: Tab[] = [
     description: "Sala de espera e agenda do dia do próprio profissional, de onde ele inicia o atendimento.",
     defaultRoles: allRoles,
     blockedReason: (u) => (canWorkClinical(u) ? null : "Só para profissionais de saúde."),
+  },
+  {
+    key: "pronto-socorro",
+    label: "Pronto-socorro",
+    href: "/pronto-socorro",
+    description: "Chegada dos pacientes, triagem com classificação de risco pela enfermagem e fila do médico.",
+    // Quem faz o quê dentro do PS (recepção, triagem, médico) segue o registro profissional; os perfis finos vêm depois.
+    defaultRoles: allRoles,
+    hospital: true,
   },
   {
     key: "internacao",

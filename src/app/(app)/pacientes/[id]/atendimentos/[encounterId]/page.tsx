@@ -50,6 +50,7 @@ export default async function EncounterPage({
       template: true,
       teleconsultation: true,
       appointment: { select: { id: true } },
+      emergencyVisit: { select: { id: true } },
       addenda: { include: { author: true }, orderBy: { createdAt: "asc" } },
       signedPdf: { select: { id: true, signerName: true, signedAt: true, provider: true } },
       documents: { include: { author: true, signedPdf: { select: { id: true, signerName: true, signedAt: true, provider: true } } }, orderBy: { createdAt: "asc" } },
@@ -123,7 +124,9 @@ export default async function EncounterPage({
     <div className={editable ? "space-y-4" : "mx-auto max-w-3xl space-y-4"}>
       <div className="no-print flex items-center justify-between">
         {/* Atendimento aberto pela aba Atender volta para ela; os demais, para o prontuário. */}
-        {encounter.admissionId && hasTab(user, "internacao") ? (
+        {encounter.emergencyVisit && hasTab(user, "pronto-socorro") ? (
+          <Link href={`/pronto-socorro/${encounter.emergencyVisit.id}`} className="text-sm text-marinho-700 hover:underline">← Voltar para o pronto-socorro</Link>
+        ) : encounter.admissionId && hasTab(user, "internacao") ? (
           <Link href={`/internacao/${encounter.admissionId}`} className="text-sm text-marinho-700 hover:underline">← Voltar para a internação</Link>
         ) : encounter.appointment && encounter.professionalId === user.id && hasTab(user, "atender") ? (
           <Link href="/atender" className="text-sm text-marinho-700 hover:underline">← Voltar para {user.institution === "HOSPITAL" ? "Ambulatório" : "Atender"}</Link>

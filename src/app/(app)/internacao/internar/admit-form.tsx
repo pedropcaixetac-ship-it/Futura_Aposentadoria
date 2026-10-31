@@ -15,6 +15,8 @@ type Props = {
   patient: PatientOption | null;
   // CID só para quem tem acesso ao conteúdo clínico.
   showCid: boolean;
+  // Veio do desfecho do pronto-socorro: origem já preenchida.
+  defaultOrigin?: string;
 };
 
 // Data e hora de agora em Brasília, no formato do campo datetime-local.
@@ -22,7 +24,7 @@ function nowLocal() {
   return new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 16);
 }
 
-export function AdmitForm({ freeBeds, defaultBed, professionals, defaultAttending, patient: initialPatient, showCid }: Props) {
+export function AdmitForm({ freeBeds, defaultBed, professionals, defaultAttending, patient: initialPatient, showCid, defaultOrigin = "" }: Props) {
   const [state, formAction, pending] = useActionState(admitPatient, { error: "" });
   const [patient, setPatient] = useState(initialPatient);
   const [newPatient, setNewPatient] = useState(false);
@@ -141,7 +143,7 @@ export function AdmitForm({ freeBeds, defaultBed, professionals, defaultAttendin
         </div>
         <div>
           <label className="label" htmlFor="origin">Veio de</label>
-          <select className="input" id="origin" name="origin" defaultValue="" required>
+          <select className="input" id="origin" name="origin" defaultValue={defaultOrigin} required>
             <option value="" disabled>Escolha</option>
             {ADMISSION_ORIGINS.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>

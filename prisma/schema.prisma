@@ -186,6 +186,7 @@ model Clinic {
   visits           Visit[]
   vitalRecords     VitalRecord[]
   fluidEntries     FluidEntry[]
+  emergencyVisits  EmergencyVisit[]
 }
 
 model User {
@@ -290,6 +291,10 @@ model User {
   vitalRecordsCanceled VitalRecord[]      @relation("VitalCanceler")
   fluidEntries        FluidEntry[]        @relation("FluidRecorder")
   fluidEntriesCanceled FluidEntry[]       @relation("FluidCanceler")
+  emergencyRegistered  EmergencyVisit[]   @relation("EmergencyRegistrar")
+  emergencyTriaged     EmergencyVisit[]   @relation("EmergencyTriager")
+  emergencyAttended    EmergencyVisit[]   @relation("EmergencyDoctor")
+  emergencyClosed      EmergencyVisit[]   @relation("EmergencyCloser")
 }
 
 model Session {
@@ -399,6 +404,7 @@ model Patient {
   claims       InsuranceClaim[]
   appSessions  PatientSession[]
   admissions   Admission[]
+  emergencyVisits EmergencyVisit[]
 
   @@unique([clinicId, cpf])
   @@unique([clinicId, cns])
@@ -465,6 +471,7 @@ model Encounter {
   signedPdf   SignedPdf?
   teleconsultation Teleconsultation?
   claims      InsuranceClaim[]
+  emergencyVisit EmergencyVisit?
 
   @@index([clinicId, patientId, startedAt])
   @@index([admissionId])
@@ -1499,4 +1506,68 @@ model FluidEntry {
   cancelReason String?
 
   @@index([admissionId, at])
+}
+
+// ---- Pronto-socorro (hospital) ----
+
+// Classificação de risco na triagem (cores do Protocolo de Manchester).
+enum RiskLevel {
+  VERMELHO
+  LARANJA
+  AMARELO
+  VERDE
+  AZUL
+}
+
+enum EmergencyStatus {
+  AGUARDANDO_TRIAGEM
+  AGUARDANDO_MEDICO
+  EM_ATENDIMENTO
+  OBSERVACAO
+  ENCERRADO
+}
+
+enum EmergencyOutcome {
+  ALTA
+  INTERNACAO
+  TRANSFERENCIA
+  OBITO
+  EVASAO
+}
+
+// Uma passagem do paciente pelo pronto-socorro: chegada (recepção), triagem (enfermagem),
+// atendimento (médico) e desfecho. Só uma passagem aberta por paciente.
+model EmergencyVisit {
+  id             String           @id @default(cuid())
+  clinicId       String
+  clinic         Clinic           @relation(fields: [clinicId], references: [id])
+  patientId      String
+  patient        Patient          @relation(fields: [patientId], references: [id])
+  arrivedAt      DateTime         @default(now())
+  complaint      String
+  arrivalMode    String?
+  companion      String?
+  registeredById String
+  registeredBy   User             @relation("EmergencyRegistrar", fields: [registeredById], references: [id])
+  status         EmergencyStatus  @default(AGUARDANDO_TRIAGEM)
+  risk           RiskLevel?
+  triagedAt      DateTime?
+  triagedById    String?
+  triagedBy      User?            @relation("EmergencyTriager", fields: [triagedById], references: [id])
+  triageVitals   Json?
+  pain           Int?
+  triageNote     String?
+  calledAt       DateTime?
+  doctorId       String?
+  doctor         User?            @relation("EmergencyDoctor", fields: [doctorId], references: [id])
+  encounterId    String?          @unique
+  encounter      Encounter?       @relation(fields: [encounterId], references: [id])
+  outcome        EmergencyOutcome?
+  closedAt       DateTime?
+  closedById     String?
+  closedBy       User?            @relation("EmergencyCloser", fields: [closedById], references: [id])
+  closeNote      String?
+
+  @@index([clinicId, status])
+  @@index([clinicId, arrivedAt])
 }
