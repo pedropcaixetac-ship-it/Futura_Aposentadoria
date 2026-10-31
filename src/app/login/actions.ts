@@ -83,7 +83,7 @@ export async function login(_: LoginState, formData: FormData): Promise<LoginSta
 
   if (!clinic || !user || !ok) {
     if (clinic) await audit({ clinicId: clinic.id, userId: user?.id, action: "LOGIN_FALHOU", entity: "User", details: { login: loginId } });
-    return { error: "Clínica, login ou senha incorretos." };
+    return { error: "Instituição, login ou senha incorretos." };
   }
 
   const blocked = clinicBlocked(clinic);
@@ -91,8 +91,8 @@ export async function login(_: LoginState, formData: FormData): Promise<LoginSta
     await audit({ clinicId: clinic.id, userId: user.id, action: "LOGIN_FALHOU", entity: "User", details: { login: loginId, motivo: `clínica ${blocked}` } });
     return {
       error: blocked === "atrasada"
-        ? "O acesso desta clínica foi suspenso por mensalidade em atraso. Fale com o suporte do sistema."
-        : "O acesso desta clínica está suspenso. Fale com o suporte do sistema.",
+        ? "O acesso desta instituição foi suspenso por mensalidade em atraso. Fale com o suporte do sistema."
+        : "O acesso desta instituição está suspenso. Fale com o suporte do sistema.",
     };
   }
 

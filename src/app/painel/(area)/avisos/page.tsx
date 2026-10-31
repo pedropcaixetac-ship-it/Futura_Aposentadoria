@@ -26,9 +26,9 @@ export default async function PlatformNoticesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-marinho-800">Avisos para as clínicas</h1>
+        <h1 className="text-2xl font-semibold text-marinho-800">Avisos para as instituições</h1>
         <p className="text-sm text-slate-600">
-          O aviso aparece no alto do sistema de cada pessoa da clínica até ela clicar em &quot;Entendi&quot; ou até a data de fim.
+          O aviso aparece no alto do sistema de cada pessoa da instituição até ela clicar em &quot;Entendi&quot; ou até a data de fim.
           Use para manutenção programada, novidades do sistema ou recados importantes.
         </p>
       </div>
@@ -54,9 +54,9 @@ export default async function PlatformNoticesPage() {
           </div>
           <div className="grid gap-4 sm:grid-cols-4">
             <div>
-              <label className="label" htmlFor="clinicId">Para qual clínica</label>
+              <label className="label" htmlFor="clinicId">Para qual instituição</label>
               <select className="input" id="clinicId" name="clinicId" defaultValue="">
-                <option value="">Todas as clínicas</option>
+                <option value="">Todas as instituições</option>
                 {clinics.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
@@ -94,7 +94,7 @@ export default async function PlatformNoticesPage() {
               </div>
               <p className="whitespace-pre-line text-sm text-slate-700">{n.body}</p>
               <p className="text-xs text-slate-500">
-                {n.clinic?.name ?? "Todas as clínicas"} · {NOTICE_AUDIENCES[n.audience as NoticeAudience] ?? n.audience} ·
+                {n.clinic?.name ?? "Todas as instituições"} · {NOTICE_AUDIENCES[n.audience as NoticeAudience] ?? n.audience} ·
                 de {formatDateTime(n.startsAt)} {n.endsAt ? `até ${formatDateTime(n.endsAt)}` : "sem data de fim"} ·
                 por {n.createdBy.name} · {n._count.dismissals} pessoa{n._count.dismissals === 1 ? "" : "s"} já leu
               </p>

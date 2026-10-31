@@ -38,7 +38,7 @@ function PlanForm({ id, plan }: { id: string | null; plan?: PlanFields }) {
       </fieldset>
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" name="active" defaultChecked={plan?.active ?? true} />
-        Disponível para novas clínicas
+        Disponível para novas instituições
       </label>
     </ActionForm>
   );
@@ -59,7 +59,7 @@ export default async function PlansPage() {
               {p.name} {!p.active && <span className="text-xs font-normal text-slate-500">(não oferecido)</span>}
             </h2>
             <p className="text-sm text-slate-600">
-              {formatMoney(p.priceCents)}/mês · {p.maxUsers ? `até ${p.maxUsers} usuários` : "usuários sem limite"} · {p._count.clinics} clínica{p._count.clinics === 1 ? "" : "s"}
+              {formatMoney(p.priceCents)}/mês · {p.maxUsers ? `até ${p.maxUsers} usuários` : "usuários sem limite"} · {p._count.clinics} {p._count.clinics === 1 ? "instituição" : "instituições"}
             </p>
           </div>
           <PlanForm id={p.id} plan={p} />

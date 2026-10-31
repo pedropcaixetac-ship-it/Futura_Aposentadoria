@@ -37,7 +37,7 @@ export default async function ProblemsPage({ searchParams }: { searchParams: Pro
       <div>
         <h1 className="text-2xl font-semibold text-marinho-800">Problemas</h1>
         <p className="text-sm text-slate-500">
-          Erros registrados automaticamente e relatos enviados pelas clínicas. O mesmo erro repetido aparece uma vez só, com o número de vezes.
+          Erros registrados automaticamente e relatos enviados pelas instituições. O mesmo erro repetido aparece uma vez só, com o número de vezes.
         </p>
       </div>
 

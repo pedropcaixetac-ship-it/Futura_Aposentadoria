@@ -45,7 +45,7 @@ export default async function ClinicPage({ params, searchParams }: { params: Pro
 
   return (
     <div className="space-y-6">
-      <Link href="/painel" className="text-sm text-marinho-600 hover:underline">← Clínicas</Link>
+      <Link href="/painel" className="text-sm text-marinho-600 hover:underline">← Instituições</Link>
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-semibold text-marinho-800">{clinic.name}</h1>
         {clinic.kind === "HOSPITAL" && <span className="rounded-full bg-marinho-100 px-2 py-0.5 text-xs text-marinho-800">Hospital</span>}
@@ -56,7 +56,7 @@ export default async function ClinicPage({ params, searchParams }: { params: Pro
 
       {criada && (
         <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-          Clínica cadastrada. Passe ao gerente o código <strong className="font-mono">{clinic.slug}</strong>, o e-mail e a senha inicial.
+          Instituição cadastrada. Passe ao gerente o código <strong className="font-mono">{clinic.slug}</strong>, o e-mail e a senha inicial.
         </p>
       )}
 
@@ -68,7 +68,7 @@ export default async function ClinicPage({ params, searchParams }: { params: Pro
       </div>
 
       <section className="card space-y-3">
-        <h2 className="border-b border-dourado-300 pb-2 font-semibold text-marinho-800">Gerentes do sistema da clínica</h2>
+        <h2 className="border-b border-dourado-300 pb-2 font-semibold text-marinho-800">Gerentes do sistema da instituição</h2>
         {managers.length === 0 && <p className="text-sm text-slate-500">Nenhum gerente ativo.</p>}
         <ul className="divide-y divide-slate-100 text-sm">
           {managers.map((m) => (
@@ -79,7 +79,7 @@ export default async function ClinicPage({ params, searchParams }: { params: Pro
           ))}
         </ul>
         <p className="text-xs text-slate-500">
-          A equipe da empresa não vê pacientes nem prontuários. Para ajudar a clínica, fale com o gerente.
+          A equipe da empresa não vê pacientes nem prontuários. Para ajudar a instituição, fale com o gerente.
         </p>
       </section>
 
@@ -137,7 +137,7 @@ export default async function ClinicPage({ params, searchParams }: { params: Pro
               <input className="input" id="notes" name="notes" placeholder="Opcional" />
             </div>
           </div>
-          <p className="text-xs text-slate-500">Recebeu o Pix ou o boleto? Registrar estende o &quot;pago até&quot; em um mês e libera a clínica se estava bloqueada.</p>
+          <p className="text-xs text-slate-500">Recebeu o Pix ou o boleto? Registrar estende o &quot;pago até&quot; em um mês e libera a instituição se estava bloqueada.</p>
         </ActionForm>
 
         <div className="space-y-2">
@@ -188,18 +188,18 @@ export default async function ClinicPage({ params, searchParams }: { params: Pro
             <input className="input" id="paidUntil" name="paidUntil" type="date" defaultValue={clinic.paidUntil?.toISOString().slice(0, 10) ?? ""} />
           </div>
           <p className="text-xs text-slate-500">
-            Data vazia: a mensalidade não é controlada. Com data, o gerente da clínica é avisado 5 dias antes e o acesso é
+            Data vazia: a mensalidade não é controlada. Com data, o gerente da instituição é avisado 5 dias antes e o acesso é
             suspenso sozinho {GRACE_DAYS} dias depois do vencimento.
           </p>
         </ActionForm>
       </section>
 
       <section className="card space-y-3">
-        <h2 className="border-b border-dourado-300 pb-2 font-semibold text-marinho-800">Acesso da clínica</h2>
+        <h2 className="border-b border-dourado-300 pb-2 font-semibold text-marinho-800">Acesso da instituição</h2>
         {clinic.active ? (
           <ActionForm action={suspendClinic.bind(null, clinic.id)} submitLabel="Suspender acesso" resetOnSuccess={false} className="space-y-3">
             <p className="text-sm text-slate-600">
-              Suspender tira todos da clínica do sistema na hora. Nada é apagado: ao reativar, tudo volta como estava.
+              Suspender tira todos da instituição do sistema na hora. Nada é apagado: ao reativar, tudo volta como estava.
             </p>
             <div>
               <label className="label" htmlFor="reason">Motivo</label>
@@ -217,7 +217,7 @@ export default async function ClinicPage({ params, searchParams }: { params: Pro
       </section>
 
       <section className="card space-y-3">
-        <h2 className="border-b border-dourado-300 pb-2 font-semibold text-marinho-800">O que a empresa fez nesta clínica</h2>
+        <h2 className="border-b border-dourado-300 pb-2 font-semibold text-marinho-800">O que a empresa fez nesta instituição</h2>
         <ul className="divide-y divide-slate-100 text-sm">
           {history.map((h) => (
             <li key={h.id} className="py-2">

@@ -18,8 +18,8 @@ export function suggestSlug(name: string) {
 }
 
 export function slugError(slug: string) {
-  if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)) return "O código da clínica só pode ter letras minúsculas sem acento, números e hífen.";
-  if (slug.length < 3 || slug.length > 30) return "O código da clínica precisa ter de 3 a 30 caracteres.";
+  if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)) return "O código da instituição só pode ter letras minúsculas sem acento, números e hífen.";
+  if (slug.length < 3 || slug.length > 30) return "O código da instituição precisa ter de 3 a 30 caracteres.";
   if (RESERVED_SLUGS.includes(slug)) return "Este código é reservado pelo sistema. Escolha outro.";
   return null;
 }
@@ -51,8 +51,8 @@ const email = (formData: FormData, key: string) => text(formData, key)?.toLowerC
 export type InstitutionKind = "CLINICA" | "HOSPITAL";
 
 export const INSTITUTION_KINDS: { key: InstitutionKind; label: string; hint: string }[] = [
-  { key: "CLINICA", label: "Clínica", hint: "Consultório ou clínica: atendimento, agenda e gestão (financeiro, contabilidade...)." },
-  { key: "HOSPITAL", label: "Hospital", hint: "Parte clínica (agenda, atender, recepção, modelos, textos) e setores hospitalares, sem a gestão da clínica." },
+  { key: "CLINICA", label: "Clínica", hint: "Consultório ou clínica." },
+  { key: "HOSPITAL", label: "Hospital", hint: "Tudo o que a clínica tem e mais os setores hospitalares (internação, leitos, visitas...)." },
 ];
 
 export type ClinicInput = {
@@ -85,13 +85,13 @@ export function parseClinic(formData: FormData): ClinicInput {
 const looksLikeEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
 export function validateClinic(input: ClinicInput) {
-  if (!input.name) return "Informe o nome da clínica.";
+  if (!input.name) return "Informe o nome da instituição.";
   const slug = slugError(input.slug);
   if (slug) return slug;
   if (input.cnpj && !(input.cnpj.length === 14 ? isValidCnpj(input.cnpj) : isValidCpf(input.cnpj))) {
-    return "Confira o CNPJ (ou o CPF, se a clínica for de pessoa física).";
+    return "Confira o CNPJ (ou o CPF, se a instituição for de pessoa física).";
   }
-  if (!input.contactName) return "Informe o nome do responsável pela clínica.";
+  if (!input.contactName) return "Informe o nome do responsável pela instituição.";
   if (input.contactEmail && !looksLikeEmail(input.contactEmail)) return "Confira o e-mail do responsável.";
   return null;
 }
@@ -109,7 +109,7 @@ export function parseManager(formData: FormData): ManagerInput {
 }
 
 export function validateManager(input: ManagerInput) {
-  if (!input.name) return "Informe o nome do gerente do sistema da clínica.";
+  if (!input.name) return "Informe o nome do gerente do sistema da instituição.";
   if (!looksLikeEmail(input.email)) return "Informe um e-mail válido para o gerente entrar no sistema.";
   if (input.cpf && !isValidCpf(input.cpf)) return "Confira o CPF do gerente.";
   if (input.password.length < 8) return "A senha inicial do gerente precisa ter pelo menos 8 caracteres.";
@@ -142,16 +142,16 @@ export const platformActionLabel: Record<string, string> = {
   PAINEL_LOGIN: "Entrou no painel",
   PAINEL_LOGIN_FALHOU: "Tentativa de entrar no painel falhou",
   PAINEL_LOGOUT: "Saiu do painel",
-  CLINICA_CRIADA: "Cadastrou clínica",
-  CLINICA_ALTERADA: "Alterou dados da clínica",
-  CLINICA_SUSPENSA: "Suspendeu o acesso da clínica",
-  CLINICA_REATIVADA: "Reativou o acesso da clínica",
+  CLINICA_CRIADA: "Cadastrou instituição",
+  CLINICA_ALTERADA: "Alterou dados da instituição",
+  CLINICA_SUSPENSA: "Suspendeu o acesso da instituição",
+  CLINICA_REATIVADA: "Reativou o acesso da instituição",
   PLANO_CRIADO: "Criou plano",
   PLANO_ALTERADO: "Alterou plano",
-  CLINICA_PLANO: "Mudou o plano ou o vencimento da clínica",
+  CLINICA_PLANO: "Mudou o plano ou o vencimento da instituição",
   PAGAMENTO_REGISTRADO: "Registrou pagamento da mensalidade",
   PAGAMENTO_DESFEITO: "Desfez pagamento da mensalidade",
-  AVISO_CRIADO: "Publicou aviso para as clínicas",
+  AVISO_CRIADO: "Publicou aviso para as instituições",
   AVISO_ENCERRADO: "Tirou aviso do ar",
   PROBLEMA_RESOLVIDO: "Marcou problema como resolvido",
   PROBLEMA_REABERTO: "Reabriu problema",

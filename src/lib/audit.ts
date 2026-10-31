@@ -43,6 +43,8 @@ export const auditActionLabel: Record<string, string> = {
   INTERNACAO_LEITO_TROCADO: "Trocou paciente de leito",
   INTERNACAO_ALTA: "Deu alta da internação",
   LEITOS_ALTERADOS: "Alterou alas e leitos",
+  VISITA_ENTRADA: "Registrou entrada de visita",
+  VISITA_SAIDA: "Registrou saída de visita",
   BLOQUEIO_CRIADO: "Bloqueou horário na agenda",
   BLOQUEIO_EXCLUIDO: "Excluiu bloqueio da agenda",
   COBRANCA_CRIADA: "Lançou cobrança",

@@ -12,7 +12,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 md:px-8">
           <Link href="/painel" className="font-semibold text-dourado-300">Painel do dono do sistema</Link>
           <nav className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-marinho-100">
-            <Link href="/painel" className="hover:text-dourado-300">Clínicas</Link>
+            <Link href="/painel" className="hover:text-dourado-300">Instituições</Link>
             <Link href="/painel/planos" className="hover:text-dourado-300">Planos</Link>
             <Link href="/painel/financeiro" className="hover:text-dourado-300">Financeiro</Link>
             <Link href="/painel/avisos" className="hover:text-dourado-300">Avisos</Link>
@@ -37,7 +37,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
         <div className="bg-amber-50 text-sm text-amber-800">
           <div className="mx-auto max-w-6xl px-4 py-2 md:px-8">
             Proteja o painel: ligue a verificação em duas etapas em{" "}
-            <Link href="/painel/minha-conta" className="font-medium underline">Minha conta</Link>. Quem entra aqui controla todas as clínicas.
+            <Link href="/painel/minha-conta" className="font-medium underline">Minha conta</Link>. Quem entra aqui controla todas as instituições.
           </div>
         </div>
       )}

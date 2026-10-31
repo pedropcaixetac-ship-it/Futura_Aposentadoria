@@ -50,7 +50,7 @@ export async function createClinic(_: FormState, formData: FormData): Promise<Fo
       return created.id;
     });
   } catch (e) {
-    if (duplicateSlug(e)) return { error: "Já existe uma clínica com este código. Escolha outro." };
+    if (duplicateSlug(e)) return { error: "Já existe uma instituição com este código. Escolha outro." };
     throw e;
   }
 
@@ -62,7 +62,7 @@ export async function createClinic(_: FormState, formData: FormData): Promise<Fo
 export async function updateClinic(id: string, _: FormState, formData: FormData): Promise<FormState> {
   const owner = await requirePlatformUser();
   const before = await prisma.clinic.findUnique({ where: { id } });
-  if (!before) return { error: "Clínica não encontrada." };
+  if (!before) return { error: "Instituição não encontrada." };
   const clinic = parseClinic(formData);
   const error = validateClinic(clinic);
   if (error) return { error };
@@ -70,13 +70,13 @@ export async function updateClinic(id: string, _: FormState, formData: FormData)
   try {
     await prisma.clinic.update({ where: { id }, data: clinic });
   } catch (e) {
-    if (duplicateSlug(e)) return { error: "Já existe uma clínica com este código. Escolha outro." };
+    if (duplicateSlug(e)) return { error: "Já existe uma instituição com este código. Escolha outro." };
     throw e;
   }
   const changed = (Object.keys(clinic) as (keyof typeof clinic)[]).filter((k) => (before[k] ?? null) !== clinic[k]);
   await platformAudit({ userId: owner.id, action: "CLINICA_ALTERADA", clinicId: id, details: { camposAlterados: changed } });
   revalidatePath("/painel", "layout");
-  return { error: "", ok: "Dados da clínica salvos." };
+  return { error: "", ok: "Dados da instituição salvos." };
 }
 
 // Suspender tira todos da clínica do sistema na hora (falta de pagamento, fim de contrato...).
@@ -86,8 +86,8 @@ export async function suspendClinic(id: string, _: FormState, formData: FormData
   const reason = String(formData.get("reason") ?? "").trim();
   if (!reason) return { error: "Informe o motivo da suspensão." };
   const clinic = await prisma.clinic.findUnique({ where: { id } });
-  if (!clinic) return { error: "Clínica não encontrada." };
-  if (!clinic.active) return { error: "Esta clínica já está suspensa." };
+  if (!clinic) return { error: "Instituição não encontrada." };
+  if (!clinic.active) return { error: "Esta instituição já está suspensa." };
 
   await prisma.$transaction([
     prisma.clinic.update({ where: { id }, data: { active: false, suspendedAt: new Date(), suspendedReason: reason } }),
@@ -96,7 +96,7 @@ export async function suspendClinic(id: string, _: FormState, formData: FormData
   ]);
   await platformAudit({ userId: owner.id, action: "CLINICA_SUSPENSA", clinicId: id, details: { motivo: reason } });
   revalidatePath("/painel", "layout");
-  return { error: "", ok: "Acesso da clínica suspenso." };
+  return { error: "", ok: "Acesso da instituição suspenso." };
 }
 
 export async function reactivateClinic(id: string) {
@@ -153,7 +153,7 @@ export async function setClinicPlan(id: string, _: FormState, formData: FormData
 export async function registerPayment(id: string, _: FormState, formData: FormData): Promise<FormState> {
   const owner = await requirePlatformUser();
   const clinic = await prisma.clinic.findUnique({ where: { id }, include: { plan: true } });
-  if (!clinic) return { error: "Clínica não encontrada." };
+  if (!clinic) return { error: "Instituição não encontrada." };
   const amountCents = parseMoney(String(formData.get("amount") ?? "")) ?? clinic.plan?.priceCents ?? null;
   if (!amountCents || amountCents <= 0) return { error: "Informe o valor recebido." };
   const method = String(formData.get("method") ?? "pix");
