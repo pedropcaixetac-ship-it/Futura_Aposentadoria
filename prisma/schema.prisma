@@ -103,24 +103,24 @@ enum InstitutionKind {
 }
 
 model Clinic {
-  id                String   @id @default(cuid())
-  name              String
-  slug              String   @unique
-  kind              InstitutionKind @default(CLINICA)
-  createdAt         DateTime @default(now())
+  id                    String          @id @default(cuid())
+  name                  String
+  slug                  String          @unique
+  kind                  InstitutionKind @default(CLINICA)
+  createdAt             DateTime        @default(now())
   // Dados que aparecem no recibo.
-  cnpj              String?
-  address           String?
-  phone             String?
+  cnpj                  String?
+  address               String?
+  phone                 String?
   // Último número de recibo emitido (os recibos seguem uma sequência por clínica).
-  lastReceiptNumber Int      @default(0)
+  lastReceiptNumber     Int             @default(0)
   // Contabilidade: regime de impostos e contato do escritório de contabilidade.
-  taxRegime         String?
-  accountantName    String?
-  accountantEmail   String?
-  accountantPhone   String?
+  taxRegime             String?
+  accountantName        String?
+  accountantEmail       String?
+  accountantPhone       String?
   // Nota fiscal de serviço (NFS-e): quem emite e os dados fiscais da clínica.
-  invoiceIssuer         InvoiceIssuer @default(PROFISSIONAL)
+  invoiceIssuer         InvoiceIssuer   @default(PROFISSIONAL)
   municipalRegistration String?
   // Código IBGE da cidade onde o serviço é prestado (Goiânia: 5208707).
   cityIbgeCode          String?
@@ -128,94 +128,100 @@ model Clinic {
   serviceCode           String?
   issRateBasisPoints    Int?
   // Último número de DPS (pedido de nota) enviado pela clínica na emissão automática.
-  lastDpsNumber         Int           @default(0)
+  lastDpsNumber         Int             @default(0)
   // CNES: registro do estabelecimento no Ministério da Saúde, exigido nas guias dos convênios.
-  cnes              String?
+  cnes                  String?
   // Último número de guia de convênio emitido (as guias seguem uma sequência por clínica).
-  lastClaimNumber   Int      @default(0)
+  lastClaimNumber       Int             @default(0)
   // Último número de lote de guias enviado aos convênios.
-  lastBatchNumber   Int      @default(0)
+  lastBatchNumber       Int             @default(0)
   // Controle da empresa dona do sistema (Painel do dono). Clínica suspensa não consegue entrar.
-  active            Boolean   @default(true)
-  suspendedAt       DateTime?
-  suspendedReason   String?
+  active                Boolean         @default(true)
+  suspendedAt           DateTime?
+  suspendedReason       String?
   // Responsável pela clínica no contrato com a empresa (contato do suporte e da cobrança).
-  contactName       String?
-  contactEmail      String?
-  contactPhone      String?
+  contactName           String?
+  contactEmail          String?
+  contactPhone          String?
   // Plano contratado (módulos liberados) e último dia coberto pela mensalidade paga.
   // Sem plano, tudo fica liberado; sem data, a mensalidade não é controlada.
-  planId            String?
-  plan              Plan?     @relation(fields: [planId], references: [id])
-  paidUntil         DateTime? @db.Date
+  planId                String?
+  plan                  Plan?           @relation(fields: [planId], references: [id])
+  paidUntil             DateTime?       @db.Date
 
-  users          User[]
-  patients       Patient[]
-  templates      RecordTemplate[]
-  encounters     Encounter[]
-  auditLogs      AuditLog[]
-  priceItems     PriceItem[]
-  charges        Charge[]
-  expenses       Expense[]
-  purchases      Purchase[]
-  documents      ClinicalDocument[]
-  workHours      WorkHours[]
-  scheduleBlocks ScheduleBlock[]
-  appointments   Appointment[]
-  signedPdfs     SignedPdf[]
-  contracts      EmploymentContract[]
-  vacations      Vacation[]
-  payrollEntries PayrollEntry[]
-  obligations    TaxObligation[]
-  obligationDone ObligationEntry[]
+  users             User[]
+  patients          Patient[]
+  templates         RecordTemplate[]
+  encounters        Encounter[]
+  auditLogs         AuditLog[]
+  priceItems        PriceItem[]
+  charges           Charge[]
+  expenses          Expense[]
+  purchases         Purchase[]
+  documents         ClinicalDocument[]
+  workHours         WorkHours[]
+  scheduleBlocks    ScheduleBlock[]
+  appointments      Appointment[]
+  signedPdfs        SignedPdf[]
+  contracts         EmploymentContract[]
+  vacations         Vacation[]
+  payrollEntries    PayrollEntry[]
+  obligations       TaxObligation[]
+  obligationDone    ObligationEntry[]
   teleconsultations Teleconsultation[]
-  whatsappMessages WhatsappMessage[]
-  healthPlans    HealthPlan[]
-  claims         InsuranceClaim[]
-  claimBatches   ClaimBatch[]
-  claimItems     ClaimItem[]
-  claimAppeals   ClaimAppeal[]
-  problems       ProblemReport[]
-  serviceInvoices ServiceInvoice[]
-  platformPayments ClinicPayment[]
-  platformNotices  PlatformNotice[]
-  wards            Ward[]
-  beds             Bed[]
-  admissions       Admission[]
-  bedMovements     BedMovement[]
-  visits           Visit[]
-  vitalRecords     VitalRecord[]
-  fluidEntries     FluidEntry[]
-  emergencyVisits  EmergencyVisit[]
+  whatsappMessages  WhatsappMessage[]
+  healthPlans       HealthPlan[]
+  claims            InsuranceClaim[]
+  claimBatches      ClaimBatch[]
+  claimItems        ClaimItem[]
+  claimAppeals      ClaimAppeal[]
+  problems          ProblemReport[]
+  serviceInvoices   ServiceInvoice[]
+  platformPayments  ClinicPayment[]
+  platformNotices   PlatformNotice[]
+  wards             Ward[]
+  beds              Bed[]
+  admissions        Admission[]
+  bedMovements      BedMovement[]
+  visits            Visit[]
+  vitalRecords      VitalRecord[]
+  fluidEntries      FluidEntry[]
+  emergencyVisits   EmergencyVisit[]
   prescriptionItems PrescriptionItem[]
-  medicationChecks MedicationCheck[]
-  pharmacyProducts PharmacyProduct[]
-  stockMovements   StockMovement[]
-  mealDeliveries   MealDelivery[]
-  isolations       IsolationPrecaution[]
-  infections       HospitalInfection[]
-  chemoProtocols   ChemoProtocol[]
-  chemoPlans       ChemoPlan[]
-  chemoSessions    ChemoSession[]
-  operatingRooms   OperatingRoom[]
-  surgeries        Surgery[]
-  surgeryChecks    SurgeryChecklist[]
-  cmeKits          CmeKit[]
-  sterilizations   SterilizationLoad[]
-  sterilePackages  SterilePackage[]
-  examTypes        ExamType[]
-  examRequests     ExamRequest[]
+  medicationChecks  MedicationCheck[]
+  pharmacyProducts  PharmacyProduct[]
+  stockMovements    StockMovement[]
+  mealDeliveries    MealDelivery[]
+  isolations        IsolationPrecaution[]
+  infections        HospitalInfection[]
+  chemoProtocols    ChemoProtocol[]
+  chemoPlans        ChemoPlan[]
+  chemoSessions     ChemoSession[]
+  operatingRooms    OperatingRoom[]
+  surgeries         Surgery[]
+  surgeryChecks     SurgeryChecklist[]
+  cmeKits           CmeKit[]
+  sterilizations    SterilizationLoad[]
+  sterilePackages   SterilePackage[]
+  examTypes         ExamType[]
+  supplyItems       SupplyItem[]
+  supplyMovements   SupplyMovement[]
+  supplyRequests    SupplyRequest[]
+  supplyLines       SupplyRequestLine[]
+  equipments        Equipment[]
+  workOrders        WorkOrder[]
+  examRequests      ExamRequest[]
 }
 
 model User {
-  id                String    @id @default(cuid())
-  clinicId          String
-  clinic            Clinic    @relation(fields: [clinicId], references: [id])
-  name              String
+  id                    String    @id @default(cuid())
+  clinicId              String
+  clinic                Clinic    @relation(fields: [clinicId], references: [id])
+  name                  String
   // Vazio para quem não usa o sistema (ex.: equipe de limpeza).
-  email             String?
+  email                 String?
   // CPF só com números. Serve para entrar no sistema no lugar do e-mail.
-  cpf               String?
+  cpf                   String?
   // Identificação e contato do servidor, nos mesmos moldes do cadastro de paciente.
   socialName            String?
   birthDate             DateTime? @db.Date
@@ -236,87 +242,84 @@ model User {
   district              String?
   city                  String?
   state                 String?
-  passwordHash      String
+  passwordHash          String
   // Senha criada ou trocada pelo gerente: a pessoa cria a própria no próximo acesso.
-  mustChangePassword Boolean  @default(false)
+  mustChangePassword    Boolean   @default(false)
   // Verificação em duas etapas (Google Authenticator e similares). O segredo fica cifrado;
   // dos códigos de recuperação, só a impressão digital. totpLastStep impede usar o mesmo código duas vezes.
-  totpSecret        String?
-  totpEnabledAt     DateTime?
-  totpLastStep      Int?
-  totpRecoveryCodes String[]  @default([])
-  role              Role
+  totpSecret            String?
+  totpEnabledAt         DateTime?
+  totpLastStep          Int?
+  totpRecoveryCodes     String[]  @default([])
+  role                  Role
   // Registro no conselho profissional (CRM, CRP, CRN, CRO...), exigido no prontuário.
-  councilType       String?
-  councilNumber     String?
-  councilUf         String?
+  councilType           String?
+  councilNumber         String?
+  councilUf             String?
   // RQE: Registro de Qualificação de Especialista do médico (CRM). Pode ter mais de um, separados por vírgula.
-  rqe               String?
-  specialty         String?
+  rqe                   String?
+  specialty             String?
   // Setor onde a pessoa trabalha (ex.: Recepção, Consultório 2), mostrado na barra lateral.
-  sector            String?
+  sector                String?
   // Inscrição municipal do profissional que emite a própria nota como autônomo.
   municipalRegistration String?
   // Último número de DPS enviado pelo profissional que emite a própria nota (cada emissor tem a sua sequência).
-  lastDpsNumber     Int       @default(0)
+  lastDpsNumber         Int       @default(0)
   // Porcentagem do valor recebido que fica com o profissional (repasse).
-  commissionPercent Int?
+  commissionPercent     Int?
   // Função ou cargo mostrado no cadastro de servidores (ex.: Médica, Recepcionista).
-  jobTitle          String?
+  jobTitle              String?
   // Abas liberadas para a pessoa. Enquanto customTabs for false, valem as abas
   // padrão do perfil (ver src/lib/tabs.ts).
-  customTabs        Boolean   @default(false)
-  allowedTabs       String[]  @default([])
+  customTabs            Boolean   @default(false)
+  allowedTabs           String[]  @default([])
   // false para quem só está no cadastro da equipe e não entra no sistema.
-  systemAccess      Boolean   @default(true)
+  systemAccess          Boolean   @default(true)
   // false bloqueia o login. No desligamento a pessoa perde o acesso, mas continua
   // no cadastro, porque é a autora de atendimentos antigos do prontuário.
-  active            Boolean   @default(true)
-  terminatedAt      DateTime? @db.Date
-  terminationReason String?
-  createdAt         DateTime  @default(now())
+  active                Boolean   @default(true)
+  terminatedAt          DateTime? @db.Date
+  terminationReason     String?
+  createdAt             DateTime  @default(now())
 
-  sessions            Session[]
-  encounters          Encounter[]
-  addenda             Addendum[]
-  auditLogs           AuditLog[]
-  snippets            TextSnippet[]
-  templates           RecordTemplate[]
-  charges             Charge[]
-  documents           ClinicalDocument[]
-  workHours           WorkHours[]
-  scheduleBlocks      ScheduleBlock[]
-  appointments        Appointment[]      @relation("AppointmentProfessional")
-  appointmentsCreated Appointment[]      @relation("AppointmentCreator")
-  signatureSessions   SignatureSession[]
-  teleconsultations   Teleconsultation[]
-  signedPdfs          SignedPdf[]
+  sessions             Session[]
+  encounters           Encounter[]
+  addenda              Addendum[]
+  auditLogs            AuditLog[]
+  snippets             TextSnippet[]
+  templates            RecordTemplate[]
+  charges              Charge[]
+  documents            ClinicalDocument[]
+  workHours            WorkHours[]
+  scheduleBlocks       ScheduleBlock[]
+  appointments         Appointment[]         @relation("AppointmentProfessional")
+  appointmentsCreated  Appointment[]         @relation("AppointmentCreator")
+  signatureSessions    SignatureSession[]
+  teleconsultations    Teleconsultation[]
+  signedPdfs           SignedPdf[]
   // Dados de contrato de trabalho (aba Contabilidade). Vazio para quem não é funcionário da clínica.
-  contract            EmploymentContract?
-
-  @@unique([clinicId, email])
-  @@unique([clinicId, cpf])
-  whatsappMessages WhatsappMessage[]
-  claims              InsuranceClaim[]
-  problems            ProblemReport[]
-  noticeDismissals    NoticeDismissal[]
-  admissionsAttending Admission[]         @relation("AdmissionAttending")
-  admissionsCreated   Admission[]         @relation("AdmissionCreator")
-  admissionsDischarged Admission[]        @relation("AdmissionDischarger")
-  bedMovements        BedMovement[]
-  visitsRegistered    Visit[]
-  vitalRecords        VitalRecord[]       @relation("VitalRecorder")
-  vitalRecordsCanceled VitalRecord[]      @relation("VitalCanceler")
-  fluidEntries        FluidEntry[]        @relation("FluidRecorder")
-  fluidEntriesCanceled FluidEntry[]       @relation("FluidCanceler")
-  emergencyRegistered  EmergencyVisit[]   @relation("EmergencyRegistrar")
-  emergencyTriaged     EmergencyVisit[]   @relation("EmergencyTriager")
-  emergencyAttended    EmergencyVisit[]   @relation("EmergencyDoctor")
-  emergencyClosed      EmergencyVisit[]   @relation("EmergencyCloser")
-  prescribedItems      PrescriptionItem[] @relation("Prescriber")
-  suspendedItems       PrescriptionItem[] @relation("PrescriptionSuspender")
-  medicationChecks     MedicationCheck[]  @relation("CheckRecorder")
-  canceledChecks       MedicationCheck[]  @relation("CheckCanceler")
+  contract             EmploymentContract?
+  whatsappMessages     WhatsappMessage[]
+  claims               InsuranceClaim[]
+  problems             ProblemReport[]
+  noticeDismissals     NoticeDismissal[]
+  admissionsAttending  Admission[]           @relation("AdmissionAttending")
+  admissionsCreated    Admission[]           @relation("AdmissionCreator")
+  admissionsDischarged Admission[]           @relation("AdmissionDischarger")
+  bedMovements         BedMovement[]
+  visitsRegistered     Visit[]
+  vitalRecords         VitalRecord[]         @relation("VitalRecorder")
+  vitalRecordsCanceled VitalRecord[]         @relation("VitalCanceler")
+  fluidEntries         FluidEntry[]          @relation("FluidRecorder")
+  fluidEntriesCanceled FluidEntry[]          @relation("FluidCanceler")
+  emergencyRegistered  EmergencyVisit[]      @relation("EmergencyRegistrar")
+  emergencyTriaged     EmergencyVisit[]      @relation("EmergencyTriager")
+  emergencyAttended    EmergencyVisit[]      @relation("EmergencyDoctor")
+  emergencyClosed      EmergencyVisit[]      @relation("EmergencyCloser")
+  prescribedItems      PrescriptionItem[]    @relation("Prescriber")
+  suspendedItems       PrescriptionItem[]    @relation("PrescriptionSuspender")
+  medicationChecks     MedicationCheck[]     @relation("CheckRecorder")
+  canceledChecks       MedicationCheck[]     @relation("CheckCanceler")
   stockMovements       StockMovement[]
   mealsRecorded        MealDelivery[]        @relation("MealRecorder")
   mealsCanceled        MealDelivery[]        @relation("MealCanceler")
@@ -342,14 +345,22 @@ model User {
   examsCollected       ExamRequest[]         @relation("ExamCollector")
   examsReported        ExamRequest[]         @relation("ExamReporter")
   examsCanceled        ExamRequest[]         @relation("ExamCanceler")
+  supplyMovements      SupplyMovement[]
+  supplyRequests       SupplyRequest[]       @relation("SupplyRequester")
+  supplyHandled        SupplyRequest[]       @relation("SupplyHandler")
+  workOrdersOpened     WorkOrder[]           @relation("WorkOrderOpener")
+  workOrdersClosed     WorkOrder[]           @relation("WorkOrderCloser")
+
+  @@unique([clinicId, email])
+  @@unique([clinicId, cpf])
 }
 
 model Session {
-  id        String   @id
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  id         String   @id
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
   // Último uso: depois de 30 minutos parado, a pessoa precisa entrar de novo.
   lastSeenAt DateTime @default(now())
 }
@@ -442,22 +453,22 @@ model Patient {
   personalHistory    String?
   familyHistory      String?
 
-  encounters   Encounter[]
-  charges      Charge[]
-  documents    ClinicalDocument[]
-  appointments Appointment[]
-  signedPdfs   SignedPdf[]
+  encounters        Encounter[]
+  charges           Charge[]
+  documents         ClinicalDocument[]
+  appointments      Appointment[]
+  signedPdfs        SignedPdf[]
   teleconsultations Teleconsultation[]
-  claims       InsuranceClaim[]
-  appSessions  PatientSession[]
-  admissions   Admission[]
-  emergencyVisits EmergencyVisit[]
+  claims            InsuranceClaim[]
+  appSessions       PatientSession[]
+  admissions        Admission[]
+  emergencyVisits   EmergencyVisit[]
   prescriptionItems PrescriptionItem[]
-  stockMovements StockMovement[]
-  chemoPlans     ChemoPlan[]
-  chemoSessions  ChemoSession[]
-  surgeries      Surgery[]
-  examRequests   ExamRequest[]
+  stockMovements    StockMovement[]
+  chemoPlans        ChemoPlan[]
+  chemoSessions     ChemoSession[]
+  surgeries         Surgery[]
+  examRequests      ExamRequest[]
 
   @@unique([clinicId, cpf])
   @@unique([clinicId, cns])
@@ -517,14 +528,14 @@ model Encounter {
   evolutionKind  EvolutionKind?
   shift          Shift?
 
-  addenda     Addendum[]
-  documents   ClinicalDocument[]
-  charges     Charge[]
-  appointment Appointment?
-  signedPdf   SignedPdf?
+  addenda          Addendum[]
+  documents        ClinicalDocument[]
+  charges          Charge[]
+  appointment      Appointment?
+  signedPdf        SignedPdf?
   teleconsultation Teleconsultation?
-  claims      InsuranceClaim[]
-  emergencyVisit EmergencyVisit?
+  claims           InsuranceClaim[]
+  emergencyVisit   EmergencyVisit?
 
   @@index([clinicId, patientId, startedAt])
   @@index([admissionId])
@@ -604,33 +615,33 @@ model SignedPdf {
 // O paciente entra por um link secreto, sem senha, e precisa aceitar o termo
 // de consentimento antes de ver a chamada. O vídeo não é gravado.
 model Teleconsultation {
-  id             String    @id @default(cuid())
-  clinicId       String
-  clinic         Clinic    @relation(fields: [clinicId], references: [id])
-  patientId      String
-  patient        Patient   @relation(fields: [patientId], references: [id])
-  professionalId String
-  professional   User      @relation(fields: [professionalId], references: [id])
+  id                   String       @id @default(cuid())
+  clinicId             String
+  clinic               Clinic       @relation(fields: [clinicId], references: [id])
+  patientId            String
+  patient              Patient      @relation(fields: [patientId], references: [id])
+  professionalId       String
+  professional         User         @relation(fields: [professionalId], references: [id])
   // Vazio enquanto a consulta marcada na agenda ainda não começou.
-  encounterId    String?    @unique
-  encounter      Encounter? @relation(fields: [encounterId], references: [id])
-  appointmentId  String?     @unique
-  appointment    Appointment? @relation(fields: [appointmentId], references: [id])
+  encounterId          String?      @unique
+  encounter            Encounter?   @relation(fields: [encounterId], references: [id])
+  appointmentId        String?      @unique
+  appointment          Appointment? @relation(fields: [appointmentId], references: [id])
   // Código do link enviado ao paciente.
-  token          String    @unique
-  expiresAt      DateTime
+  token                String       @unique
+  expiresAt            DateTime
   // Sala na empresa de vídeo (Daily), criada quando alguém entra pela primeira vez.
-  roomName       String?
-  roomUrl        String?
+  roomName             String?
+  roomUrl              String?
   // Termo aceito pelo paciente: o texto exato, quando e de onde.
-  consentText    String?
-  consentAt      DateTime?
-  consentIp      String?
-  consentDevice  String?
+  consentText          String?
+  consentAt            DateTime?
+  consentIp            String?
+  consentDevice        String?
   professionalJoinedAt DateTime?
   patientJoinedAt      DateTime?
-  endedAt        DateTime?
-  createdAt      DateTime  @default(now())
+  endedAt              DateTime?
+  createdAt            DateTime     @default(now())
 
   @@index([clinicId, patientId])
 }
@@ -694,33 +705,33 @@ model PriceItem {
 
 // Receita: uma cobrança feita a um paciente, normalmente ligada a um atendimento.
 model Charge {
-  id             String         @id @default(cuid())
-  clinicId       String
-  clinic         Clinic         @relation(fields: [clinicId], references: [id])
-  patientId      String
-  patient        Patient        @relation(fields: [patientId], references: [id])
+  id              String          @id @default(cuid())
+  clinicId        String
+  clinic          Clinic          @relation(fields: [clinicId], references: [id])
+  patientId       String
+  patient         Patient         @relation(fields: [patientId], references: [id])
   // Profissional que fez o atendimento; é a base do repasse.
-  professionalId String?
-  professional   User?          @relation(fields: [professionalId], references: [id])
-  encounterId    String?
-  encounter      Encounter?     @relation(fields: [encounterId], references: [id])
-  priceItemId    String?
-  priceItem      PriceItem?     @relation(fields: [priceItemId], references: [id])
-  description    String
-  amountCents    Int
-  dueDate        DateTime       @db.Date
-  status         FinanceStatus  @default(PENDENTE)
-  paymentMethod  PaymentMethod?
-  paidAt         DateTime?      @db.Date
-  receiptNumber  Int?
-  notes          String?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  claim          InsuranceClaim?
-  claimAppeal    ClaimAppeal?
+  professionalId  String?
+  professional    User?           @relation(fields: [professionalId], references: [id])
+  encounterId     String?
+  encounter       Encounter?      @relation(fields: [encounterId], references: [id])
+  priceItemId     String?
+  priceItem       PriceItem?      @relation(fields: [priceItemId], references: [id])
+  description     String
+  amountCents     Int
+  dueDate         DateTime        @db.Date
+  status          FinanceStatus   @default(PENDENTE)
+  paymentMethod   PaymentMethod?
+  paidAt          DateTime?       @db.Date
+  receiptNumber   Int?
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  claim           InsuranceClaim?
+  claimAppeal     ClaimAppeal?
   // Dia em que o profissional (pessoa física) lançou o recibo no Receita Saúde, da Receita Federal.
-  healthReceiptAt DateTime?     @db.Date
-  serviceInvoice ServiceInvoice?
+  healthReceiptAt DateTime?       @db.Date
+  serviceInvoice  ServiceInvoice?
 
   @@unique([clinicId, receiptNumber])
   @@index([clinicId, dueDate])
@@ -865,41 +876,41 @@ model ScheduleBlock {
 }
 
 model Appointment {
-  id             String            @id @default(cuid())
-  clinicId       String
-  clinic         Clinic            @relation(fields: [clinicId], references: [id])
-  professionalId String
-  professional   User              @relation("AppointmentProfessional", fields: [professionalId], references: [id])
-  patientId      String
-  patient        Patient           @relation(fields: [patientId], references: [id])
-  startsAt       DateTime
-  endsAt         DateTime
-  type           AppointmentType   @default(CONSULTA)
+  id                 String            @id @default(cuid())
+  clinicId           String
+  clinic             Clinic            @relation(fields: [clinicId], references: [id])
+  professionalId     String
+  professional       User              @relation("AppointmentProfessional", fields: [professionalId], references: [id])
+  patientId          String
+  patient            Patient           @relation(fields: [patientId], references: [id])
+  startsAt           DateTime
+  endsAt             DateTime
+  type               AppointmentType   @default(CONSULTA)
   // Vazio = particular; preenchido = nome do convênio.
-  insurance      String?
-  notes          String?
-  status         AppointmentStatus @default(AGENDADO)
-  arrivedAt      DateTime?
-  cancelReason   String?
+  insurance          String?
+  notes              String?
+  status             AppointmentStatus @default(AGENDADO)
+  arrivedAt          DateTime?
+  cancelReason       String?
   // Quando o próprio paciente confirmou ou desmarcou pelo aplicativo (aparece como "pelo app").
-  confirmedInAppAt DateTime?
-  cancelledInAppAt DateTime?
+  confirmedInAppAt   DateTime?
+  cancelledInAppAt   DateTime?
   // WhatsApp: quando a recepção pediu a confirmação desta consulta.
   confirmationSentAt DateTime?
   // Retorno previsto depois desta consulta e quando o paciente foi avisado.
   returnDueOn        DateTime?         @db.Date
   returnNoticeSentAt DateTime?
   // Atendimento do prontuário aberto a partir deste agendamento.
-  encounterId    String?           @unique
-  encounter      Encounter?        @relation(fields: [encounterId], references: [id])
-  teleconsultation Teleconsultation?
+  encounterId        String?           @unique
+  encounter          Encounter?        @relation(fields: [encounterId], references: [id])
+  teleconsultation   Teleconsultation?
   // Vazio quando o próprio paciente marcou pelo aplicativo (createdInAppAt).
-  createdById    String?
-  createdBy      User?             @relation("AppointmentCreator", fields: [createdById], references: [id])
-  createdInAppAt   DateTime?
+  createdById        String?
+  createdBy          User?             @relation("AppointmentCreator", fields: [createdById], references: [id])
+  createdInAppAt     DateTime?
   rescheduledInAppAt DateTime?
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
 
   @@index([clinicId, startsAt])
   @@index([clinicId, professionalId, startsAt])
@@ -1134,34 +1145,34 @@ enum ClaimStatus {
 
 // Guia de consulta (padrão TISS) cobrada do convênio por um atendimento.
 model InsuranceClaim {
-  id                 String      @id @default(cuid())
+  id                 String       @id @default(cuid())
   clinicId           String
-  clinic             Clinic      @relation(fields: [clinicId], references: [id])
+  clinic             Clinic       @relation(fields: [clinicId], references: [id])
   healthPlanId       String
-  healthPlan         HealthPlan  @relation(fields: [healthPlanId], references: [id])
+  healthPlan         HealthPlan   @relation(fields: [healthPlanId], references: [id])
   patientId          String
-  patient            Patient     @relation(fields: [patientId], references: [id])
+  patient            Patient      @relation(fields: [patientId], references: [id])
   professionalId     String
-  professional       User        @relation(fields: [professionalId], references: [id])
+  professional       User         @relation(fields: [professionalId], references: [id])
   encounterId        String?
-  encounter          Encounter?  @relation(fields: [encounterId], references: [id])
+  encounter          Encounter?   @relation(fields: [encounterId], references: [id])
   // Guia de consulta ou SP/SADT (exames e procedimentos, com vários itens).
-  kind               ClaimKind   @default(CONSULTA)
+  kind               ClaimKind    @default(CONSULTA)
   // Número da guia no prestador (sequência da clínica).
   number             Int
   // Número ou senha que o convênio deu para o atendimento, quando dá.
   operatorNumber     String?
   // Carteirinha no dia do atendimento.
   cardNumber         String
-  cardValidUntil     DateTime?   @db.Date
-  newborn            Boolean     @default(false)
-  serviceDate        DateTime    @db.Date
+  cardValidUntil     DateTime?    @db.Date
+  newborn            Boolean      @default(false)
+  serviceDate        DateTime     @db.Date
   // Tabela 52 da TISS (1 primeira consulta, 2 seguimento, 3 pré-natal, 4 encaminhamento). Só na guia de consulta.
   consultationType   Int?
   // Tabela 36 da TISS (9 = não foi acidente).
-  accidentIndication Int         @default(9)
+  accidentIndication Int          @default(9)
   // Regime de atendimento da TISS: 01 ambulatorial, 05 telessaúde.
-  careRegime         String      @default("01")
+  careRegime         String       @default("01")
   // CBO do profissional que atendeu.
   cbo                String
   // Na guia SP/SADT, código e descrição do primeiro item e soma dos itens.
@@ -1172,25 +1183,25 @@ model InsuranceClaim {
   // Só na SP/SADT: tipo de atendimento (tabela 50), caráter (urgência ou eletivo), indicação clínica,
   // data do pedido e a autorização do convênio (data e senha), quando ele exige.
   serviceType        String?
-  urgent             Boolean     @default(false)
+  urgent             Boolean      @default(false)
   clinicalIndication String?
-  requestDate        DateTime?   @db.Date
-  authorizationDate  DateTime?   @db.Date
+  requestDate        DateTime?    @db.Date
+  authorizationDate  DateTime?    @db.Date
   authorizationCode  String?
   items              ClaimItem[]
   appeal             ClaimAppeal?
-  status             ClaimStatus @default(ABERTA)
+  status             ClaimStatus  @default(ABERTA)
   canceledAt         DateTime?
   // Lote em que a guia foi enviada ao convênio. Guia em lote não pode ser cancelada.
   batchId            String?
-  batch              ClaimBatch? @relation(fields: [batchId], references: [id])
+  batch              ClaimBatch?  @relation(fields: [batchId], references: [id])
   // Conferência do pagamento: quanto o convênio pagou e, se pagou menos, o motivo da glosa.
   paidCents          Int?
   glossReason        String?
   // Receita lançada no Financeiro com o valor pago.
-  chargeId           String?     @unique
-  charge             Charge?     @relation(fields: [chargeId], references: [id])
-  createdAt          DateTime    @default(now())
+  chargeId           String?      @unique
+  charge             Charge?      @relation(fields: [chargeId], references: [id])
+  createdAt          DateTime     @default(now())
 
   @@unique([clinicId, number])
   @@index([clinicId, serviceDate])
@@ -1228,12 +1239,12 @@ model ProblemReport {
 }
 
 model PlatformUser {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  passwordHash String
-  active       Boolean  @default(true)
-  createdAt    DateTime @default(now())
+  id                 String    @id @default(cuid())
+  name               String
+  email              String    @unique
+  passwordHash       String
+  active             Boolean   @default(true)
+  createdAt          DateTime  @default(now())
   // Dono: além de cuidar das clínicas, cadastra e bloqueia a equipe do painel.
   owner              Boolean   @default(false)
   // Senha provisória (criada pelo dono ou fraca): precisa trocar antes de usar o painel.
@@ -1245,10 +1256,10 @@ model PlatformUser {
   totpLastStep       Int?
   totpRecoveryCodes  String[]  @default([])
 
-  sessions  PlatformSession[]
-  auditLogs PlatformAuditLog[]
-  paymentsRegistered ClinicPayment[] @relation("PaymentRegisteredBy")
-  paymentsCanceled   ClinicPayment[] @relation("PaymentCanceledBy")
+  sessions           PlatformSession[]
+  auditLogs          PlatformAuditLog[]
+  paymentsRegistered ClinicPayment[]    @relation("PaymentRegisteredBy")
+  paymentsCanceled   ClinicPayment[]    @relation("PaymentCanceledBy")
   notices            PlatformNotice[]
 }
 
@@ -1276,20 +1287,20 @@ model PlatformAuditLog {
 
 // Lote de guias enviado a um convênio: um arquivo XML no padrão TISS.
 model ClaimBatch {
-  id           String           @id @default(cuid())
+  id           String     @id @default(cuid())
   clinicId     String
-  clinic       Clinic           @relation(fields: [clinicId], references: [id])
+  clinic       Clinic     @relation(fields: [clinicId], references: [id])
   healthPlanId String
-  healthPlan   HealthPlan       @relation(fields: [healthPlanId], references: [id])
+  healthPlan   HealthPlan @relation(fields: [healthPlanId], references: [id])
   number       Int
   // Um lote leva só um tipo de guia (regra da TISS).
-  kind         ClaimKind        @default(CONSULTA)
+  kind         ClaimKind  @default(CONSULTA)
   tissVersion  String
-  createdAt    DateTime         @default(now())
+  createdAt    DateTime   @default(now())
   // Número de protocolo que o portal do convênio deu ao receber o arquivo.
   protocol     String?
   // Dia em que o convênio pagou o lote (preenchido na conferência do pagamento).
-  paidAt       DateTime?        @db.Date
+  paidAt       DateTime?  @db.Date
 
   claims InsuranceClaim[]
 
@@ -1338,19 +1349,19 @@ model ClinicPayment {
 // Aviso da empresa para as clínicas (manutenção, novidade, cobrança), escrito no Painel do dono.
 // clinicId vazio = todas as clínicas. audience: "todos" ou "gerentes" (só o gerente do sistema da clínica).
 model PlatformNotice {
-  id          String          @id @default(cuid())
+  id          String       @id @default(cuid())
   title       String
   body        String
   // info, novidade, manutencao, importante
-  kind        String          @default("info")
-  audience    String          @default("todos")
+  kind        String       @default("info")
+  audience    String       @default("todos")
   clinicId    String?
-  clinic      Clinic?         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  startsAt    DateTime        @default(now())
+  clinic      Clinic?      @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  startsAt    DateTime     @default(now())
   endsAt      DateTime?
   createdById String
-  createdBy   PlatformUser    @relation(fields: [createdById], references: [id])
-  createdAt   DateTime        @default(now())
+  createdBy   PlatformUser @relation(fields: [createdById], references: [id])
+  createdAt   DateTime     @default(now())
 
   dismissals NoticeDismissal[]
 
@@ -1451,16 +1462,16 @@ model Admission {
   dischargedBy   User?          @relation("AdmissionDischarger", fields: [dischargedById], references: [id])
   createdAt      DateTime       @default(now())
 
-  movements BedMovement[]
-  visits    Visit[]
-  meals      MealDelivery[]
-  isolations IsolationPrecaution[]
-  infections HospitalInfection[]
-  surgeries  Surgery[]
-  exams      ExamRequest[]
-  evolutions Encounter[]
-  vitalRecords VitalRecord[]
-  fluidEntries FluidEntry[]
+  movements         BedMovement[]
+  visits            Visit[]
+  meals             MealDelivery[]
+  isolations        IsolationPrecaution[]
+  infections        HospitalInfection[]
+  surgeries         Surgery[]
+  exams             ExamRequest[]
+  evolutions        Encounter[]
+  vitalRecords      VitalRecord[]
+  fluidEntries      FluidEntry[]
   prescriptionItems PrescriptionItem[]
 
   @@index([clinicId, dischargedAt])
@@ -1485,19 +1496,19 @@ model BedMovement {
 
 // Visita a paciente internado, registrada pela recepção na entrada e na saída.
 model Visit {
-  id             String    @id @default(cuid())
-  clinicId       String
-  clinic         Clinic    @relation(fields: [clinicId], references: [id])
-  admissionId    String
-  admission      Admission @relation(fields: [admissionId], references: [id])
+  id              String    @id @default(cuid())
+  clinicId        String
+  clinic          Clinic    @relation(fields: [clinicId], references: [id])
+  admissionId     String
+  admission       Admission @relation(fields: [admissionId], references: [id])
   visitorName     String
   // Documento do visitante (RG ou CPF), como a portaria pede.
   visitorDocument String?
   relationship    String?
-  enteredAt      DateTime  @default(now())
-  leftAt         DateTime?
-  registeredById String
-  registeredBy   User      @relation(fields: [registeredById], references: [id])
+  enteredAt       DateTime  @default(now())
+  leftAt          DateTime?
+  registeredById  String
+  registeredBy    User      @relation(fields: [registeredById], references: [id])
 
   @@index([clinicId, enteredAt])
 }
@@ -1597,35 +1608,35 @@ enum EmergencyOutcome {
 // Uma passagem do paciente pelo pronto-socorro: chegada (recepção), triagem (enfermagem),
 // atendimento (médico) e desfecho. Só uma passagem aberta por paciente.
 model EmergencyVisit {
-  id             String           @id @default(cuid())
-  clinicId       String
-  clinic         Clinic           @relation(fields: [clinicId], references: [id])
-  patientId      String
-  patient        Patient          @relation(fields: [patientId], references: [id])
-  arrivedAt      DateTime         @default(now())
-  complaint      String
-  arrivalMode    String?
-  companion      String?
-  registeredById String
-  registeredBy   User             @relation("EmergencyRegistrar", fields: [registeredById], references: [id])
-  status         EmergencyStatus  @default(AGUARDANDO_TRIAGEM)
-  risk           RiskLevel?
-  triagedAt      DateTime?
-  triagedById    String?
-  triagedBy      User?            @relation("EmergencyTriager", fields: [triagedById], references: [id])
-  triageVitals   Json?
-  pain           Int?
-  triageNote     String?
-  calledAt       DateTime?
-  doctorId       String?
-  doctor         User?            @relation("EmergencyDoctor", fields: [doctorId], references: [id])
-  encounterId    String?          @unique
-  encounter      Encounter?       @relation(fields: [encounterId], references: [id])
-  outcome        EmergencyOutcome?
-  closedAt       DateTime?
-  closedById     String?
-  closedBy       User?            @relation("EmergencyCloser", fields: [closedById], references: [id])
-  closeNote      String?
+  id                String             @id @default(cuid())
+  clinicId          String
+  clinic            Clinic             @relation(fields: [clinicId], references: [id])
+  patientId         String
+  patient           Patient            @relation(fields: [patientId], references: [id])
+  arrivedAt         DateTime           @default(now())
+  complaint         String
+  arrivalMode       String?
+  companion         String?
+  registeredById    String
+  registeredBy      User               @relation("EmergencyRegistrar", fields: [registeredById], references: [id])
+  status            EmergencyStatus    @default(AGUARDANDO_TRIAGEM)
+  risk              RiskLevel?
+  triagedAt         DateTime?
+  triagedById       String?
+  triagedBy         User?              @relation("EmergencyTriager", fields: [triagedById], references: [id])
+  triageVitals      Json?
+  pain              Int?
+  triageNote        String?
+  calledAt          DateTime?
+  doctorId          String?
+  doctor            User?              @relation("EmergencyDoctor", fields: [doctorId], references: [id])
+  encounterId       String?            @unique
+  encounter         Encounter?         @relation(fields: [encounterId], references: [id])
+  outcome           EmergencyOutcome?
+  closedAt          DateTime?
+  closedById        String?
+  closedBy          User?              @relation("EmergencyCloser", fields: [closedById], references: [id])
+  closeNote         String?
   prescriptionItems PrescriptionItem[]
   exams             ExamRequest[]
 
@@ -1649,30 +1660,30 @@ enum CheckStatus {
 // Um item da prescrição do médico. Depois de prescrito não muda: para corrigir, suspende e prescreve de novo.
 // Sem intervalo e sem "se necessário" = dose única no início.
 model PrescriptionItem {
-  id               String           @id @default(cuid())
+  id               String            @id @default(cuid())
   clinicId         String
-  clinic           Clinic           @relation(fields: [clinicId], references: [id])
+  clinic           Clinic            @relation(fields: [clinicId], references: [id])
   patientId        String
-  patient          Patient          @relation(fields: [patientId], references: [id])
+  patient          Patient           @relation(fields: [patientId], references: [id])
   admissionId      String?
-  admission        Admission?       @relation(fields: [admissionId], references: [id])
+  admission        Admission?        @relation(fields: [admissionId], references: [id])
   emergencyVisitId String?
-  emergencyVisit   EmergencyVisit?  @relation(fields: [emergencyVisitId], references: [id])
+  emergencyVisit   EmergencyVisit?   @relation(fields: [emergencyVisitId], references: [id])
   prescriberId     String
-  prescriber       User             @relation("Prescriber", fields: [prescriberId], references: [id])
-  kind             PrescriptionKind @default(MEDICAMENTO)
+  prescriber       User              @relation("Prescriber", fields: [prescriberId], references: [id])
+  kind             PrescriptionKind  @default(MEDICAMENTO)
   description      String
   dose             String?
   route            String?
   intervalHours    Int?
-  asNeeded         Boolean          @default(false)
+  asNeeded         Boolean           @default(false)
   startAt          DateTime
   endAt            DateTime?
   note             String?
-  createdAt        DateTime         @default(now())
+  createdAt        DateTime          @default(now())
   suspendedAt      DateTime?
   suspendedById    String?
-  suspendedBy      User?            @relation("PrescriptionSuspender", fields: [suspendedById], references: [id])
+  suspendedBy      User?             @relation("PrescriptionSuspender", fields: [suspendedById], references: [id])
   suspendReason    String?
   checks           MedicationCheck[]
   dispensations    StockMovement[]
@@ -2158,41 +2169,41 @@ model ExamType {
 // Pedido de exame: do médico do hospital (internação ou PS) ou de médico de fora (recepção agenda).
 // Coletado (laboratório) ou realizado (imagem), depois laudado. Laudado ou cancelado não muda mais.
 model ExamRequest {
-  id                String        @id @default(cuid())
+  id                String          @id @default(cuid())
   clinicId          String
-  clinic            Clinic        @relation(fields: [clinicId], references: [id])
+  clinic            Clinic          @relation(fields: [clinicId], references: [id])
   patientId         String
-  patient           Patient       @relation(fields: [patientId], references: [id])
+  patient           Patient         @relation(fields: [patientId], references: [id])
   examTypeId        String
-  examType          ExamType      @relation(fields: [examTypeId], references: [id])
+  examType          ExamType        @relation(fields: [examTypeId], references: [id])
   admissionId       String?
-  admission         Admission?    @relation(fields: [admissionId], references: [id])
+  admission         Admission?      @relation(fields: [admissionId], references: [id])
   emergencyVisitId  String?
   emergencyVisit    EmergencyVisit? @relation(fields: [emergencyVisitId], references: [id])
   requestedById     String?
-  requestedBy       User?         @relation("ExamRequester", fields: [requestedById], references: [id])
+  requestedBy       User?           @relation("ExamRequester", fields: [requestedById], references: [id])
   // Médico de fora (nome e CRM), quando o pedido vem de outro serviço.
   externalRequester String?
   createdById       String
-  createdBy         User          @relation("ExamCreator", fields: [createdById], references: [id])
-  createdAt         DateTime      @default(now())
-  priority          ExamPriority  @default(ROTINA)
+  createdBy         User            @relation("ExamCreator", fields: [createdById], references: [id])
+  createdAt         DateTime        @default(now())
+  priority          ExamPriority    @default(ROTINA)
   clinicalInfo      String?
-  status            ExamStatus    @default(SOLICITADO)
+  status            ExamStatus      @default(SOLICITADO)
   scheduledAt       DateTime?
   collectedAt       DateTime?
   collectedById     String?
-  collectedBy       User?         @relation("ExamCollector", fields: [collectedById], references: [id])
+  collectedBy       User?           @relation("ExamCollector", fields: [collectedById], references: [id])
   resultAt          DateTime?
   resultById        String?
-  resultBy          User?         @relation("ExamReporter", fields: [resultById], references: [id])
+  resultBy          User?           @relation("ExamReporter", fields: [resultById], references: [id])
   values            Json?
   report            String?
   // Valor crítico: a quem foi comunicado e quando.
   criticalNote      String?
   canceledAt        DateTime?
   canceledById      String?
-  canceledBy        User?         @relation("ExamCanceler", fields: [canceledById], references: [id])
+  canceledBy        User?           @relation("ExamCanceler", fields: [canceledById], references: [id])
   cancelReason      String?
 
   @@index([clinicId, status])
@@ -2200,4 +2211,157 @@ model ExamRequest {
   @@index([admissionId])
   @@index([emergencyVisitId])
   @@index([patientId])
+}
+
+// ---------- Almoxarifado ----------
+
+// Material que não é da farmácia: limpeza, escritório, rouparia, manutenção, descartáveis.
+model SupplyItem {
+  id        String              @id @default(cuid())
+  clinicId  String
+  clinic    Clinic              @relation(fields: [clinicId], references: [id])
+  name      String
+  category  String
+  unit      String              @default("unidade")
+  minStock  Int                 @default(0)
+  active    Boolean             @default(true)
+  createdAt DateTime            @default(now())
+  movements SupplyMovement[]
+  lines     SupplyRequestLine[]
+
+  @@unique([clinicId, name])
+}
+
+enum SupplyMovementKind {
+  ENTRADA
+  SAIDA
+  AJUSTE
+  PERDA
+}
+
+// Entrada, saída para um setor, ajuste ou perda. Não muda nem some: o saldo é a soma.
+model SupplyMovement {
+  id        String             @id @default(cuid())
+  clinicId  String
+  clinic    Clinic             @relation(fields: [clinicId], references: [id])
+  itemId    String
+  item      SupplyItem         @relation(fields: [itemId], references: [id])
+  kind      SupplyMovementKind
+  quantity  Int
+  sector    String?
+  invoice   String?
+  note      String?
+  requestId String?
+  request   SupplyRequest?     @relation(fields: [requestId], references: [id])
+  at        DateTime           @default(now())
+  userId    String
+  user      User               @relation(fields: [userId], references: [id])
+
+  @@index([clinicId, itemId])
+  @@index([requestId])
+}
+
+enum SupplyRequestStatus {
+  ABERTA
+  ATENDIDA
+  CANCELADA
+}
+
+// Pedido de material feito por um setor ao almoxarifado.
+model SupplyRequest {
+  id            String              @id @default(cuid())
+  clinicId      String
+  clinic        Clinic              @relation(fields: [clinicId], references: [id])
+  sector        String
+  note          String?
+  status        SupplyRequestStatus @default(ABERTA)
+  createdAt     DateTime            @default(now())
+  requestedById String
+  requestedBy   User                @relation("SupplyRequester", fields: [requestedById], references: [id])
+  handledAt     DateTime?
+  handledById   String?
+  handledBy     User?               @relation("SupplyHandler", fields: [handledById], references: [id])
+  handledNote   String?
+  lines         SupplyRequestLine[]
+  movements     SupplyMovement[]
+
+  @@index([clinicId, status])
+}
+
+model SupplyRequestLine {
+  id        String        @id @default(cuid())
+  clinicId  String
+  clinic    Clinic        @relation(fields: [clinicId], references: [id])
+  requestId String
+  request   SupplyRequest @relation(fields: [requestId], references: [id])
+  itemId    String
+  item      SupplyItem    @relation(fields: [itemId], references: [id])
+  quantity  Int
+  delivered Int?
+
+  @@unique([requestId, itemId])
+}
+
+// ---------- Manutenção e infraestrutura ----------
+
+// Equipamento com patrimônio. A preventiva vence a cada preventiveDays dias, contando da última.
+model Equipment {
+  id               String      @id @default(cuid())
+  clinicId         String
+  clinic           Clinic      @relation(fields: [clinicId], references: [id])
+  name             String
+  tag              String
+  location         String
+  brandModel       String?
+  serial           String?
+  preventiveDays   Int?
+  lastPreventiveAt DateTime?
+  active           Boolean     @default(true)
+  createdAt        DateTime    @default(now())
+  workOrders       WorkOrder[]
+
+  @@unique([clinicId, tag])
+}
+
+enum WorkOrderKind {
+  CORRETIVA
+  PREVENTIVA
+}
+
+enum WorkOrderStatus {
+  ABERTO
+  EM_ANDAMENTO
+  CONCLUIDO
+  CANCELADO
+}
+
+// Chamado de manutenção: equipamento, elétrica, hidráulica, gases medicinais, climatização...
+// Concluído ou cancelado não muda mais.
+model WorkOrder {
+  id          String          @id @default(cuid())
+  clinicId    String
+  clinic      Clinic          @relation(fields: [clinicId], references: [id])
+  number      Int
+  kind        WorkOrderKind   @default(CORRETIVA)
+  category    String
+  location    String
+  equipmentId String?
+  equipment   Equipment?      @relation(fields: [equipmentId], references: [id])
+  description String
+  urgent      Boolean         @default(false)
+  stopped     Boolean         @default(false)
+  status      WorkOrderStatus @default(ABERTO)
+  assignedTo  String?
+  createdAt   DateTime        @default(now())
+  openedById  String
+  openedBy    User            @relation("WorkOrderOpener", fields: [openedById], references: [id])
+  startedAt   DateTime?
+  closedAt    DateTime?
+  closedById  String?
+  closedBy    User?           @relation("WorkOrderCloser", fields: [closedById], references: [id])
+  solution    String?
+
+  @@unique([clinicId, number])
+  @@index([clinicId, status])
+  @@index([equipmentId])
 }

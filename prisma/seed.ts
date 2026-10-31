@@ -492,6 +492,72 @@ async function seedHospitalSurgery() {
 }
 
 // Laboratório e imagem de exemplo: catálogo, exames do Sebastião (prontos e em análise), pedidos do PS e da UTI, e agendados pela recepção.
+// Almoxarifado e manutenção do hospital-demo: itens com saldo, um pedido aguardando, equipamentos e chamados.
+async function seedHospitalSupport() {
+  const hospital = await prisma.clinic.findUnique({ where: { slug: "hospital-demo" } });
+  if (!hospital || (await prisma.supplyItem.count({ where: { clinicId: hospital.id } })) > 0) return;
+  const admin = await prisma.user.findFirstOrThrow({ where: { clinicId: hospital.id, email: "admin@hospital.com" } });
+  const bruna = await prisma.user.findFirstOrThrow({ where: { clinicId: hospital.id, email: "enfermagem@hospital.com" } });
+  const recepcao = await prisma.user.findFirstOrThrow({ where: { clinicId: hospital.id, email: "recepcao@hospital.com" } });
+  const items = [
+    { name: "Álcool 70% 1 L", category: "Limpeza e higiene", unit: "unidade", minStock: 20, stock: 48 },
+    { name: "Papel toalha", category: "Limpeza e higiene", unit: "pacote", minStock: 30, stock: 22 },
+    { name: "Sabonete líquido 5 L", category: "Limpeza e higiene", unit: "galão", minStock: 4, stock: 9 },
+    { name: "Saco de lixo infectante 100 L", category: "Limpeza e higiene", unit: "pacote", minStock: 10, stock: 25 },
+    { name: "Lençol de solteiro", category: "Rouparia", unit: "peça", minStock: 40, stock: 120 },
+    { name: "Papel A4", category: "Escritório", unit: "resma", minStock: 10, stock: 14 },
+    { name: "Copo descartável 200 mL", category: "Copa", unit: "pacote", minStock: 10, stock: 6 },
+    { name: "Lâmpada LED tubular", category: "Manutenção", unit: "unidade", minStock: 5, stock: 12 },
+  ];
+  const id: Record<string, string> = {};
+  for (const { stock, ...it } of items) {
+    const item = await prisma.supplyItem.create({ data: { clinicId: hospital.id, ...it } });
+    id[it.name] = item.id;
+    await prisma.supplyMovement.create({ data: { clinicId: hospital.id, itemId: item.id, kind: "ENTRADA", quantity: stock, invoice: "5521", userId: admin.id, at: new Date(Date.now() - 5 * 86400_000) } });
+  }
+  // Uma entrega já feita para a enfermaria e um pedido aguardando.
+  const done = await prisma.supplyRequest.create({
+    data: {
+      clinicId: hospital.id, sector: "Enfermaria", requestedById: bruna.id, createdAt: new Date(Date.now() - 2 * 86400_000),
+      lines: { create: [{ clinicId: hospital.id, itemId: id["Álcool 70% 1 L"], quantity: 6, delivered: 6 }, { clinicId: hospital.id, itemId: id["Lençol de solteiro"], quantity: 20, delivered: 20 }] },
+    },
+  });
+  await prisma.supplyMovement.createMany({
+    data: [
+      { clinicId: hospital.id, itemId: id["Álcool 70% 1 L"], kind: "SAIDA", quantity: -6, sector: "Enfermaria", requestId: done.id, userId: admin.id },
+      { clinicId: hospital.id, itemId: id["Lençol de solteiro"], kind: "SAIDA", quantity: -20, sector: "Enfermaria", requestId: done.id, userId: admin.id },
+    ],
+  });
+  await prisma.supplyRequest.update({ where: { id: done.id }, data: { status: "ATENDIDA", handledAt: new Date(Date.now() - 2 * 86400_000 + 3600_000), handledById: admin.id } });
+  await prisma.supplyRequest.create({
+    data: {
+      clinicId: hospital.id, sector: "Recepção", requestedById: recepcao.id, note: "Acabou o copo do bebedouro", createdAt: new Date(Date.now() - 3 * 3600_000),
+      lines: { create: [{ clinicId: hospital.id, itemId: id["Copo descartável 200 mL"], quantity: 10 }, { clinicId: hospital.id, itemId: id["Papel A4"], quantity: 2 }] },
+    },
+  });
+
+  const day = 86400_000;
+  const eq = async (name: string, tag: string, location: string, brandModel: string, preventiveDays: number, lastDaysAgo: number) =>
+    prisma.equipment.create({ data: { clinicId: hospital.id, name, tag, location, brandModel, preventiveDays, lastPreventiveAt: new Date(Date.now() - lastDaysAgo * day) } });
+  const monitor = await eq("Monitor multiparâmetro", "PAT-0101", "Enfermaria", "Mindray uMEC10", 180, 60);
+  await eq("Desfibrilador", "PAT-0102", "Pronto-socorro", "Instramed Cardiomax", 90, 95);
+  await eq("Autoclave", "PAT-0201", "CME", "Cristófoli 75 L", 30, 25);
+  await eq("Aparelho de anestesia", "PAT-0301", "Centro cirúrgico", "Dräger Fabius", 180, 20);
+  await eq("Bomba de infusão", "PAT-0105", "Enfermaria", "Samtronic ST1000", 365, 100);
+  await prisma.workOrder.create({
+    data: { clinicId: hospital.id, number: 1, category: "Equipamento médico", location: "Enfermaria", equipmentId: monitor.id, description: "Monitor do leito 102 não mostra a saturação", urgent: true, stopped: true, openedById: bruna.id, createdAt: new Date(Date.now() - 2 * 3600_000) },
+  });
+  await prisma.workOrder.create({
+    data: { clinicId: hospital.id, number: 2, category: "Hidráulica", location: "Enfermaria", description: "Torneira do posto de enfermagem pingando", openedById: bruna.id, status: "EM_ANDAMENTO", assignedTo: "Sr. Antônio (manutenção)", startedAt: new Date(Date.now() - 3600_000), createdAt: new Date(Date.now() - 26 * 3600_000) },
+  });
+  await prisma.workOrder.create({
+    data: { clinicId: hospital.id, number: 3, category: "Climatização", location: "Recepção", description: "Ar-condicionado da recepção fazendo barulho", openedById: recepcao.id, createdAt: new Date(Date.now() - 5 * 3600_000) },
+  });
+  await prisma.workOrder.create({
+    data: { clinicId: hospital.id, number: 4, category: "Elétrica", location: "Pronto-socorro", description: "Tomada da sala de medicação sem energia", openedById: bruna.id, createdAt: new Date(Date.now() - 3 * day), status: "CONCLUIDO", startedAt: new Date(Date.now() - 3 * day + 3600_000), closedAt: new Date(Date.now() - 3 * day + 2 * 3600_000), closedById: admin.id, solution: "Disjuntor trocado; tomada testada", assignedTo: "Sr. Antônio (manutenção)" },
+  });
+}
+
 async function seedHospitalExams() {
   const hospital = await prisma.clinic.findUnique({ where: { slug: "hospital-demo" } });
   if (!hospital || (await prisma.examType.count({ where: { clinicId: hospital.id } })) > 0) return;
@@ -930,6 +996,7 @@ async function main() {
   await seedHospitalSectors();
   await seedHospitalSurgery();
   await seedHospitalExams();
+  await seedHospitalSupport();
   await seedAgenda();
   await seedFinanceDemo();
   await seedPurchasesDemo();
