@@ -14,6 +14,7 @@ import { callPatient, closeVisit, triageVisit } from "../actions";
 import { RiskBadge } from "../risk-badge";
 import { PrescriptionPanel } from "../../prescricao/panel";
 import { ExamPanel } from "../../exames/panel";
+import { RecordActions } from "../../assinatura/record-actions";
 
 const triageFields = vitalFields.filter((f) => f.key !== "altura");
 const staff = { select: { name: true, sex: true, jobTitle: true } } as const;
@@ -82,6 +83,7 @@ export default async function EmergencyVisitPage({ params, searchParams }: { par
             <p className="text-xs uppercase text-slate-500">Triagem · {formatDateTime(visit.triagedAt)}{visit.triagedBy && ` · ${displayName(visit.triagedBy)}`}</p>
             <p>{[vitalsSummary(v), visit.pain !== null ? `Dor ${visit.pain}/10` : ""].filter(Boolean).join(" · ") || "Sem sinais vitais"}</p>
             {visit.triageNote && <p className="text-slate-600">{visit.triageNote}</p>}
+            <div className="mt-2"><RecordActions user={user} type="triagem" recordKey={visit.id} back={`/pronto-socorro/${visit.id}`} signLabel="Assinar triagem" /></div>
           </div>
         )}
         {visit.doctor && (

@@ -13,22 +13,45 @@ import { signPdf } from "./pdf-sign";
 import { providerLabel, signDigest, type ProviderId } from "./providers";
 import { open } from "./secret-box";
 import { testCertificate } from "./test-certificate";
+import { isRecordSigned, isRecordType, loadHospitalRecord, recordTypeLabel } from "./hospital";
 
 // prontuario: cópia do prontuário completo; o id é o do paciente.
-export type SignTarget = { kind: "atendimento" | "documento" | "prontuario"; id: string };
+// hospital: registro do hospital; o id é "tipo|chave" (ver ./hospital.ts).
+export type SignTarget = { kind: "atendimento" | "documento" | "prontuario" | "hospital"; id: string };
 
 export function isSignTarget(value: unknown): value is SignTarget {
   const v = value as SignTarget;
-  return !!v && (v.kind === "atendimento" || v.kind === "documento" || v.kind === "prontuario") && typeof v.id === "string";
+  return !!v && (v.kind === "atendimento" || v.kind === "documento" || v.kind === "prontuario" || v.kind === "hospital") && typeof v.id === "string";
 }
 
-// Só voltamos para telas do prontuário, nunca para um endereço de fora.
+export function hospitalTarget(type: string, key: string): SignTarget {
+  return { kind: "hospital", id: `${type}|${key}` };
+}
+
+// Só voltamos para telas do prontuário e do hospital, nunca para um endereço de fora.
 export function isSafeBack(value: unknown): value is string {
-  return typeof value === "string" && /^\/pacientes\/[\w-]+(\/atendimentos\/[\w-]+(\/revisao)?)?$/.test(value);
+  return (
+    typeof value === "string" &&
+    (/^\/pacientes\/[\w-]+(\/atendimentos\/[\w-]+(\/revisao)?)?$/.test(value) ||
+      /^\/(assinatura\/pendentes|internacao\/[\w-]+(\/prescricao)?|pronto-socorro\/[\w-]+)(\?dia=\d{4}-\d{2}-\d{2})?$/.test(value))
+  );
 }
 
 // Carrega o que vai ser assinado e confere se quem pede é o autor.
 async function loadTarget(user: CurrentUser, target: SignTarget) {
+  if (target.kind === "hospital") {
+    const [type, key] = target.id.split("|");
+    const record = isRecordType(type) && key ? await loadHospitalRecord(user, type, key) : null;
+    if (!record) throw new Error("Só o autor pode assinar este registro");
+    return {
+      already: await isRecordSigned(user.clinicId, record),
+      patientId: record.patientId,
+      back: record.href,
+      label: `${recordTypeLabel[record.type]} de ${record.patientName}`,
+      link: { recordType: record.type, recordKey: record.key, recordHash: record.hash },
+      render: (stamp: string[]) => buildPdf({ ...record.input, signatureStamp: stamp }),
+    };
+  }
   if (target.kind === "prontuario") {
     // Mesmo PDF do botão "Gerar PDF do prontuário". Cada cópia assinada é nova,
     // porque o prontuário cresce a cada atendimento.

@@ -11,6 +11,7 @@ import { ExamHeader } from "../exames/exam-header";
 import { loadQueue, queueWards } from "../exames/queue-data";
 import { QueueFilter, QueueMore } from "../exames/queue-filter";
 import { ResultView } from "../exames/result-view";
+import { RecordActions } from "../assinatura/record-actions";
 
 // Laboratório: coletar, liberar resultado e ver o que saiu nas últimas 24 horas.
 export default async function LabPage({ searchParams }: { searchParams: Promise<{ ala?: string }> }) {
@@ -98,6 +99,7 @@ export default async function LabPage({ searchParams }: { searchParams: Promise<
               <li key={e.id} className="card space-y-2 text-sm">
                 <ExamHeader e={e} />
                 <ResultView exam={e} />
+                <RecordActions user={user} type="exame" recordKey={e.id} signLabel="Assinar resultado" />
               </li>
             ))}
           </ul>

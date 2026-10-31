@@ -622,6 +622,14 @@ model SignedPdf {
   pdf               Bytes
   sha256            String
   signedAt          DateTime          @default(now())
+  // Registros do hospital (prescrição do dia, enfermagem, triagem, alta, cirurgia, exame, quimio, parecer).
+  // recordHash muda quando o registro ganha algo novo: aí ele volta a ficar pendente de assinatura.
+  recordType        String?
+  recordKey         String?
+  recordHash        String?
+
+  @@index([clinicId, recordType, recordKey])
+  @@index([signerId, signedAt])
 }
 
 // Atendimento por vídeo (Resolução CFM 2.314/2022). A teleconsulta nasce na agenda

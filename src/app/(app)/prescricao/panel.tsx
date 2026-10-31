@@ -11,6 +11,7 @@ import { ActionForm } from "../financeiro/action-form";
 import { addPrescriptionItem, cancelCheck, checkDose, repeatPreviousDay, suspendPrescriptionItem, type RxContext } from "./actions";
 import { CheckForm } from "./check-form";
 import { MedicationInput } from "./medication-search";
+import { RecordActions } from "../assinatura/record-actions";
 
 const tone: Record<DoseState, string> = {
   FEITO: "border-emerald-200 bg-emerald-50 text-emerald-800",
@@ -64,6 +65,12 @@ export async function PrescriptionPanel({ ctx, user, open, day }: { ctx: RxConte
   const windowOf = (item: (typeof items)[number]) => (carried.includes(item) ? dayWindow(item, prescriptionDayOf(item)) : dayWindow(item, dayStart));
   const toRepeat = editable && doctor ? repeatableFromPreviousDay(items, today).length : 0;
   const validUntil = prescriptionDayEnd(dayStart);
+  // O que a própria pessoa fez neste dia e pode assinar: a prescrição (médico) e as checagens (enfermagem).
+  const key = `${ctx.kind}:${ctx.id}:${dayKey(dayStart)}:${user.id}`;
+  const prescribedToday = items.some((i) => i.prescriberId === user.id && !carried.includes(i) && inDay(i, dayStart) && isDailyItem(i));
+  const dayEndMs = dayStart.getTime() + 24 * 3600_000;
+  const checkedToday = items.some((i) => i.checks.some((c) => c.recordedById === user.id && c.at >= dayStart && c.at.getTime() < dayEndMs));
+  const back = ctx.kind === "internacao" ? `/internacao/${ctx.id}/prescricao` : `/pronto-socorro/${ctx.id}`;
 
   return (
     <section id="prescricao" className="card grid scroll-mt-4 gap-6 lg:grid-cols-[minmax(0,1fr)_15rem]">
@@ -77,10 +84,23 @@ export async function PrescriptionPanel({ ctx, user, open, day }: { ctx: RxConte
             Vale até {formatDateTime(validUntil)}. Amarelo: hora de fazer. Vermelho: atrasado (mais de 30 min).
           </p>
         </div>
-        {!isToday && (
-          <Link href="?#prescricao" className="text-sm text-marinho-700 hover:underline">Voltar para hoje</Link>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <a href={`/api/pdf/prescricao/${ctx.kind}/${ctx.id}/${dayKey(dayStart)}`} target="_blank" className="btn-secondary px-3! py-1.5! text-sm">PDF do dia</a>
+          {!isToday && (
+            <Link href="?#prescricao" className="text-sm text-marinho-700 hover:underline">Voltar para hoje</Link>
+          )}
+        </div>
       </div>
+      {(prescribedToday || checkedToday) && (
+        <div className="flex flex-wrap items-center gap-4 rounded-md border border-slate-200 px-3 py-2 text-sm">
+          {prescribedToday && (
+            <span className="flex flex-wrap items-center gap-2">Minha prescrição deste dia: <RecordActions user={user} type="prescricao" recordKey={key} back={back} signLabel="Assinar prescrição" /></span>
+          )}
+          {checkedToday && (
+            <span className="flex flex-wrap items-center gap-2">Minhas checagens deste dia: <RecordActions user={user} type="enfermagem" recordKey={key} back={back} signLabel="Assinar checagens" /></span>
+          )}
+        </div>
+      )}
       {!isToday && <p className="rounded-md bg-slate-100 px-3 py-2 text-xs text-slate-600">Prescrição de outro dia, só para consulta.</p>}
 
       {toRepeat > 0 && (

@@ -8,6 +8,7 @@ import { answerConsult, cancelConsult, requestConsult, transferAttending } from 
 import { loadSpecialists, loadSpecialties } from "../../pareceres/data";
 import { CareHeader, CareNav } from "../care-nav";
 import { loadAdmissionForCare } from "../care-data";
+import { RecordActions } from "../../../assinatura/record-actions";
 
 const person = { select: { name: true, sex: true, jobTitle: true } } as const;
 
@@ -121,6 +122,7 @@ export default async function AdmissionConsultsPage({ params }: { params: Promis
               <div className="rounded-md bg-emerald-50 p-2">
                 <p className="text-xs text-emerald-800">Parecer de {c.answeredBy && displayName(c.answeredBy)} em {formatDateTime(c.answeredAt)}{c.tookOver && " · assumiu o paciente"}</p>
                 <p className="whitespace-pre-line">{c.answer}</p>
+                <div className="mt-2"><RecordActions user={user} type="parecer" recordKey={c.id} signLabel="Assinar parecer" /></div>
               </div>
             )}
             {c.status === "CANCELADO" && <p className="text-xs text-slate-500">Cancelado por {c.canceledBy && displayName(c.canceledBy)}: {c.cancelReason}</p>}

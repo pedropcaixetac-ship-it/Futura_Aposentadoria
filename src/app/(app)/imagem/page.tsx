@@ -9,6 +9,7 @@ import { ExamHeader } from "../exames/exam-header";
 import { loadQueue, queueWards } from "../exames/queue-data";
 import { QueueFilter, QueueMore } from "../exames/queue-filter";
 import { ResultView } from "../exames/result-view";
+import { RecordActions } from "../assinatura/record-actions";
 
 // Imagem: a agenda do dia por aparelho, o que falta laudar e os laudos das últimas 24 horas.
 export default async function ImagingPage({ searchParams }: { searchParams: Promise<{ ala?: string }> }) {
@@ -87,6 +88,7 @@ export default async function ImagingPage({ searchParams }: { searchParams: Prom
               <li key={e.id} className="card space-y-2 text-sm">
                 <ExamHeader e={e} />
                 <ResultView exam={e} />
+                <RecordActions user={user} type="exame" recordKey={e.id} signLabel="Assinar resultado" />
               </li>
             ))}
           </ul>

@@ -7,6 +7,8 @@ import { ActionForm } from "../../../financeiro/action-form";
 import { addFluid, cancelCareRecord } from "../../actions";
 import { CareHeader, CareNav } from "../care-nav";
 import { loadAdmissionForCare, nowLocal } from "../care-data";
+import { RecordActions } from "../../../assinatura/record-actions";
+import { dayKey, localMidnight } from "@/lib/prescricao";
 
 export default async function FluidBalancePage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser("internacao");
@@ -29,6 +31,13 @@ export default async function FluidBalancePage({ params }: { params: Promise<{ i
     <div className="max-w-5xl space-y-6">
       <CareHeader admission={admission} />
       <CareNav admissionId={admission.id} current="balanco" />
+      {/* Assinatura dos registros de enfermagem de hoje (checagens, sinais vitais e balanço). */}
+      {entries.some((r) => r.recordedById === user.id && r.at >= localMidnight(new Date())) && (
+        <div className="card flex flex-wrap items-center gap-3 py-3! text-sm">
+          Meus registros de hoje (checagens, sinais vitais e balanço):
+          <RecordActions user={user} type="enfermagem" recordKey={`internacao:${admission.id}:${dayKey(localMidnight(new Date()))}:${user.id}`} back={`/internacao/${admission.id}`} signLabel="Assinar registros" />
+        </div>
+      )}
 
       {!admission.dischargedAt && (
         <div className="grid gap-4 md:grid-cols-2">

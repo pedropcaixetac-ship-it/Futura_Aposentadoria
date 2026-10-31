@@ -7,6 +7,8 @@ import { ActionForm } from "../../../financeiro/action-form";
 import { addVitals, cancelCareRecord } from "../../actions";
 import { CareHeader, CareNav } from "../care-nav";
 import { loadAdmissionForCare, nowLocal } from "../care-data";
+import { RecordActions } from "../../../assinatura/record-actions";
+import { dayKey, localMidnight } from "@/lib/prescricao";
 
 // Altura não muda na internação; o resto é aferido várias vezes por dia.
 const fields = vitalFields.filter((f) => f.key !== "altura");
@@ -25,6 +27,13 @@ export default async function VitalsPage({ params }: { params: Promise<{ id: str
     <div className="max-w-6xl space-y-6">
       <CareHeader admission={admission} />
       <CareNav admissionId={admission.id} current="sinais" />
+      {/* Assinatura dos registros de enfermagem de hoje (checagens, sinais vitais e balanço). */}
+      {records.some((r) => r.recordedById === user.id && r.takenAt >= localMidnight(new Date())) && (
+        <div className="card flex flex-wrap items-center gap-3 py-3! text-sm">
+          Meus registros de hoje (checagens, sinais vitais e balanço):
+          <RecordActions user={user} type="enfermagem" recordKey={`internacao:${admission.id}:${dayKey(localMidnight(new Date()))}:${user.id}`} back={`/internacao/${admission.id}`} signLabel="Assinar registros" />
+        </div>
+      )}
 
       {!admission.dischargedAt && (
         <ActionForm action={addVitals.bind(null, admission.id)} submitLabel="Registrar sinais vitais">

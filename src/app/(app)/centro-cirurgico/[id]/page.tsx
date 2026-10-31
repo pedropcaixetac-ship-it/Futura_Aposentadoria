@@ -12,6 +12,7 @@ import { packageState, usable } from "@/lib/cme";
 import { ActionForm } from "../../financeiro/action-form";
 import { cancelSurgery, recordStep, saveChecklist, saveOperativeNote, usePackage } from "../actions";
 import { SurgeryBadge } from "../status-badge";
+import { RecordActions } from "../../assinatura/record-actions";
 
 const people = { select: { name: true, sex: true, jobTitle: true } };
 
@@ -157,7 +158,10 @@ export default async function SurgeryPage({ params }: { params: Promise<{ id: st
         <section className="card space-y-2">
           <h2 className="font-semibold text-marinho-800">Descrição cirúrgica</h2>
           {surgery.operativeNote ? (
-            <p className="whitespace-pre-line text-sm">{surgery.operativeNote}</p>
+            <>
+              <p className="whitespace-pre-line text-sm">{surgery.operativeNote}</p>
+              {surgery.status === "REALIZADA" && <RecordActions user={user} type="cirurgia" recordKey={surgery.id} signLabel="Assinar descrição" />}
+            </>
           ) : (
             <ActionForm action={saveOperativeNote.bind(null, surgery.id)} submitLabel="Salvar descrição">
               <textarea name="operativeNote" className="input min-h-40" placeholder="Achados, técnica, intercorrências, material enviado para exame..." aria-label="Descrição cirúrgica" />
