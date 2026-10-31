@@ -211,6 +211,9 @@ model Clinic {
   equipments        Equipment[]
   workOrders        WorkOrder[]
   examRequests      ExamRequest[]
+  hospitalPrices    HospitalPrice[]
+  hospitalBills     HospitalBill[]
+  hospitalBillItems HospitalBillItem[]
 }
 
 model User {
@@ -350,6 +353,8 @@ model User {
   supplyHandled        SupplyRequest[]       @relation("SupplyHandler")
   workOrdersOpened     WorkOrder[]           @relation("WorkOrderOpener")
   workOrdersClosed     WorkOrder[]           @relation("WorkOrderCloser")
+  hospitalBillsClosed  HospitalBill[]
+  hospitalBillItems    HospitalBillItem[]
 
   @@unique([clinicId, email])
   @@unique([clinicId, cpf])
@@ -732,6 +737,7 @@ model Charge {
   // Dia em que o profissional (pessoa física) lançou o recibo no Receita Saúde, da Receita Federal.
   healthReceiptAt DateTime?       @db.Date
   serviceInvoice  ServiceInvoice?
+  hospitalBill    HospitalBill?
 
   @@unique([clinicId, receiptNumber])
   @@index([clinicId, dueDate])
@@ -1473,6 +1479,7 @@ model Admission {
   vitalRecords      VitalRecord[]
   fluidEntries      FluidEntry[]
   prescriptionItems PrescriptionItem[]
+  bill              HospitalBill?
 
   @@index([clinicId, dischargedAt])
 }
@@ -2364,4 +2371,76 @@ model WorkOrder {
   @@unique([clinicId, number])
   @@index([clinicId, status])
   @@index([equipmentId])
+}
+
+// ---------- Conta hospitalar ----------
+
+// Tabela de preços própria do hospital. key: "diaria:<tipo da ala>", "exame:<id do exame>",
+// "med:<id do produto da farmácia>" ou "sala:hora" (taxa de sala cirúrgica por hora).
+model HospitalPrice {
+  id         String   @id @default(cuid())
+  clinicId   String
+  clinic     Clinic   @relation(fields: [clinicId], references: [id])
+  key        String
+  priceCents Int
+  updatedAt  DateTime @updatedAt
+
+  @@unique([clinicId, key])
+}
+
+enum BillStatus {
+  ABERTA
+  FECHADA
+}
+
+enum BillItemKind {
+  DIARIA
+  MEDICAMENTO
+  EXAME
+  CIRURGIA
+  TAXA
+  OUTRO
+}
+
+// Conta de uma internação: diárias, medicamentos dispensados, exames, cirurgias e lançamentos à mão.
+// Fecha depois da alta e não muda mais; a particular vira uma cobrança no Financeiro.
+model HospitalBill {
+  id          String             @id @default(cuid())
+  clinicId    String
+  clinic      Clinic             @relation(fields: [clinicId], references: [id])
+  admissionId String             @unique
+  admission   Admission          @relation(fields: [admissionId], references: [id])
+  payer       String
+  status      BillStatus         @default(ABERTA)
+  totalCents  Int                @default(0)
+  createdAt   DateTime           @default(now())
+  closedAt    DateTime?
+  closedById  String?
+  closedBy    User?              @relation(fields: [closedById], references: [id])
+  chargeId    String?            @unique
+  charge      Charge?            @relation(fields: [chargeId], references: [id])
+  items       HospitalBillItem[]
+
+  @@index([clinicId, status])
+}
+
+// Linha da conta. source: de onde veio o lançamento automático (ex.: "exame:<id>"); nulo = lançado à mão.
+model HospitalBillItem {
+  id          String       @id @default(cuid())
+  clinicId    String
+  clinic      Clinic       @relation(fields: [clinicId], references: [id])
+  billId      String
+  bill        HospitalBill @relation(fields: [billId], references: [id])
+  kind        BillItemKind
+  source      String?
+  description String
+  quantity    Int
+  unitCents   Int
+  totalCents  Int
+  at          DateTime     @default(now())
+  addedById   String?
+  addedBy     User?        @relation(fields: [addedById], references: [id])
+
+  @@unique([billId, source])
+  @@index([billId])
 }
