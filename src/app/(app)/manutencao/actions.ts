@@ -130,7 +130,8 @@ export async function startWorkOrder(workOrderId: string, _: FormState, formData
   const order = await prisma.workOrder.findFirst({ where: { id: workOrderId, clinicId: user.clinicId } });
   if (!order) return { error: "Chamado não encontrado." };
   if (order.status !== "ABERTO") return { error: "Este chamado já foi iniciado ou encerrado." };
-  await prisma.workOrder.update({ where: { id: order.id }, data: { status: "EM_ANDAMENTO", startedAt: new Date(), assignedTo } });
+  const { count } = await prisma.workOrder.updateMany({ where: { id: order.id, clinicId: user.clinicId, status: "ABERTO" }, data: { status: "EM_ANDAMENTO", startedAt: new Date(), assignedTo } });
+  if (!count) return { error: "Este chamado já foi iniciado ou encerrado." };
   await audit({ clinicId: user.clinicId, userId: user.id, action: "CHAMADO_INICIADO", entity: "WorkOrder", entityId: order.id, details: { numero: order.number, responsavel: assignedTo } });
   refresh();
   return { error: "", ok: `Chamado nº ${order.number} em andamento.` };
@@ -146,10 +147,11 @@ export async function closeWorkOrder(workOrderId: string, _: FormState, formData
     if (!order) return "Chamado não encontrado.";
     if (order.status === "CONCLUIDO" || order.status === "CANCELADO") return "Este chamado já foi encerrado.";
     const now = new Date();
-    await tx.workOrder.update({
-      where: { id: order.id },
+    const { count } = await tx.workOrder.updateMany({
+      where: { id: order.id, clinicId: user.clinicId, status: { in: ["ABERTO", "EM_ANDAMENTO"] } },
       data: { status: "CONCLUIDO", closedAt: now, closedById: user.id, solution, startedAt: order.startedAt ?? now, stopped: false },
     });
+    if (!count) return "Este chamado já foi encerrado.";
     if (order.kind === "PREVENTIVA" && order.equipmentId) {
       await tx.equipment.update({ where: { id: order.equipmentId }, data: { lastPreventiveAt: now } });
     }
@@ -168,7 +170,11 @@ export async function cancelWorkOrder(workOrderId: string, _: FormState, formDat
   const order = await prisma.workOrder.findFirst({ where: { id: workOrderId, clinicId: user.clinicId } });
   if (!order) return { error: "Chamado não encontrado." };
   if (order.status === "CONCLUIDO" || order.status === "CANCELADO") return { error: "Este chamado já foi encerrado." };
-  await prisma.workOrder.update({ where: { id: order.id }, data: { status: "CANCELADO", closedAt: new Date(), closedById: user.id, solution: `Cancelado: ${reason}`, stopped: false } });
+  const { count } = await prisma.workOrder.updateMany({
+    where: { id: order.id, clinicId: user.clinicId, status: { in: ["ABERTO", "EM_ANDAMENTO"] } },
+    data: { status: "CANCELADO", closedAt: new Date(), closedById: user.id, solution: `Cancelado: ${reason}`, stopped: false },
+  });
+  if (!count) return { error: "Este chamado já foi encerrado." };
   await audit({ clinicId: user.clinicId, userId: user.id, action: "CHAMADO_CANCELADO", entity: "WorkOrder", entityId: order.id, details: { numero: order.number, motivo: reason } });
   refresh();
   return { error: "", ok: `Chamado nº ${order.number} cancelado.` };

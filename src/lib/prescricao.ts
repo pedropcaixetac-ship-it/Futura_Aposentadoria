@@ -46,6 +46,12 @@ export function doseTimes(item: Schedulable, from: Date, to: Date): Date[] {
   return times;
 }
 
+// O horário é mesmo um dos horários da prescrição? Evita checar a mesma dose de novo com outro horário
+// (tela antiga aberta, horário digitado com segundos a mais) ou uma dose de antes do início.
+export function isDoseTime(item: Schedulable, at: Date) {
+  return doseTimes(item, at, new Date(at.getTime() + 1)).some((t) => t.getTime() === at.getTime());
+}
+
 export function isActive(item: Schedulable, at = new Date()) {
   return item.startAt.getTime() <= at.getTime() + 24 * 3600_000 && at.getTime() < activeUntil(item);
 }

@@ -7,7 +7,7 @@ import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { canViewClinical, canWorkClinical } from "@/lib/permissions";
 import { isPhysician } from "@/lib/pronto-socorro";
-import { FREQUENCIES, kindLabel, ROUTES } from "@/lib/prescricao";
+import { FREQUENCIES, isDoseTime, kindLabel, ROUTES } from "@/lib/prescricao";
 
 export type FormState = { error: string; ok?: string };
 // Onde a prescrição vale: uma internação ou uma passagem pelo pronto-socorro.
@@ -113,6 +113,7 @@ export async function checkDose(ctx: RxContext, itemId: string, scheduledIso: st
   if (!scheduledAt && !item.asNeeded) return { error: "Escolha o horário." };
   if (scheduledAt && scheduledAt.getTime() > Date.now() + 60 * 60_000) return { error: "Este horário ainda não chegou." };
   if (item.suspendedAt && (!scheduledAt || scheduledAt >= item.suspendedAt)) return { error: "Este item foi suspenso pelo médico." };
+  if (scheduledAt && !isDoseTime(item, scheduledAt)) return { error: "Este não é um horário desta prescrição. Recarregue a página e cheque pelo horário da lista." };
 
   try {
     await prisma.medicationCheck.create({ data: { clinicId: user.clinicId, itemId: item.id, scheduledAt, status, note, recordedById: user.id } });

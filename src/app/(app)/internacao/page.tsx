@@ -43,6 +43,12 @@ export default async function BedMapPage() {
       },
     }),
   ]);
+  // Pareceres esperando resposta da especialidade de quem abriu o mapa (ou pedidos a ele).
+  const myConsults = canWorkClinical(user)
+    ? await prisma.consultRequest.count({
+        where: { clinicId: user.clinicId, status: "PENDENTE", OR: [{ consultantId: user.id }, ...(user.specialty ? [{ consultantId: null, specialty: { equals: user.specialty.trim(), mode: "insensitive" as const } }] : [])] },
+      })
+    : 0;
   const byBed = new Map(admissions.map((a) => [a.bedId, a]));
   const allStates = wards.flatMap((w) => w.beds.map((b) => bedState(b, byBed.has(b.id))));
   const total = occupancy(allStates);
@@ -56,6 +62,11 @@ export default async function BedMapPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           {canWorkClinical(user) && wards.length > 0 && <Link href="/internacao/plantao" className="btn-secondary">Passagem de plantão</Link>}
+          {canWorkClinical(user) && wards.length > 0 && (
+            <Link href="/internacao/pareceres" className="btn-secondary">
+              Pareceres{myConsults > 0 && <span className="ml-1 rounded-full bg-red-600 px-1.5 text-xs text-white">{myConsults}</span>}
+            </Link>
+          )}
           {hasTab(user, "leitos") && <Link href="/internacao/leitos" className="btn-secondary">Alas e leitos</Link>}
           {total.livres > 0 && canAdmit(user) && <Link href="/internacao/internar" className="btn-primary">Internar paciente</Link>}
         </div>

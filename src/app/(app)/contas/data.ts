@@ -6,7 +6,10 @@ import { autoLines, billTotal, roomHours } from "@/lib/conta-hospitalar";
 // Lançamentos feitos à mão ficam como estão. Conta fechada não muda.
 export async function refreshBill(clinicId: string, admissionId: string, tx?: Tx) {
   const run = async (t: Tx) => {
-    const admission = await t.admission.findFirst({ where: { id: admissionId, clinicId }, include: { bed: { include: { ward: true } } } });
+    const admission = await t.admission.findFirst({
+      where: { id: admissionId, clinicId },
+      include: { bed: { include: { ward: true } }, movements: { select: { movedAt: true, toBed: { select: { ward: { select: { kind: true } } } } } } },
+    });
     if (!admission) return null;
     const payer = admission.insurance?.trim() || "Particular";
     const bill =
@@ -30,7 +33,10 @@ export async function refreshBill(clinicId: string, admissionId: string, tx?: Tx
       {
         admittedAt: admission.admittedAt,
         dischargedAt: admission.dischargedAt,
-        wardKind: admission.bed.ward.kind,
+        // Cada troca de leito muda o tipo de diária (ex.: UTI e depois enfermaria).
+        stays: admission.movements.length
+          ? admission.movements.map((m) => ({ from: m.movedAt, wardKind: m.toBed.ward.kind }))
+          : [{ from: admission.admittedAt, wardKind: admission.bed.ward.kind }],
         medications: moves.map((m) => {
           const p = productById.get(m.productId);
           return { productId: m.productId, name: [p?.name, p?.presentation].filter(Boolean).join(" "), unit: p?.unit ?? "unidade", quantity: -(m._sum.quantity ?? 0) };

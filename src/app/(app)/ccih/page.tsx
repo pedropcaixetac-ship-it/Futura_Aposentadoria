@@ -6,7 +6,7 @@ import { formatDate, formatDateTime } from "@/lib/format";
 import { displayName } from "@/lib/staff";
 import { compareBedCodes } from "@/lib/internacao";
 import { frequencyLabel } from "@/lib/prescricao";
-import { DEVICES, infectionDensity, isAntimicrobial, isolationHint, isolationLabel, isolationStyle, needsReview, patientDays, siteLabel, therapyDay } from "@/lib/ccih";
+import { DEVICES, infectionDensity, isAntimicrobial, isolationHint, isolationLabel, isolationStyle, needsReview, patientDays, siteLabel, therapyDay, ANTIMICROBIALS } from "@/lib/ccih";
 import { ActionForm } from "../financeiro/action-form";
 import { cancelInfection, endIsolation, reportInfection, startIsolation } from "./actions";
 
@@ -18,6 +18,9 @@ function monthRange(now = new Date()) {
   const from = new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), 1) + BRT);
   return { from, label: local.toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" }) };
 }
+
+// Hospital cheio: centenas de antimicrobianos ao mesmo tempo. A tabela mostra os de uso mais longo primeiro.
+const ATB_LIMIT = 200;
 
 export default async function CcihPage() {
   const user = await requireUser("ccih");
@@ -58,7 +61,11 @@ export default async function CcihPage() {
         suspendedAt: null,
         startAt: { lte: now },
         OR: [{ endAt: null }, { endAt: { gt: now } }],
-        AND: [{ OR: [{ admission: { dischargedAt: null } }, { emergencyVisit: { closedAt: null } }] }],
+        AND: [
+          { OR: [{ admission: { dischargedAt: null } }, { emergencyVisit: { closedAt: null } }] },
+          // Hospital cheio = milhares de itens prescritos: o banco já separa os antimicrobianos pelo nome.
+          { OR: ANTIMICROBIALS.map((a) => ({ description: { contains: a, mode: "insensitive" as const } })) },
+        ],
       },
       include: {
         patient: { select: { name: true, socialName: true } },
@@ -71,7 +78,9 @@ export default async function CcihPage() {
   const name = (p: { name: string; socialName: string | null }) => p.socialName || p.name;
   const bedName = (b: { code: string; ward: { name: string } }) => `${b.ward.name} · ${b.code}`;
   const beds = [...open].sort((a, b) => a.bed.ward.name.localeCompare(b.bed.ward.name) || compareBedCodes(a.bed.code, b.bed.code));
-  const atb = antimicrobials.filter((i) => isAntimicrobial(i.description));
+  // Todos contam nos números; a tabela mostra primeiro os de uso mais longo (os que pedem revisão), até ATB_LIMIT linhas.
+  const allAtb = antimicrobials.filter((i) => isAntimicrobial(i.description));
+  const atb = allAtb.slice(0, ATB_LIMIT);
   const valid = infections.filter((i) => !i.canceledAt);
   const thisMonth = valid.filter((i) => i.diagnosedAt.getTime() >= monthStart.getTime());
   const days = patientDays(monthAdmissions, from, now);
@@ -89,7 +98,7 @@ export default async function CcihPage() {
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="card"><p className="text-sm text-slate-500">Em isolamento</p><p className="text-2xl font-semibold text-marinho-800">{isolations.length}</p></div>
-        <div className="card"><p className="text-sm text-slate-500">Em uso de antimicrobiano</p><p className="text-2xl font-semibold text-marinho-800">{new Set(atb.map((i) => i.patientId)).size}</p></div>
+        <div className="card"><p className="text-sm text-slate-500">Em uso de antimicrobiano</p><p className="text-2xl font-semibold text-marinho-800">{new Set(allAtb.map((i) => i.patientId)).size}</p></div>
         <div className="card"><p className="text-sm text-slate-500">Infecções em {label}</p><p className="text-2xl font-semibold text-marinho-800">{thisMonth.length}</p></div>
         <div className="card">
           <p className="text-sm text-slate-500">Densidade no mês</p>
@@ -145,7 +154,8 @@ export default async function CcihPage() {
       </section>
 
       <section className="card space-y-3">
-        <h2 className="font-semibold text-marinho-800">Antimicrobianos em uso ({atb.length})</h2>
+        <h2 className="font-semibold text-marinho-800">Antimicrobianos em uso ({allAtb.length})</h2>
+        {allAtb.length > atb.length && <p className="text-xs text-slate-500">Mostrando os {atb.length} de uso mais longo. Os demais aparecem na prescrição de cada paciente.</p>}
         {atb.length === 0 && <p className="text-sm text-slate-500">Nenhum antimicrobiano prescrito agora.</p>}
         {atb.length > 0 && (
           <div className="overflow-x-auto">

@@ -104,6 +104,8 @@ export default async function AdmissionPage({ params }: { params: Promise<{ id: 
         <div>
           <p className="text-xs uppercase tracking-wide text-slate-500">Médico responsável</p>
           <p className="font-medium">{displayName(admission.attending)}</p>
+          {admission.specialty && <p className="text-slate-500">{admission.specialty}</p>}
+          {care && <Link href={`/internacao/${admission.id}/pareceres`} className="text-xs text-marinho-700 hover:underline">Pareceres e transferência de especialidade</Link>}
         </div>
         <div>
           <p className="text-xs uppercase tracking-wide text-slate-500">Veio de</p>

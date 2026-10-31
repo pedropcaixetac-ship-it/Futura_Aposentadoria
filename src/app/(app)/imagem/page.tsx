@@ -6,14 +6,16 @@ import { kitchenDate as todayDate } from "@/lib/cozinha";
 import { ActionForm } from "../financeiro/action-form";
 import { cancelExam, collectExam, saveImagingReport } from "../exames/actions";
 import { ExamHeader } from "../exames/exam-header";
-import { loadQueue } from "../exames/queue-data";
+import { loadQueue, queueWards } from "../exames/queue-data";
+import { QueueFilter, QueueMore } from "../exames/queue-filter";
 import { ResultView } from "../exames/result-view";
 
 // Imagem: a agenda do dia por aparelho, o que falta laudar e os laudos das últimas 24 horas.
-export default async function ImagingPage() {
+export default async function ImagingPage({ searchParams }: { searchParams: Promise<{ ala?: string }> }) {
   const user = await requireUser("imagem");
   const tomorrow = new Date(todayDate().getTime() + 27 * 3600_000);
-  const { toCollect, toRelease, released } = await loadQueue(user.clinicId, "IMAGEM", tomorrow);
+  const { ala = "" } = await searchParams;
+  const [{ toCollect, toRelease, released, counts }, wards] = await Promise.all([loadQueue(user.clinicId, "IMAGEM", tomorrow, ala), queueWards(user.clinicId)]);
   const modalities = [...new Set(toCollect.map((e) => e.examType.modality ?? "Outros"))].sort();
   const team = canWorkClinical(user);
   const doctor = isPhysician(user);
@@ -25,8 +27,10 @@ export default async function ImagingPage() {
         <p className="text-sm text-slate-500">O técnico registra o exame feito; o médico faz o laudo, que aparece para quem pediu.</p>
       </div>
 
+      <QueueFilter path="/imagem" ala={ala} wards={wards} />
+
       <section className="space-y-3">
-        <h2 className="font-semibold text-marinho-800">A realizar hoje ({toCollect.length})</h2>
+        <h2 className="font-semibold text-marinho-800">A realizar hoje ({counts.toCollect})</h2>
         {toCollect.length === 0 && <p className="card text-sm text-slate-500">Nenhum exame para fazer.</p>}
         {modalities.map((m) => (
           <div key={m} className="space-y-2">
@@ -50,10 +54,11 @@ export default async function ImagingPage() {
             </ul>
           </div>
         ))}
+        <QueueMore shown={toCollect.length} total={counts.toCollect} />
       </section>
 
       <section className="space-y-2">
-        <h2 className="font-semibold text-marinho-800">A laudar ({toRelease.length})</h2>
+        <h2 className="font-semibold text-marinho-800">A laudar ({counts.toRelease})</h2>
         {toRelease.length === 0 && <p className="card text-sm text-slate-500">Nenhum exame esperando laudo.</p>}
         <ul className="space-y-2">
           {toRelease.map((e) => (
@@ -71,11 +76,12 @@ export default async function ImagingPage() {
             </li>
           ))}
         </ul>
+        <QueueMore shown={toRelease.length} total={counts.toRelease} />
       </section>
 
       {released.length > 0 && (
         <section className="space-y-2">
-          <h2 className="font-semibold text-marinho-800">Laudados nas últimas 24 horas</h2>
+          <h2 className="font-semibold text-marinho-800">Laudados nas últimas 24 horas{counts.released > released.length && ` (os ${released.length} mais recentes de ${counts.released})`}</h2>
           <ul className="space-y-2">
             {released.map((e) => (
               <li key={e.id} className="card space-y-2 text-sm">

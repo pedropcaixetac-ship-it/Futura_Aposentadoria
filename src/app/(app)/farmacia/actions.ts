@@ -16,6 +16,9 @@ function text(formData: FormData, key: string) {
   return value || null;
 }
 
+// Mesma entrega repetida dentro deste tempo é clique duplo.
+const DOUBLE_CLICK_MS = 60_000;
+
 function positiveInt(value: string | null) {
   const n = Number(value);
   return value !== null && Number.isInteger(n) && n > 0 && n <= 100_000 ? n : null;
@@ -96,7 +99,13 @@ export async function dispense(itemId: string, _: FormState, formData: FormData)
   const quantity = positiveInt(text(formData, "quantity"));
   if (!quantity) return { error: "Informe a quantidade." };
 
-  const result = await withLock([`estoque:${product.id}`], async (tx) => {
+  const result = await withLock([`estoque:${product.id}`, `dispensacao:${item.id}`], async (tx) => {
+    // Clique duplo (ou dois farmacêuticos na mesma linha): a mesma entrega repetida em segundos sai uma vez só.
+    const recent = await tx.stockMovement.findFirst({
+      where: { clinicId: user.clinicId, prescriptionItemId: item.id, productId: product.id, kind: "DISPENSACAO", at: { gt: new Date(Date.now() - DOUBLE_CLICK_MS) } },
+      select: { id: true },
+    });
+    if (recent) return { error: `${product.name} acabou de ser dispensado para este item. Se precisa mandar mais, aguarde um minuto e confira a quantidade.` };
     const { lots, missing } = pickLots(await lotsOf(tx, user.clinicId, product.id), quantity);
     if (missing > 0) return { error: `Estoque insuficiente de ${product.name}: faltam ${missing} ${product.unit}(s) (lotes vencidos não contam).` };
     for (const l of lots) {

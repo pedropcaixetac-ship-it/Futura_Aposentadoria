@@ -64,13 +64,25 @@ export async function scheduleSurgery(patientId: string, _: FormState, formData:
 
   const dayStart = new Date(scheduledAt.getTime() - 24 * 3600_000);
   const dayEnd = new Date(scheduledAt.getTime() + 24 * 3600_000);
-  const result = await withLock([`sala:${room.id}`, `cirurgiao:${surgeon.id}`], async (tx) => {
+  // Sala, cirurgião, anestesista e paciente: nenhum deles pode estar em duas cirurgias ao mesmo tempo.
+  // Médico vale igual como cirurgião ou anestesista (não pode operar numa sala e anestesiar em outra).
+  const doctors = [surgeon.id, ...(anesthetist ? [anesthetist.id] : [])];
+  const keys = [`sala:${room.id}`, `paciente-cc:${patient.id}`, ...doctors.map((d) => `cirurgiao:${d}`)];
+  const result = await withLock(keys, async (tx) => {
     const nearby = await tx.surgery.findMany({
-      where: { clinicId: user.clinicId, canceledAt: null, status: { not: "REALIZADA" }, scheduledAt: { gte: dayStart, lte: dayEnd }, OR: [{ roomId: room.id }, { surgeonId: surgeon.id }] },
-      select: { roomId: true, surgeonId: true, scheduledAt: true, expectedMinutes: true, procedure: true },
+      where: {
+        clinicId: user.clinicId, canceledAt: null, status: { not: "REALIZADA" }, scheduledAt: { gte: dayStart, lte: dayEnd },
+        OR: [{ roomId: room.id }, { patientId: patient.id }, { surgeonId: { in: doctors } }, { anesthetistId: { in: doctors } }],
+      },
+      select: { roomId: true, surgeonId: true, anesthetistId: true, patientId: true, scheduledAt: true, expectedMinutes: true, procedure: true },
     });
     const clash = nearby.find((s) => overlaps(s.scheduledAt, s.expectedMinutes, scheduledAt, expectedMinutes));
-    if (clash) return { error: clash.roomId === room.id ? `A ${room.name} já está ocupada nesse horário (${clash.procedure}).` : "O cirurgião já tem outra cirurgia nesse horário." };
+    if (clash) {
+      if (clash.roomId === room.id) return { error: `A ${room.name} já está ocupada nesse horário (${clash.procedure}).` };
+      if (clash.patientId === patient.id) return { error: `O paciente já tem outra cirurgia nesse horário (${clash.procedure}).` };
+      const surgeonBusy = clash.surgeonId === surgeon.id || clash.anesthetistId === surgeon.id;
+      return { error: surgeonBusy ? "O cirurgião já está em outra cirurgia nesse horário." : "O anestesista já está em outra cirurgia nesse horário." };
+    }
     const surgery = await tx.surgery.create({
       data: {
         clinicId: user.clinicId, patientId: patient.id, admissionId: admission?.id ?? null, roomId: room.id, surgeonId: surgeon.id, anesthetistId: anesthetist?.id ?? null,

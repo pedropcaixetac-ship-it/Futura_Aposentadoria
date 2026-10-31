@@ -4,6 +4,7 @@ const tabs = [
   { key: "resumo", label: "Internação e evoluções", path: "" },
   { key: "prescricao", label: "Prescrição e checagem", path: "/prescricao" },
   { key: "exames", label: "Exames", path: "/exames" },
+  { key: "pareceres", label: "Pareceres e especialidade", path: "/pareceres" },
   { key: "sinais", label: "Sinais vitais", path: "/sinais" },
   { key: "balanco", label: "Balanço hídrico", path: "/balanco" },
 ] as const;
