@@ -191,6 +191,12 @@ model Clinic {
   medicationChecks MedicationCheck[]
   pharmacyProducts PharmacyProduct[]
   stockMovements   StockMovement[]
+  mealDeliveries   MealDelivery[]
+  isolations       IsolationPrecaution[]
+  infections       HospitalInfection[]
+  chemoProtocols   ChemoProtocol[]
+  chemoPlans       ChemoPlan[]
+  chemoSessions    ChemoSession[]
 }
 
 model User {
@@ -304,6 +310,16 @@ model User {
   medicationChecks     MedicationCheck[]  @relation("CheckRecorder")
   canceledChecks       MedicationCheck[]  @relation("CheckCanceler")
   stockMovements       StockMovement[]
+  mealsRecorded        MealDelivery[]        @relation("MealRecorder")
+  mealsCanceled        MealDelivery[]        @relation("MealCanceler")
+  isolationsStarted    IsolationPrecaution[] @relation("IsolationStarter")
+  isolationsEnded      IsolationPrecaution[] @relation("IsolationEnder")
+  infectionsReported   HospitalInfection[]   @relation("InfectionReporter")
+  infectionsCanceled   HospitalInfection[]   @relation("InfectionCanceler")
+  chemoPlans           ChemoPlan[]           @relation("ChemoPhysician")
+  chemoPlansEnded      ChemoPlan[]           @relation("ChemoPlanEnder")
+  chemoReleased        ChemoSession[]        @relation("ChemoReleaser")
+  chemoAdministered    ChemoSession[]        @relation("ChemoAdministrator")
 }
 
 model Session {
@@ -416,6 +432,8 @@ model Patient {
   emergencyVisits EmergencyVisit[]
   prescriptionItems PrescriptionItem[]
   stockMovements StockMovement[]
+  chemoPlans     ChemoPlan[]
+  chemoSessions  ChemoSession[]
 
   @@unique([clinicId, cpf])
   @@unique([clinicId, cns])
@@ -1411,6 +1429,9 @@ model Admission {
 
   movements BedMovement[]
   visits    Visit[]
+  meals      MealDelivery[]
+  isolations IsolationPrecaution[]
+  infections HospitalInfection[]
   evolutions Encounter[]
   vitalRecords VitalRecord[]
   fluidEntries FluidEntry[]
@@ -1705,4 +1726,190 @@ model StockMovement {
 
   @@index([clinicId, productId])
   @@index([prescriptionItemId])
+}
+
+// ---------- Cozinha (nutrição e dietética) ----------
+
+enum MealKind {
+  DESJEJUM
+  COLACAO
+  ALMOCO
+  LANCHE
+  JANTAR
+  CEIA
+}
+
+enum MealStatus {
+  ENTREGUE
+  RECUSOU
+  NAO_SERVIDO
+}
+
+// Refeição entregue (ou não) no leito. Não muda: se foi marcada errado, é anulada e marcada de novo.
+// No banco, cada refeição do dia tem só um registro valendo por internação.
+model MealDelivery {
+  id           String     @id @default(cuid())
+  clinicId     String
+  clinic       Clinic     @relation(fields: [clinicId], references: [id])
+  admissionId  String
+  admission    Admission  @relation(fields: [admissionId], references: [id])
+  date         DateTime   @db.Date
+  meal         MealKind
+  status       MealStatus
+  note         String?
+  at           DateTime   @default(now())
+  recordedById String
+  recordedBy   User       @relation("MealRecorder", fields: [recordedById], references: [id])
+  canceledAt   DateTime?
+  canceledById String?
+  canceledBy   User?      @relation("MealCanceler", fields: [canceledById], references: [id])
+  cancelReason String?
+
+  @@index([clinicId, date])
+  @@index([admissionId])
+}
+
+// ---------- CCIH (controle de infecção hospitalar) ----------
+
+enum IsolationKind {
+  CONTATO
+  GOTICULAS
+  AEROSSOIS
+}
+
+// Precaução de isolamento do paciente internado. Só se encerra (uma vez); nunca se apaga.
+model IsolationPrecaution {
+  id          String        @id @default(cuid())
+  clinicId    String
+  clinic      Clinic        @relation(fields: [clinicId], references: [id])
+  admissionId String
+  admission   Admission     @relation(fields: [admissionId], references: [id])
+  kind        IsolationKind
+  // Germe ou motivo (ex.: KPC em swab retal, suspeita de tuberculose).
+  reason      String
+  startedAt   DateTime      @default(now())
+  startedById String
+  startedBy   User          @relation("IsolationStarter", fields: [startedById], references: [id])
+  endedAt     DateTime?
+  endedById   String?
+  endedBy     User?         @relation("IsolationEnder", fields: [endedById], references: [id])
+  endReason   String?
+
+  @@index([clinicId, endedAt])
+  @@index([admissionId])
+}
+
+enum InfectionSite {
+  ICS
+  ITU
+  PAV
+  ISC
+  PELE
+  OUTRA
+}
+
+// Infecção relacionada à assistência notificada pela CCIH. Só se anula.
+model HospitalInfection {
+  id           String        @id @default(cuid())
+  clinicId     String
+  clinic       Clinic        @relation(fields: [clinicId], references: [id])
+  admissionId  String
+  admission    Admission     @relation(fields: [admissionId], references: [id])
+  site         InfectionSite
+  diagnosedAt  DateTime      @db.Date
+  organism     String?
+  // Dispositivo ligado à infecção (cateter central, sonda vesical, ventilação mecânica).
+  device       String?
+  note         String?
+  reportedById String
+  reportedBy   User          @relation("InfectionReporter", fields: [reportedById], references: [id])
+  createdAt    DateTime      @default(now())
+  canceledAt   DateTime?
+  canceledById String?
+  canceledBy   User?         @relation("InfectionCanceler", fields: [canceledById], references: [id])
+  cancelReason String?
+
+  @@index([clinicId, diagnosedAt])
+  @@index([admissionId])
+}
+
+// ---------- Quimioterapia ----------
+
+// Protocolo (ex.: AC, FOLFOX). drugs: [{ drug, dose, unit ("mg/m²" | "mg/kg" | "mg"), route, days: [1, 8] }].
+model ChemoProtocol {
+  id        String      @id @default(cuid())
+  clinicId  String
+  clinic    Clinic      @relation(fields: [clinicId], references: [id])
+  name      String
+  cycleDays Int
+  drugs     Json
+  note      String?
+  active    Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  plans     ChemoPlan[]
+
+  @@unique([clinicId, name])
+}
+
+// Tratamento de um paciente: protocolo, número de ciclos e a superfície corporal usada no cálculo das doses.
+model ChemoPlan {
+  id          String         @id @default(cuid())
+  clinicId    String
+  clinic      Clinic         @relation(fields: [clinicId], references: [id])
+  patientId   String
+  patient     Patient        @relation(fields: [patientId], references: [id])
+  protocolId  String
+  protocol    ChemoProtocol  @relation(fields: [protocolId], references: [id])
+  physicianId String
+  physician   User           @relation("ChemoPhysician", fields: [physicianId], references: [id])
+  startDate   DateTime       @db.Date
+  cycles      Int
+  heightCm    Int
+  weightKg    Float
+  bsa         Float
+  // Percentual da dose (100 = dose cheia; 80 = redução de 20%).
+  doseLevel   Int            @default(100)
+  note        String?
+  createdAt   DateTime       @default(now())
+  endedAt     DateTime?
+  endedById   String?
+  endedBy     User?          @relation("ChemoPlanEnder", fields: [endedById], references: [id])
+  endReason   String?
+  sessions    ChemoSession[]
+
+  @@index([clinicId, endedAt])
+}
+
+enum ChemoSessionStatus {
+  AGENDADA
+  REALIZADA
+  ADIADA
+  CANCELADA
+}
+
+// Um dia de aplicação. As doses calculadas ficam gravadas na sessão (doses).
+// O médico libera (exames ok) e a enfermagem registra a aplicação; aplicada não muda mais.
+model ChemoSession {
+  id               String             @id @default(cuid())
+  clinicId         String
+  clinic           Clinic             @relation(fields: [clinicId], references: [id])
+  planId           String
+  plan             ChemoPlan          @relation(fields: [planId], references: [id])
+  patientId        String
+  patient          Patient            @relation(fields: [patientId], references: [id])
+  cycle            Int
+  day              Int
+  date             DateTime           @db.Date
+  status           ChemoSessionStatus @default(AGENDADA)
+  doses            Json
+  releasedAt       DateTime?
+  releasedById     String?
+  releasedBy       User?              @relation("ChemoReleaser", fields: [releasedById], references: [id])
+  administeredAt   DateTime?
+  administeredById String?
+  administeredBy   User?              @relation("ChemoAdministrator", fields: [administeredById], references: [id])
+  note             String?
+
+  @@unique([planId, cycle, day])
+  @@index([clinicId, date])
 }

@@ -12,6 +12,9 @@ export type TabKey =
   | "leitos"
   | "visitas"
   | "farmacia"
+  | "cozinha"
+  | "ccih"
+  | "quimioterapia"
   | "agenda"
   | "pacientes"
   | "modelos"
@@ -106,6 +109,32 @@ export const TABS: Tab[] = [
     href: "/farmacia",
     description: "Estoque de medicamentos e materiais por lote e validade, e dispensação do que o médico prescreveu.",
     defaultRoles: ["ADMIN", "PROFISSIONAL", "ADMINISTRATIVO"],
+    hospital: true,
+  },
+  {
+    key: "cozinha",
+    label: "Cozinha",
+    href: "/cozinha",
+    description: "Mapa de dietas por leito (o que o médico prescreveu), alergias, isolamentos e entrega das refeições.",
+    defaultRoles: ["ADMIN", "PROFISSIONAL", "TECNICO", "ADMINISTRATIVO"],
+    hospital: true,
+  },
+  {
+    key: "ccih",
+    label: "CCIH",
+    href: "/ccih",
+    description: "Controle de infecção: isolamentos, infecções notificadas, antimicrobianos em uso e indicadores do mês.",
+    defaultRoles: ["ADMIN", "PROFISSIONAL"],
+    blockedReason: (u) => (canViewClinical(u) ? null : "Só para profissionais de saúde."),
+    hospital: true,
+  },
+  {
+    key: "quimioterapia",
+    label: "Quimioterapia",
+    href: "/quimioterapia",
+    description: "Protocolos, tratamentos com cálculo de dose pela superfície corporal e as sessões do dia.",
+    defaultRoles: ["ADMIN", "PROFISSIONAL"],
+    blockedReason: (u) => (canViewClinical(u) ? null : "Só para profissionais de saúde."),
     hospital: true,
   },
   {

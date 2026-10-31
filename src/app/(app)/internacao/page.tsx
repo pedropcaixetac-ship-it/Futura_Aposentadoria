@@ -6,6 +6,7 @@ import { canViewClinical, canWorkClinical } from "@/lib/permissions";
 import { age } from "@/lib/format";
 import { displayName } from "@/lib/staff";
 import { bedState, bedStateLabel, compareBedCodes, daysAdmitted, daysLabel, occupancy, type BedState } from "@/lib/internacao";
+import { isolationLabel, isolationStyle } from "@/lib/ccih";
 import { markBedClean } from "./actions";
 
 const tileStyle: Record<BedState, string> = {
@@ -37,6 +38,7 @@ export default async function BedMapPage() {
       include: {
         patient: { select: { id: true, name: true, socialName: true, birthDate: true, sex: true } },
         attending: { select: { name: true, sex: true, jobTitle: true } },
+        isolations: { where: { endedAt: null }, select: { kind: true } },
       },
     }),
   ]);
@@ -109,6 +111,9 @@ export default async function BedMapPage() {
                             {[years !== null && `${years} anos`, daysLabel(daysAdmitted(admission.admittedAt))].filter(Boolean).join(" · ")}
                           </p>
                           <p className="text-xs text-slate-600">{displayName(admission.attending)}</p>
+                          {admission.isolations.map((i) => (
+                            <p key={i.kind} className={`inline-block rounded px-1.5 text-xs ${isolationStyle[i.kind]}`}>Isolamento: {isolationLabel[i.kind]}</p>
+                          ))}
                           {clinical && admission.cidCode && <p className="text-xs text-slate-500">CID {admission.cidCode}</p>}
                         </Link>
                       );

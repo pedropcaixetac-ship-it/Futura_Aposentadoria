@@ -10,6 +10,7 @@ import { displayName } from "@/lib/staff";
 import { compareBedCodes, currentShift, daysAdmitted, daysLabel, defaultEvolutionKind, dischargeKindLabel, evolutionKindLabel, shiftLabel, suggestedTemplateId } from "@/lib/internacao";
 import { ActionForm } from "../../financeiro/action-form";
 import { dischargePatient, startEvolution, transferBed } from "../actions";
+import { isolationHint, isolationLabel, isolationStyle } from "@/lib/ccih";
 import { CareNav } from "./care-nav";
 
 function stayLabel(days: number) {
@@ -31,6 +32,7 @@ export default async function AdmissionPage({ params }: { params: Promise<{ id: 
       attending: { select: { name: true, sex: true, jobTitle: true } },
       admittedBy: { select: { name: true, sex: true, jobTitle: true } },
       dischargedBy: { select: { name: true, sex: true, jobTitle: true } },
+      isolations: { where: { endedAt: null }, select: { id: true, kind: true, reason: true, startedAt: true } },
       movements: {
         include: { fromBed: { include: { ward: true } }, toBed: { include: { ward: true } }, movedBy: { select: { name: true, sex: true, jobTitle: true } } },
         orderBy: { movedAt: "desc" },
@@ -83,6 +85,11 @@ export default async function AdmissionPage({ params }: { params: Promise<{ id: 
         {admission.patient.allergies && care && (
           <p className="mt-1 inline-block rounded-md bg-red-50 px-2 py-1 text-sm font-medium text-red-700">Alergias: {admission.patient.allergies}</p>
         )}
+        {admission.isolations.map((i) => (
+          <p key={i.id} className={`mt-1 ml-2 inline-block rounded-md px-2 py-1 text-sm font-medium ${isolationStyle[i.kind]}`}>
+            Isolamento de {isolationLabel[i.kind].toLowerCase()}: {isolationHint[i.kind].toLowerCase()}{clinical && ` (${i.reason})`}
+          </p>
+        ))}
       </div>
 
       {care && <CareNav admissionId={admission.id} current="resumo" />}
