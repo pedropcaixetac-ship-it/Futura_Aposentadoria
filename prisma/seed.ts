@@ -624,6 +624,32 @@ async function seedHospitalStaff() {
   });
 }
 
+// Nutricionista, biomédica e técnico em radiologia do hospital-demo (logins de teste pedidos por Pedro).
+// Cada um é criado só se ainda não existir, para funcionar também em bancos que já têm os outros.
+async function seedHospitalStaffExtra() {
+  const hospital = await prisma.clinic.findUnique({ where: { slug: "hospital-demo" } });
+  if (!hospital) return;
+  const passwordHash = await bcrypt.hash("senha123", 10);
+  const people = [
+    {
+      name: "Fernanda Dias", sex: "F", jobTitle: "Nutricionista", email: "nutricao@hospital.com", role: "PROFISSIONAL" as const,
+      councilType: "CRN", councilNumber: "33445", councilUf: "GO", sector: "Nutrição",
+    },
+    {
+      name: "Larissa Mendes", sex: "F", jobTitle: "Biomédico(a)", email: "biomedico@hospital.com", role: "PROFISSIONAL" as const,
+      councilType: "CRBM", councilNumber: "55667", councilUf: "GO", sector: "Laboratório",
+    },
+    {
+      name: "Rafael Nunes", sex: "M", jobTitle: "Técnico(a) em radiologia", email: "radiologia@hospital.com", role: "TECNICO" as const,
+      councilType: "CRTR", councilNumber: "99001", councilUf: "GO", sector: "Imagem",
+    },
+  ];
+  for (const person of people) {
+    if (await prisma.user.findFirst({ where: { clinicId: hospital.id, email: person.email } })) continue;
+    await prisma.user.create({ data: { clinicId: hospital.id, passwordHash, ...person } });
+  }
+}
+
 async function seedHospitalExams() {
   const hospital = await prisma.clinic.findUnique({ where: { slug: "hospital-demo" } });
   if (!hospital || (await prisma.examType.count({ where: { clinicId: hospital.id } })) > 0) return;
@@ -1065,6 +1091,7 @@ async function main() {
   await seedHospitalSupport();
   await seedHospitalBilling();
   await seedHospitalStaff();
+  await seedHospitalStaffExtra();
   await seedAgenda();
   await seedFinanceDemo();
   await seedPurchasesDemo();
