@@ -3,7 +3,6 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { PrismaClient } from "@prisma/client";
 import { bedState, compareBedCodes, daysAdmitted, daysLabel, occupancy, parseBedCodes } from "../src/lib/internacao";
-import { institutionModules } from "../src/lib/plans";
 import { hasTab, tabInInstitution } from "../src/lib/tabs";
 
 const prisma = new PrismaClient();
@@ -39,18 +38,25 @@ test("dias de internação no horário de Brasília", () => {
 
 test("aba Internação só existe no hospital; clínica continua igual", () => {
   const base = { id: "u", role: "RECEPCAO" as const, councilNumber: null, customTabs: false, allowedTabs: [] };
-  const clinica = { ...base, modules: institutionModules("CLINICA", null), institution: "CLINICA" };
-  const hospital = { ...base, modules: institutionModules("HOSPITAL", null), institution: "HOSPITAL" };
-  assert.equal(hasTab(clinica, "internacao"), false);
+  const clinica = { ...base, institution: "CLINICA" };
+  const hospital = { ...base, institution: "HOSPITAL" };
+  // Recepção do hospital: o mesmo da clínica (com financeiro) e mais as visitas; internar não é dela.
+  assert.equal(hasTab(clinica, "visitas"), false);
   assert.equal(hasTab(clinica, "financeiro"), true);
-  assert.equal(hasTab(hospital, "internacao"), true);
-  assert.equal(hasTab(hospital, "financeiro"), false);
+  assert.equal(hasTab(hospital, "financeiro"), true);
+  assert.equal(hasTab(hospital, "recepcao"), true);
+  assert.equal(hasTab(hospital, "visitas"), true);
+  assert.equal(hasTab(hospital, "internacao"), false);
   assert.equal(hasTab(hospital, "leitos"), false);
+  assert.equal(hasTab({ ...hospital, role: "PROFISSIONAL", councilNumber: "1" }, "internacao"), true);
   assert.equal(hasTab({ ...hospital, role: "ADMIN" }, "leitos"), true);
+  // Gerente do hospital continua com a gestão; "Meu financeiro" segue a regra de sempre (profissional de saúde).
+  assert.equal(hasTab({ ...hospital, role: "PROFISSIONAL", councilNumber: "1" }, "meu-financeiro"), true);
+  for (const tab of ["financeiro", "contabilidade", "internacao"] as const) assert.equal(hasTab({ ...hospital, role: "ADMIN" }, tab), true);
   // Gerente da clínica não ganha aba hospitalar nem por ser gerente.
   assert.equal(hasTab({ ...clinica, role: "ADMIN" }, "leitos"), false);
   assert.equal(tabInInstitution("CLINICA", "contabilidade"), true);
-  assert.equal(tabInInstitution("HOSPITAL", "contabilidade"), false);
+  assert.equal(tabInInstitution("HOSPITAL", "contabilidade"), true);
   assert.equal(tabInInstitution(null, "internacao"), false);
 });
 
@@ -84,4 +90,15 @@ test("banco recusa internação com leito ou paciente de outro hospital", async 
   await assert.rejects(admit(a, b.p1.id, a.bed1.id), /outra clínica/);
   await assert.rejects(admit(a, a.p1.id, b.bed1.id), /outra clínica/);
   await assert.rejects(prisma.bed.create({ data: { clinicId: a.clinic.id, wardId: b.ward.id, code: "9" } }), /outra clínica/);
+});
+
+test("visita só se liga a internação do mesmo hospital", async () => {
+  const a = await hospital("d");
+  const b = await hospital("e");
+  const admission = await admit(b, b.p1.id, b.bed1.id);
+  await assert.rejects(
+    prisma.visit.create({ data: { clinicId: a.clinic.id, admissionId: admission.id, visitorName: "Visitante", registeredById: a.doctor.id } }),
+    /outra clínica/,
+  );
+  await prisma.visit.create({ data: { clinicId: b.clinic.id, admissionId: admission.id, visitorName: "Visitante", registeredById: b.doctor.id } });
 });

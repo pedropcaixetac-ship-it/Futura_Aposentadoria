@@ -14,7 +14,7 @@ export default async function PlatformTeamPage() {
       <div>
         <h1 className="text-2xl font-semibold text-marinho-800">Equipe do painel</h1>
         <p className="text-sm text-slate-600">
-          Pessoas da empresa que entram neste painel. A equipe cuida das clínicas, planos e problemas; só quem é dono
+          Pessoas da empresa que entram neste painel. A equipe cuida das instituições, planos e problemas; só quem é dono
           cadastra e bloqueia pessoas aqui. Ninguém da equipe vê dados de pacientes.
         </p>
       </div>

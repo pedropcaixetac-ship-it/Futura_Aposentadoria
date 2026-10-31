@@ -49,12 +49,12 @@ export default async function ClinicsPage({ searchParams }: { searchParams: Prom
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-marinho-800">Clínicas</h1>
-        <Link href="/painel/clinicas/nova" className="btn-primary">Cadastrar clínica</Link>
+        <h1 className="text-2xl font-semibold text-marinho-800">Instituições</h1>
+        <Link href="/painel/clinicas/nova" className="btn-primary">Cadastrar instituição</Link>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        <div className="card"><p className="text-sm text-slate-500">Clínicas ativas</p><p className="text-2xl font-semibold text-marinho-800">{activeCount}</p></div>
+        <div className="card"><p className="text-sm text-slate-500">Instituições ativas</p><p className="text-2xl font-semibold text-marinho-800">{activeCount}</p></div>
         <div className="card"><p className="text-sm text-slate-500">Suspensas</p><p className="text-2xl font-semibold text-red-700">{suspendedCount}</p></div>
         <div className="card"><p className="text-sm text-slate-500">Novas neste mês</p><p className="text-2xl font-semibold text-dourado-700">{newThisMonth}</p></div>
         <div className="card"><p className="text-sm text-slate-500">Receita mensal prevista</p><p className="text-2xl font-semibold text-marinho-800">{formatMoney(monthlyRevenue)}</p></div>
@@ -62,7 +62,7 @@ export default async function ClinicsPage({ searchParams }: { searchParams: Prom
       </div>
 
       <form className="flex flex-wrap gap-2">
-        <input className="input max-w-xs" name="busca" defaultValue={busca} placeholder="Nome ou código da clínica" />
+        <input className="input max-w-xs" name="busca" defaultValue={busca} placeholder="Nome ou código da instituição" />
         <select className="input max-w-[12rem]" name="situacao" defaultValue={situacao}>
           <option value="">Todas</option>
           <option value="ativas">Ativas</option>
@@ -75,7 +75,7 @@ export default async function ClinicsPage({ searchParams }: { searchParams: Prom
         <table className="w-full text-sm">
           <thead className="bg-marinho-50 text-left text-xs uppercase tracking-wide text-marinho-700">
             <tr>
-              <th className="px-4 py-3">Clínica</th>
+              <th className="px-4 py-3">Instituição</th>
               <th className="px-4 py-3">Código</th>
               <th className="px-4 py-3">Situação</th>
               <th className="px-4 py-3">Plano</th>
@@ -111,7 +111,7 @@ export default async function ClinicsPage({ searchParams }: { searchParams: Prom
               </tr>
             ))}
             {clinics.length === 0 && (
-              <tr><td colSpan={10} className="px-4 py-6 text-center text-slate-500">Nenhuma clínica encontrada.</td></tr>
+              <tr><td colSpan={10} className="px-4 py-6 text-center text-slate-500">Nenhuma instituição encontrada.</td></tr>
             )}
           </tbody>
         </table>

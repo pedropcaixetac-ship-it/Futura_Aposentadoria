@@ -41,21 +41,21 @@ export function ClinicForm({ action, clinic, plans }: Props) {
   const [slugTouched, setSlugTouched] = useState(!!clinic);
 
   return (
-    <ActionForm action={action} submitLabel={clinic ? "Salvar" : "Cadastrar clínica"} resetOnSuccess={false} className="space-y-6">
+    <ActionForm action={action} submitLabel={clinic ? "Salvar" : "Cadastrar instituição"} resetOnSuccess={false} className="space-y-6">
       <section className="card space-y-4">
-        <h2 className="border-b border-dourado-300 pb-2 font-semibold text-marinho-800">Clínica</h2>
+        <h2 className="border-b border-dourado-300 pb-2 font-semibold text-marinho-800">Instituição</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
-            label="Nome da clínica" name="name" required value={name}
+            label="Nome da instituição" name="name" required value={name}
             onChange={(e) => {
               setName(e.target.value);
               if (!slugTouched) setSlug(suggestSlug(e.target.value));
             }}
           />
           <Field
-            label="Código da clínica" name="slug" required value={slug}
+            label="Código da instituição" name="slug" required value={slug}
             onChange={(e) => { setSlug(e.target.value.toLowerCase()); setSlugTouched(true); }}
-            hint="É o que a equipe da clínica digita na tela de login. Sem acento nem espaço."
+            hint="É o que a equipe da instituição digita na tela de login. Sem acento nem espaço."
           />
           <div className="sm:col-span-2">
             <label className="label" htmlFor="kind">Tipo de instituição</label>
@@ -67,7 +67,7 @@ export function ClinicForm({ action, clinic, plans }: Props) {
             </p>
           </div>
           <Field label="CNPJ" name="cnpj" defaultValue={formatCnpj(clinic?.cnpj)} inputMode="numeric" hint="Ou o CPF, se for de pessoa física. Aparece no recibo." />
-          <Field label="Telefone da clínica" name="phone" defaultValue={clinic?.phone ?? ""} />
+          <Field label="Telefone da instituição" name="phone" defaultValue={clinic?.phone ?? ""} />
           <div className="sm:col-span-2">
             <Field label="Endereço" name="address" defaultValue={clinic?.address ?? ""} />
           </div>
@@ -95,9 +95,9 @@ export function ClinicForm({ action, clinic, plans }: Props) {
 
       {!clinic && (
         <section className="card space-y-4">
-          <h2 className="border-b border-dourado-300 pb-2 font-semibold text-marinho-800">Primeiro acesso da clínica</h2>
+          <h2 className="border-b border-dourado-300 pb-2 font-semibold text-marinho-800">Primeiro acesso da instituição</h2>
           <p className="text-sm text-slate-500">
-            Este será o gerente do sistema da clínica. Ele entra com o código da clínica, este e-mail e a senha
+            Este será o gerente do sistema da instituição. Ele entra com o código da instituição, este e-mail e a senha
             inicial, troca a senha em &quot;Meu cadastro&quot; e cadastra o resto da equipe em &quot;Servidores&quot;.
           </p>
           <div className="grid gap-4 sm:grid-cols-2">

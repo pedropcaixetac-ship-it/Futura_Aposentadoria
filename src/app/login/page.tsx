@@ -8,7 +8,7 @@ export default async function LoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-marinho-900 p-4">
       <div className="card w-full max-w-sm border-t-4 border-t-dourado-500">
         <h1 className="text-xl font-semibold text-marinho-800">Prontuário Eletrônico</h1>
-        <p className="mb-6 text-sm text-slate-500">Entre com os dados da sua clínica</p>
+        <p className="mb-6 text-sm text-slate-500">Entre com os dados da sua instituição</p>
         <LoginForm />
         <p className="mt-6 border-t border-slate-100 pt-4 text-center text-sm text-slate-500">
           É paciente? <a href="/paciente/entrar" className="font-medium text-marinho-700 underline">Veja suas consultas</a>

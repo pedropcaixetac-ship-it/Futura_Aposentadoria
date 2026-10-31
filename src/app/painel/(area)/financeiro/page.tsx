@@ -56,7 +56,7 @@ export default async function PlatformFinancePage({ searchParams }: { searchPara
         <div className="card"><p className="text-sm text-slate-500">Recebido em {monthLabel(month)}</p><p className="text-2xl font-semibold text-emerald-700">{formatMoney(received)}</p></div>
         <div className="card"><p className="text-sm text-slate-500">Receita mensal prevista</p><p className="text-2xl font-semibold text-marinho-800">{formatMoney(expected)}</p></div>
         <div className="card"><p className="text-sm text-slate-500">Em atraso</p><p className="text-2xl font-semibold text-red-700">{formatMoney(lateCents)}</p></div>
-        <div className="card"><p className="text-sm text-slate-500">Clínicas com plano</p><p className="text-2xl font-semibold text-marinho-800">{clinics.length}</p></div>
+        <div className="card"><p className="text-sm text-slate-500">Instituições com plano</p><p className="text-2xl font-semibold text-marinho-800">{clinics.length}</p></div>
       </div>
 
       <section className="card space-y-3">
@@ -95,7 +95,7 @@ export default async function PlatformFinancePage({ searchParams }: { searchPara
           </ul>
         )}
         <p className="text-xs text-slate-500">
-          O botão abre o WhatsApp com a mensagem pronta para o responsável pela clínica; quem aperta enviar é você.
+          O botão abre o WhatsApp com a mensagem pronta para o responsável pela instituição; quem aperta enviar é você.
           {!process.env.PAINEL_PIX_CHAVE && " Para a mensagem levar a sua chave Pix, peça para configurar PAINEL_PIX_CHAVE."}
         </p>
       </section>
@@ -108,14 +108,14 @@ export default async function PlatformFinancePage({ searchParams }: { searchPara
           )}
         </div>
         {payments.length === 0 ? (
-          <p className="text-sm text-slate-500">Nenhum pagamento registrado neste mês. Registre na página de cada clínica.</p>
+          <p className="text-sm text-slate-500">Nenhum pagamento registrado neste mês. Registre na página de cada instituição.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-left text-xs uppercase tracking-wide text-marinho-700">
                 <tr>
                   <th className="py-2 pr-4">Data</th>
-                  <th className="py-2 pr-4">Clínica</th>
+                  <th className="py-2 pr-4">Instituição</th>
                   <th className="py-2 pr-4 text-right">Valor</th>
                   <th className="py-2 pr-4">Forma</th>
                   <th className="py-2 pr-4">Pago até</th>

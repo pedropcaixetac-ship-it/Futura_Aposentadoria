@@ -1,5 +1,5 @@
 import type { Role } from "@prisma/client";
-import { institutionModules, tabInPlan } from "./plans";
+import { tabInPlan } from "./plans";
 import { canManageCharges, canManageTemplates, canViewClinical, canWorkClinical, RECEPTION_ROLES, type PermissionUser } from "./permissions";
 
 // Abas do sistema que o administrador pode liberar ou tirar de cada pessoa
@@ -9,6 +9,7 @@ export type TabKey =
   | "atender"
   | "internacao"
   | "leitos"
+  | "visitas"
   | "agenda"
   | "pacientes"
   | "modelos"
@@ -64,7 +65,8 @@ export const TABS: Tab[] = [
     label: "Internação",
     href: "/internacao",
     description: "Mapa de leitos, internar, trocar de leito e dar alta (a alta só profissional de saúde com conselho).",
-    defaultRoles: allRoles,
+    // A recepção do hospital não interna: cuida da agenda, do fluxo dos pacientes e das visitas.
+    defaultRoles: ["ADMIN", "PROFISSIONAL", "TECNICO", "ADMINISTRATIVO"],
     hospital: true,
   },
   {
@@ -74,6 +76,14 @@ export const TABS: Tab[] = [
     description: "Cadastrar alas e leitos, bloquear e desbloquear leitos.",
     menu: false,
     defaultRoles: ["ADMIN", "ADMINISTRATIVO"],
+    hospital: true,
+  },
+  {
+    key: "visitas",
+    label: "Visitas",
+    href: "/visitas",
+    description: "Registrar a entrada e a saída das visitas aos pacientes internados.",
+    defaultRoles: RECEPTION_ROLES,
     hospital: true,
   },
   {
@@ -156,12 +166,10 @@ export const TABS: Tab[] = [
   },
 ];
 
-// A aba existe neste tipo de instituição? Hospital: sem a gestão da clínica; clínica: sem os setores hospitalares.
+// A aba existe neste tipo de instituição? O hospital tem tudo o que a clínica tem e mais os setores hospitalares.
 export function tabInInstitution(institution: string | null | undefined, key: TabKey) {
   const tab = TABS.find((t) => t.key === key);
-  if (!tab) return false;
-  if (institution === "HOSPITAL") return tabInPlan(institutionModules("HOSPITAL", null), key);
-  return !tab.hospital;
+  return !!tab && (!tab.hospital || institution === "HOSPITAL");
 }
 
 export function tabBlockedReason(user: PermissionUser, key: TabKey) {

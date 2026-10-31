@@ -43,7 +43,7 @@ export default async function MyPlatformAccountPage() {
 
       <Section title="Verificação em duas etapas">
         <p className="text-sm text-slate-700">
-          Muito recomendada aqui, porque o painel controla todas as clínicas. Além da senha, o painel pede um código de 6 números
+          Muito recomendada aqui, porque o painel controla todas as instituições. Além da senha, o painel pede um código de 6 números
           que muda a cada 30 segundos no app do seu celular (Google Authenticator, Microsoft Authenticator ou similar).
         </p>
         {me.totpEnabledAt ? (

@@ -23,7 +23,7 @@ export default async function PlatformLogPage() {
               <th className="px-4 py-3">Quando</th>
               <th className="px-4 py-3">Quem</th>
               <th className="px-4 py-3">O quê</th>
-              <th className="px-4 py-3">Clínica</th>
+              <th className="px-4 py-3">Instituição</th>
               <th className="px-4 py-3">IP</th>
             </tr>
           </thead>

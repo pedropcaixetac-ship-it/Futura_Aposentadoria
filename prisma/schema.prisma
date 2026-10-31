@@ -183,6 +183,7 @@ model Clinic {
   beds             Bed[]
   admissions       Admission[]
   bedMovements     BedMovement[]
+  visits           Visit[]
 }
 
 model User {
@@ -282,6 +283,7 @@ model User {
   admissionsCreated   Admission[]         @relation("AdmissionCreator")
   admissionsDischarged Admission[]        @relation("AdmissionDischarger")
   bedMovements        BedMovement[]
+  visitsRegistered    Visit[]
 }
 
 model Session {
@@ -1378,6 +1380,7 @@ model Admission {
   createdAt      DateTime       @default(now())
 
   movements BedMovement[]
+  visits    Visit[]
 
   @@index([clinicId, dischargedAt])
 }
@@ -1397,4 +1400,23 @@ model BedMovement {
   movedById   String
   movedBy     User      @relation(fields: [movedById], references: [id])
   note        String?
+}
+
+// Visita a paciente internado, registrada pela recepção na entrada e na saída.
+model Visit {
+  id             String    @id @default(cuid())
+  clinicId       String
+  clinic         Clinic    @relation(fields: [clinicId], references: [id])
+  admissionId    String
+  admission      Admission @relation(fields: [admissionId], references: [id])
+  visitorName     String
+  // Documento do visitante (RG ou CPF), como a portaria pede.
+  visitorDocument String?
+  relationship    String?
+  enteredAt      DateTime  @default(now())
+  leftAt         DateTime?
+  registeredById String
+  registeredBy   User      @relation(fields: [registeredById], references: [id])
+
+  @@index([clinicId, enteredAt])
 }

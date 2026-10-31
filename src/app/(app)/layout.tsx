@@ -7,6 +7,7 @@ import { SidebarNav, type NavItem } from "./sidebar-nav";
 import { SidebarShell } from "./sidebar-shell";
 import { ReportLink } from "./report-link";
 import { PlatformNotices } from "./notices";
+import { RememberInstitution } from "./remember-institution";
 import { displayName } from "@/lib/staff";
 import { billingStatus } from "@/lib/plans";
 import { formatDate } from "@/lib/format";
@@ -45,6 +46,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen md:flex">
+      <RememberInstitution code={user.clinic.slug} name={user.clinic.name} />
       <SidebarShell clinicName={user.clinic.name}>
         <div className="flex items-center gap-3 border-b border-marinho-800 pb-4">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-dourado-500 font-bold text-marinho-950">
