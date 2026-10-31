@@ -15,6 +15,8 @@ export type TabKey =
   | "cozinha"
   | "ccih"
   | "quimioterapia"
+  | "centro-cirurgico"
+  | "cme"
   | "agenda"
   | "pacientes"
   | "modelos"
@@ -135,6 +137,22 @@ export const TABS: Tab[] = [
     description: "Protocolos, tratamentos com cálculo de dose pela superfície corporal e as sessões do dia.",
     defaultRoles: ["ADMIN", "PROFISSIONAL"],
     blockedReason: (u) => (canViewClinical(u) ? null : "Só para profissionais de saúde."),
+    hospital: true,
+  },
+  {
+    key: "centro-cirurgico",
+    label: "Centro cirúrgico",
+    href: "/centro-cirurgico",
+    description: "Salas e mapa cirúrgico do dia, agendamento sem choque de horário, cirurgia segura (checklist da OMS) e tempos da cirurgia.",
+    defaultRoles: ["ADMIN", "PROFISSIONAL", "TECNICO", "ADMINISTRATIVO"],
+    hospital: true,
+  },
+  {
+    key: "cme",
+    label: "CME",
+    href: "/cme",
+    description: "Central de material e esterilização: kits, cargas da autoclave, liberação pelos indicadores, validade e rastreio dos pacotes.",
+    defaultRoles: ["ADMIN", "PROFISSIONAL", "TECNICO"],
     hospital: true,
   },
   {
