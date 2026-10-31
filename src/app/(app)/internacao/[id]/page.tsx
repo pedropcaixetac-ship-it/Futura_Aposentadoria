@@ -13,6 +13,7 @@ import { ActionForm } from "../../financeiro/action-form";
 import { dischargePatient, startEvolution, transferBed } from "../actions";
 import { isolationHint, isolationLabel, isolationStyle } from "@/lib/ccih";
 import { CareNav } from "./care-nav";
+import { RecordActions } from "../../assinatura/record-actions";
 
 function stayLabel(days: number) {
   return days === 0 ? "Alta no mesmo dia" : `Ficou ${daysLabel(days)} internado(a)`;
@@ -123,6 +124,7 @@ export default async function AdmissionPage({ params }: { params: Promise<{ id: 
           <div className="sm:col-span-3">
             <p className="text-xs uppercase tracking-wide text-slate-500">Resumo da alta · {admission.dischargedBy && displayName(admission.dischargedBy)}</p>
             <p className="whitespace-pre-line">{admission.dischargeNote}</p>
+            <div className="mt-2"><RecordActions user={user} type="alta" recordKey={admission.id} back={`/internacao/${admission.id}`} signLabel="Assinar alta" /></div>
           </div>
         )}
         <div className="sm:col-span-3">
@@ -180,7 +182,12 @@ export default async function AdmissionPage({ params }: { params: Promise<{ id: 
                 return (
                   <li key={e.id} className="py-2">
                     {canOpenEncounter(user, e) ? (
-                      <Link href={`/pacientes/${admission.patient.id}/atendimentos/${e.id}`} className="hover:underline">{line}</Link>
+                      <span className="flex flex-wrap items-center justify-between gap-2">
+                        <Link href={`/pacientes/${admission.patient.id}/atendimentos/${e.id}`} className="hover:underline">{line}</Link>
+                        {e.status === "FINALIZADO" && (
+                          <a href={`/api/pdf/atendimento/${e.id}`} target="_blank" className="text-xs text-marinho-700 hover:underline">PDF</a>
+                        )}
+                      </span>
                     ) : (
                       line
                     )}

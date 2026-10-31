@@ -12,6 +12,7 @@ import { computeDose, protocolDrugs } from "@/lib/quimio";
 import { ActionForm } from "../../financeiro/action-form";
 import { endPlan } from "../actions";
 import { SessionRow } from "../session-row";
+import { RecordActions } from "../../assinatura/record-actions";
 
 const people = { select: { name: true, sex: true, jobTitle: true } };
 
@@ -72,7 +73,22 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
           <h2 className="font-semibold text-marinho-800">Ciclo {c}</h2>
           <ul className="space-y-2">
             {plan.sessions.filter((s) => s.cycle === c).map((s) => (
-              <SessionRow key={s.id} s={s} doctor={doctor} nursing={canAdministerChemo(user)} today={today} open={open} />
+              <SessionRow
+                key={s.id}
+                s={s}
+                doctor={doctor}
+                nursing={canAdministerChemo(user)}
+                today={today}
+                open={open}
+                actions={
+                  (s.releasedAt || s.administeredAt) && (
+                    <div className="flex flex-wrap gap-4 text-xs">
+                      {s.releasedAt && <span className="flex items-center gap-2">Liberação: <RecordActions user={user} type="quimio-liberacao" recordKey={s.id} /></span>}
+                      {s.administeredAt && <span className="flex items-center gap-2">Aplicação: <RecordActions user={user} type="quimio-aplicacao" recordKey={s.id} /></span>}
+                    </div>
+                  )
+                }
+              />
             ))}
           </ul>
         </section>

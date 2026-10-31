@@ -28,7 +28,7 @@ const statusTone: Record<ChemoSessionStatus, string> = {
 };
 
 // Uma sessão: doses do dia e o que cada um pode fazer (médico libera, adia ou cancela; enfermagem aplica).
-export function SessionRow({ s, doctor, nursing, today, title, open }: { s: SessionRowData; doctor: boolean; nursing: boolean; today: Date; title?: React.ReactNode; open: boolean }) {
+export function SessionRow({ s, doctor, nursing, today, title, open, actions }: { s: SessionRowData; doctor: boolean; nursing: boolean; today: Date; title?: React.ReactNode; open: boolean; actions?: React.ReactNode }) {
   const due = s.date.getTime() <= today.getTime();
   // Liberação só perto do dia (exames recentes): até 3 dias antes.
   const releasable = s.date.getTime() <= today.getTime() + 3 * 24 * 3600_000;
@@ -52,6 +52,7 @@ export function SessionRow({ s, doctor, nursing, today, title, open }: { s: Sess
       </ul>
       {s.releasedAt && <p className="text-xs text-slate-500">Liberada por {s.releasedBy && displayName(s.releasedBy)} em {formatDateTime(s.releasedAt)}</p>}
       {s.administeredAt && <p className="text-xs text-emerald-700">Aplicada por {s.administeredBy && displayName(s.administeredBy)} em {formatDateTime(s.administeredAt)}</p>}
+      {actions}
       {s.note && <p className="text-xs text-slate-600">{s.note}</p>}
       {open && s.status === "AGENDADA" && (
         <div className="flex flex-wrap gap-3">

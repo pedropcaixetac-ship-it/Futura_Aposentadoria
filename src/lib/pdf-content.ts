@@ -8,7 +8,7 @@ import { isLaudo, laudoStamp, type LaudoValues } from "./laudos";
 import { vitalsSummary, type Vitals } from "./vitals";
 import { displayName, councilLabel } from "./staff";
 
-function patientLines(patient: Patient) {
+export function patientLines(patient: Patient) {
   const years = age(patient.birthDate);
   const name = patient.socialName ? `${patient.socialName} (${patient.name})` : patient.name;
   const lines = [`Paciente: ${name}`];

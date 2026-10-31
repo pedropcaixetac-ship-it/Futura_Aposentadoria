@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { tabLabel, userTabs } from "@/lib/tabs";
+import { hasTab, tabLabel, userTabs } from "@/lib/tabs";
 import { roleLabel } from "@/lib/format";
 import { logout } from "../login/actions";
 import { SidebarNav, type NavItem } from "./sidebar-nav";
@@ -42,6 +42,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       ...(tab.key === "atender" && { alsoActive: "^/pacientes/[^/]+/atendimentos/" }),
     })),
     { href: "/meu-cadastro", label: "Meu cadastro" },
+    // No hospital, tudo o que o profissional registra é assinado com o certificado ICP-Brasil.
+    ...(user.institution === "HOSPITAL" && hasTab(user, "assinatura") ? [{ href: "/assinatura/pendentes", label: "Assinaturas pendentes" }] : []),
   ].sort((a, b) => a.label.localeCompare(b.label, "pt-BR")); // menu em ordem alfabética
 
   return (
