@@ -42,7 +42,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       ...(tab.key === "atender" && { alsoActive: "^/pacientes/[^/]+/atendimentos/" }),
     })),
     { href: "/meu-cadastro", label: "Meu cadastro" },
-  ];
+  ].sort((a, b) => a.label.localeCompare(b.label, "pt-BR")); // menu em ordem alfabética
 
   return (
     <div className="min-h-screen md:flex">
